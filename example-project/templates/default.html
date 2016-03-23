@@ -1,0 +1,8 @@
+{% for entry in data.geonames %}
+<h1>{{ entry.countryName }}</h1>
+<ul>
+    {% for name, val in entry %}
+    <li>{{ name }}: <strong>{{ val }}</strong></li>
+    {% endfor %}
+</ul>
+{% endfor %}
