@@ -1,2 +1,11 @@
+import Test.Tasty
+
+import Web.Templar.PatternTest (patternTests)
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented"
+main = defaultMain allTests
+
+allTests =
+    testGroup "All Tests"
+        [ patternTests
+        ]

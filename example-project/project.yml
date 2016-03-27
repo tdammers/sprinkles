@@ -1,2 +1,6 @@
-TemplateRules: []
+Rules:
+- RoutePattern: '/country/full/{country:*}'
+  BackendPath: '/countryInfoJSON?lang=en&country={country}&username=demo&style=full'
+  Template: 'default.html'
+    
 BackendBaseURL: http://api.geonames.org

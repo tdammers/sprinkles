@@ -19,4 +19,4 @@ function watch_serve() {
 }
 
 watch_serve &
-stack install --file-watch
+stack install --file-watch --test

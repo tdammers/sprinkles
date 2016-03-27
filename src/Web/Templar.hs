@@ -24,7 +24,7 @@ import qualified Text.Ginger as Ginger
 import Data.Aeson as JSON
 import Data.Aeson.TH as JSON
 import Data.Yaml as YAML
-import System.FilePath.Glob
+import System.FilePath.Glob (glob)
 import System.FilePath
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -38,40 +38,45 @@ import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.ByteString.Lazy.UTF8 as LUTF8
 import qualified Data.CaseInsensitive as CI
 import qualified Network.HTTP as HTTP
+import Network.URI (parseURI)
 
-data RoutePatternItem =
-    LiteralComponent Text |
-    NamedComponent Text |
-    AnyComponent
-    deriving (Ord, Eq, Show, Read)
+import Web.Templar.Pattern
+import Web.Templar.Replacement
 
-$(deriveJSON defaultOptions ''RoutePatternItem)
+instance FromJSON Pattern where
+    parseJSON val = (maybe (fail "invalid pattern") return . parsePattern) =<< parseJSON val
 
-newtype RoutePattern = RoutePattern [RoutePatternItem]
-    deriving (Ord, Eq, Show, Read, ToJSON, FromJSON)
+instance FromJSON Replacement where
+    parseJSON val = (maybe (fail "invalid replacement") return . parseReplacement) =<< parseJSON val
 
-data TemplateRule =
-    TemplateRule
-        { trRoutePattern :: RoutePattern
-        , trTemplate :: Text
+instance FromJSON ByteString where
+    parseJSON val = UTF8.fromString <$> parseJSON val
+
+data Rule =
+    Rule
+        { ruleRoutePattern :: Pattern
+        , ruleBackendPath :: Replacement
+        , ruleTemplate :: Text
         }
-$(deriveJSON defaultOptions { fieldLabelModifier = drop 2 } ''TemplateRule)
+        deriving (Show, Eq)
+$(deriveFromJSON defaultOptions { fieldLabelModifier = drop 4 } ''Rule)
 
 type FrontendPath = [Text]
 
 data ProjectConfig =
     ProjectConfig
-        { pcTemplateRules :: [TemplateRule]
+        { pcRules :: [Rule]
         , pcBackendBaseURL :: Text
         }
 
-$(deriveJSON defaultOptions { fieldLabelModifier = drop 2 } ''ProjectConfig)
+$(deriveFromJSON defaultOptions { fieldLabelModifier = drop 2 } ''ProjectConfig)
 
 loadProjectConfig :: FilePath -> IO ProjectConfig
 loadProjectConfig dir = do
-    YAML.decodeFile (dir </> "project.yml") >>=
-        maybe
-            (fail "Invalid YAML in project.yml, or project.yml not found")
+    YAML.decodeFileEither (dir </> "project.yml") >>=
+        either
+            (fail . show)
+            -- (fail "Invalid YAML in project.yml, or project.yml not found")
             return
 
 newtype TemplateCache = TemplateCache (HashMap Text Template)
@@ -109,8 +114,10 @@ data Project =
         }
 
 loadProject :: FilePath -> IO Project
-loadProject dir =
-    Project <$> loadProjectConfig dir <*> preloadTemplates dir
+loadProject dir = do
+    config <- loadProjectConfig dir
+    templates <- preloadTemplates dir
+    return $ Project config templates
 
 resolveTemplateName :: Project -> [Text] -> IO Text
 resolveTemplateName project path = do
@@ -156,30 +163,61 @@ appFromProject project request respond = do
             hPutStrLn stderr $ show e
             respond $ Wai.responseLBS status500 [] "Something went pear-shaped."
 
+applyRule :: Rule -> Text -> Maybe (Text, Text)
+applyRule rule query = do
+    varMap <- matchPattern (ruleRoutePattern rule) query
+    return
+        ( expandReplacement varMap (ruleBackendPath rule)
+        , ruleTemplate rule
+        )
+
+applyRules :: [Rule] -> Text -> Maybe (Text, Text)
+applyRules [] _ = Nothing
+applyRules (rule:rules) query =
+    trace (show rule) $
+    applyRule rule query <|> applyRules rules query
+
 handleRequest :: Project -> Wai.Application
 handleRequest project request respond = do
     let backendBaseURL = pcBackendBaseURL (projectConfig project)
-        backendURL =
-            (unpack backendBaseURL) <>
-            (UTF8.toString $ Wai.rawPathInfo request) <>
-            (UTF8.toString $ Wai.rawQueryString request)
-    backendResponse <- HTTP.simpleHTTP (HTTP.getRequest backendURL)
-    backendJSON <- HTTP.getResponseBody backendResponse
-    hPutStrLn stderr backendURL
-    backendData <- case JSON.eitherDecode . LUTF8.fromString $ backendJSON of
-        Left err -> fail err
-        Right json -> return (json :: JSON.Value)
+        queryPath =
+            (pack . UTF8.toString $ Wai.rawPathInfo request) <>
+            (pack . UTF8.toString $ Wai.rawQueryString request)
+    case applyRules (pcRules . projectConfig $ project) queryPath of
+        Nothing ->
+            fail "Not Found"
+        Just (backendPath, templateName) -> do
+            let backendURLStr :: String
+                backendURLStr = unpack $ backendBaseURL <> backendPath
+            backendURL <- maybe
+                (fail $ "Invalid backend URL: " ++ backendURLStr)
+                return
+                (parseURI backendURLStr)
+            hPutStrLn stderr backendURLStr
+            let backendRequest =
+                    HTTP.Request
+                        backendURL
+                        HTTP.GET
+                        []
+                        ""
+            backendResponse <- HTTP.simpleHTTP backendRequest
+            backendJSON <- HTTP.getResponseBody backendResponse
+            hPutStrLn stderr backendJSON
+            backendData <- case JSON.eitherDecode backendJSON of
+                Left err -> fail $ err ++ "\n" ++ show backendJSON
+                Right json -> return (json :: JSON.Value)
 
-    respond . Wai.responseStream status200 [] $ \write flush -> do
-        template <- resolveTemplate project (Wai.pathInfo request)
-        let contextMap :: HashMap Text (GVal (Ginger.Run IO))
-            contextMap =
-                mapFromList
-                    [ "request" ~> request
-                    , "data" ~> backendData
-                    ]
-            contextLookup key = return . fromMaybe def $ lookup key contextMap
-            writeHtml = write . stringUtf8 . unpack . htmlSource
-            context :: GingerContext IO
-            context = Ginger.makeContextM contextLookup writeHtml
-        runGingerT context template
+            let headers = [("Content-type", "text/html;charset=utf8")]
+            respond . Wai.responseStream status200 headers $ \write flush -> do
+                template <- resolveTemplate project (Wai.pathInfo request)
+                let contextMap :: HashMap Text (GVal (Ginger.Run IO))
+                    contextMap =
+                        mapFromList
+                            [ "request" ~> request
+                            , "data" ~> backendData
+                            ]
+                    contextLookup key = return . fromMaybe def $ lookup key contextMap
+                    writeHtml = write . stringUtf8 . unpack . htmlSource
+                    context :: GingerContext IO
+                    context = Ginger.makeContextM contextLookup writeHtml
+                runGingerT context template
