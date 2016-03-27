@@ -1,8 +1,98 @@
-{% for entry in data.geonames %}
-<h1>{{ entry.countryName }}</h1>
-<ul>
-    {% for name, val in entry %}
-    <li>{{ name }}: <strong>{{ val }}</strong></li>
-    {% endfor %}
-</ul>
-{% endfor %}
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.css" />
+        <script src="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.js"></script>
+        <style type="text/css">
+            html, body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #content {
+                position: absolute;
+                background-color: rgba(255,255,255,0.9);
+                box-shadow: 10px 10px 10px rgba(0,0,0,0.2);
+                margin: 2rem;
+                margin-left: 50px;
+                padding: 1rem;
+                width: auto;
+            }
+
+            #mapMain {
+                position: absolute;
+                left: 0;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                z-index: -1;
+            }
+        </style>
+    </head>
+
+    <body>
+        {% set entry = data.geonames[0] %}
+        {% set latitude = (entry.west + entry.east) / 2 %}
+        {% set longitude = (entry.north + entry.south) / 2 %}
+        <div id="mapMain"
+             data-latitude="{{ latitude }}"
+             data-longitude="{{ longitude }}"
+             data-west="{{ entry.west }}"
+             data-east="{{ entry.east }}"
+             data-north="{{ entry.north }}"
+             data-south="{{ entry.south }}"
+             >
+        </div>
+        <div id="content">
+            <h1>{{ entry.countryName }}</h1>
+            <h2>{{ entry.continentName }}</h2>
+            <p>Capital: {{ entry.capital }}</p>
+            <p>Position: {{ longitude }}:{{ latitude }}</p>
+            <p>Area: {{ entry.areaInSqKm }} km²</p>
+            <p>Population: {{ entry.population }}</p>
+
+            {#
+                areaInSqKm: 357021.0
+                north: 55.055637
+                capital: Berlin
+                isoAlpha3: DEU
+                currencyCode: EUR
+                south: 47.275776
+                languages: de
+                geonameId: 2921044
+                countryName: Germany
+                west: 5.865639
+                countryCode: DE
+                population: 81802257
+                east: 15.039889
+                isoNumeric: 276
+                continent: EU
+                fipsCode: GM
+                continentName: Europe
+            #}
+        </div>
+
+        <script>
+            var mapMain = document.getElementById('mapMain');
+            var latitude = mapMain.attributes['data-latitude'];
+            var longitude = mapMain.attributes['data-longitude'];
+            console.log(latitude, longitude);
+            var map = L.map('mapMain',
+                        { center: [ Number(mapMain.getAttribute('data-longitude'))
+                                  , Number(mapMain.getAttribute('data-latitude'))
+                                  ]
+                        , zoom: 10
+                        });
+            L.tileLayer('http://a.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
+            map.fitBounds(
+                [ [ mapMain.getAttribute('data-south')
+                  , mapMain.getAttribute('data-west')
+                  ]
+                , [ mapMain.getAttribute('data-north')
+                  , mapMain.getAttribute('data-east')
+                  ]
+                ]);
+
+        </script>
+    </body>
+</html>
