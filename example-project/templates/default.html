@@ -1,40 +1,12 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.css" />
-        <script src="http://cdn.leafletjs.com/leaflet/v0.7.7/leaflet.js"></script>
-        <style type="text/css">
-            html, body {
-                padding: 0;
-                margin: 0;
-            }
+{%- extends 'master.html' -%}
 
-            #content {
-                position: absolute;
-                background-color: rgba(255,255,255,0.9);
-                box-shadow: 10px 10px 10px rgba(0,0,0,0.2);
-                margin: 2rem;
-                margin-left: 50px;
-                padding: 1rem;
-                width: auto;
-            }
-
-            #mapMain {
-                position: absolute;
-                left: 0;
-                right: 0;
-                top: 0;
-                bottom: 0;
-                z-index: -1;
-            }
-        </style>
-    </head>
-
-    <body>
+{%- block background -%}
+    {% if data.geonames %}
         {% set entry = data.geonames[0] %}
         {% set latitude = (entry.west + entry.east) / 2 %}
         {% set longitude = (entry.north + entry.south) / 2 %}
         <div id="mapMain"
+             class="background background-map"
              data-latitude="{{ latitude }}"
              data-longitude="{{ longitude }}"
              data-west="{{ entry.west }}"
@@ -43,7 +15,17 @@
              data-south="{{ entry.south }}"
              >
         </div>
-        <div id="content">
+    {% else %}
+        <div class="background background-empty"></div>
+    {% endif %}
+{%- endblock -%}
+
+{%- block content -%}
+    {% if data.geonames %}
+        {% set entry = data.geonames[0] %}
+        {% set latitude = (entry.west + entry.east) / 2 %}
+        {% set longitude = (entry.north + entry.south) / 2 %}
+        <div id="countryInfo" class="box">
             <h1>{{ entry.countryName }}</h1>
             <h2>{{ entry.continentName }}</h2>
             <p>Capital: {{ entry.capital }}</p>
@@ -71,28 +53,15 @@
                 continentName: Europe
             #}
         </div>
-
-        <script>
-            var mapMain = document.getElementById('mapMain');
-            var latitude = mapMain.attributes['data-latitude'];
-            var longitude = mapMain.attributes['data-longitude'];
-            console.log(latitude, longitude);
-            var map = L.map('mapMain',
-                        { center: [ Number(mapMain.getAttribute('data-longitude'))
-                                  , Number(mapMain.getAttribute('data-latitude'))
-                                  ]
-                        , zoom: 10
-                        });
-            L.tileLayer('http://a.tile.osm.org/{z}/{x}/{y}.png').addTo(map);
-            map.fitBounds(
-                [ [ mapMain.getAttribute('data-south')
-                  , mapMain.getAttribute('data-west')
-                  ]
-                , [ mapMain.getAttribute('data-north')
-                  , mapMain.getAttribute('data-east')
-                  ]
-                ]);
-
-        </script>
-    </body>
-</html>
+    {% elif data.geonames == [] %}
+        <div class="box">
+            <h1>No Such Country</h1>
+            <p>There is no country that matches this country code.</p>
+        </div>
+    {% else %}
+        <div class="box">
+            <h1>Error</h1>
+            <p>{{ data.status.message|default('Something went wong') }}</p>
+        </div>
+    {% endif %}
+{% endblock %}
