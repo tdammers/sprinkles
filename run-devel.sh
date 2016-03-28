@@ -11,8 +11,8 @@ function watch_serve() {
             -e attrib \
             "$(which templar-exe)" \
             project.yml \
-            templates \
-            templates/include \
+            templates/ \
+            templates/include/ \
             ../run-devel.sh || exit 255
         killall templar-exe
     done

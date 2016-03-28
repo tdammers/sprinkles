@@ -209,8 +209,9 @@ respondTemplate project status templateName contextMap request respond = do
             contextMap <>
             mapFromList
                 [ "request" ~> request
+                , "foo" ~> ("bar" :: Text)
                 ]
-        contextLookup key = return . fromMaybe def $ lookup key contextMap
+        contextLookup key = return . fromMaybe def $ lookup key contextMap'
         headers = [("Content-type", "text/html;charset=utf8")]
     template <- getTemplate project templateName
     respond . Wai.responseStream status200 headers $ \write flush -> do
@@ -222,9 +223,9 @@ respondTemplate project status templateName contextMap request respond = do
 
 handleRequest :: Project -> Wai.Application
 handleRequest project request respond = do
-    go `catch` serve500
+    go `catchIOError` serve500
     where
-        serve500 (err :: SomeException) =
+        serve500 err =
             respondTemplate
                 project
                 status500

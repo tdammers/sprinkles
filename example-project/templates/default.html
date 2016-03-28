@@ -21,6 +21,25 @@
 {%- endblock -%}
 
 {%- block content -%}
+    {%- macro formatRadians(rad, negPrefix, posPrefix) -%}
+        {%- if rad < 0 -%} 
+            {{ negPrefix }}
+        {%- else -%}
+            {{ posPrefix }}
+        {%- endif -%}
+        {{ ' ' }}
+        {%- set rad = abs(rad) -%}
+        {{ rad|floor }}°
+        {%- set minutes = (rad - floor(rad)) * 60 -%}
+        {{ minutes|floor }}'
+        {%- set seconds = (minutes - floor(minutes)) * 60 -%}
+        {{ floor(seconds*1000) / 1000 }}"
+    {%- endmacro -%}
+
+    {%- macro formatLatLon(lat, lon) -%}
+        {{ formatRadians(lon, 'S', 'N') }}, {{ formatRadians(lat, 'W', 'E') }}
+    {%- endmacro -%}
+
     {% if data.geonames %}
         {% set entry = data.geonames[0] %}
         {% set latitude = (entry.west + entry.east) / 2 %}
@@ -30,6 +49,7 @@
             <h2>{{ entry.continentName }}</h2>
             <p>Capital: {{ entry.capital }}</p>
             <p>Position: {{ longitude }}:{{ latitude }}</p>
+            <p>Position: {{ formatLatLon(latitude, longitude) }}</p>
             <p>Area: {{ entry.areaInSqKm }} km²</p>
             <p>Population: {{ entry.population }}</p>
 
