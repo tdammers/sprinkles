@@ -43,30 +43,29 @@ import Network.URI (parseURI)
 import Web.Templar.Pattern
 import Web.Templar.Replacement
 
-instance FromJSON Pattern where
-    parseJSON val = (maybe (fail "invalid pattern") return . parsePattern) =<< parseJSON val
-
-instance FromJSON Replacement where
-    parseJSON val = (maybe (fail "invalid replacement") return . parseReplacement) =<< parseJSON val
-
 instance FromJSON ByteString where
     parseJSON val = UTF8.fromString <$> parseJSON val
 
 data Rule =
     Rule
         { ruleRoutePattern :: Pattern
-        , ruleBackendPath :: Replacement
+        , ruleContextData :: HashMap Text Replacement
         , ruleTemplate :: Text
         }
         deriving (Show, Eq)
-$(deriveFromJSON defaultOptions { fieldLabelModifier = drop 4 } ''Rule)
+
+instance FromJSON Rule where
+    parseJSON (Object obj) = do
+        pattern <- obj .: "RoutePattern"
+        contextData <- obj .: "Data"
+        template <- obj .: "Template"
+        return $ Rule pattern contextData template
 
 type FrontendPath = [Text]
 
 data ProjectConfig =
     ProjectConfig
         { pcRules :: [Rule]
-        , pcBackendBaseURL :: Text
         }
 
 $(deriveFromJSON defaultOptions { fieldLabelModifier = drop 2 } ''ProjectConfig)
@@ -169,15 +168,14 @@ appFromProject project request respond = do
             hPutStrLn stderr $ show e
             respond $ Wai.responseLBS status500 [] "Something went pear-shaped."
 
-applyRule :: Rule -> Text -> Maybe (Text, Text)
+applyRule :: Rule -> Text -> Maybe (HashMap Text Text, Text)
 applyRule rule query = do
     varMap <- matchPattern (ruleRoutePattern rule) query
-    return
-        ( expandReplacement varMap (ruleBackendPath rule)
-        , ruleTemplate rule
-        )
+    let f :: Replacement -> Text
+        f pathPattern = expandReplacement varMap pathPattern
+    return (fmap f (ruleContextData rule), ruleTemplate rule)
 
-applyRules :: [Rule] -> Text -> Maybe (Text, Text)
+applyRules :: [Rule] -> Text -> Maybe (HashMap Text Text, Text)
 applyRules [] _ = Nothing
 applyRules (rule:rules) query =
     applyRule rule query <|> applyRules rules query
@@ -231,8 +229,7 @@ handleRequest project request respond = do
                 request
                 respond
         go = do
-            let backendBaseURL = pcBackendBaseURL (projectConfig project)
-                queryPath =
+            let queryPath =
                     (pack . UTF8.toString $ Wai.rawPathInfo request) <>
                     (pack . UTF8.toString $ Wai.rawQueryString request)
             case applyRules (pcRules . projectConfig $ project) queryPath of
@@ -244,14 +241,17 @@ handleRequest project request respond = do
                         (mapFromList [])
                         request
                         respond
-                Just (backendPath, templateName) -> do
-                    let backendURLStr :: String
-                        backendURLStr = unpack $ backendBaseURL <> backendPath
-                    backendData <- loadBackendResponse backendURLStr
+                Just (backendPaths, templateName) -> do
+                    backendData <-
+                        forM (mapToList backendPaths) $ \(key, backendPath) -> do
+                            let backendURLStr :: String
+                                backendURLStr = unpack backendPath
+                            value <- loadBackendResponse backendURLStr
+                            return $ key ~> value
                     respondTemplate
                         project
                         status200
                         templateName
-                        (mapFromList [ "data" ~> backendData ])
+                        (mapFromList backendData)
                         request
                         respond

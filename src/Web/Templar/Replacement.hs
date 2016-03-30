@@ -11,6 +11,8 @@ where
 
 import ClassyPrelude hiding ( (<|>) )
 import Text.Parsec
+import Data.Aeson as JSON
+import Data.Aeson.TH as JSON
 
 data ReplacementItem =
     Literal Text |
@@ -19,6 +21,9 @@ data ReplacementItem =
 
 newtype Replacement = Replacement [ReplacementItem]
     deriving (Show, Eq)
+
+instance FromJSON Replacement where
+    parseJSON val = (maybe (fail "invalid replacement") return . parseReplacement) =<< parseJSON val
 
 expandReplacement :: HashMap Text Text -> Replacement -> Text
 expandReplacement variables (Replacement items) =

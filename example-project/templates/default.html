@@ -1,8 +1,8 @@
 {%- extends 'master.html' -%}
 
 {%- block background -%}
-    {% if data.geonames %}
-        {% set entry = data.geonames[0] %}
+    {% if countries.geonames %}
+        {% set entry = countries.geonames[0] %}
         {% set latitude = (entry.west + entry.east) / 2 %}
         {% set longitude = (entry.north + entry.south) / 2 %}
         <div id="mapMain"
@@ -40,8 +40,8 @@
         {{ formatRadians(lon, 'S', 'N') }}, {{ formatRadians(lat, 'W', 'E') }}
     {%- endmacro -%}
 
-    {% if data.geonames %}
-        {% set entry = data.geonames[0] %}
+    {% if countries.geonames %}
+        {% set entry = countries.geonames[0] %}
         {% set latitude = (entry.west + entry.east) / 2 %}
         {% set longitude = (entry.north + entry.south) / 2 %}
         <div id="countryInfo" class="box">
@@ -72,7 +72,7 @@
                 continentName: Europe
             #}
         </div>
-    {% elif data.geonames == [] %}
+    {% elif countries.geonames == [] %}
         <div class="box">
             <h1>No Such Country</h1>
             <p>There is no country that matches this country code.</p>
@@ -80,7 +80,7 @@
     {% else %}
         <div class="box">
             <h1>Error</h1>
-            <p>{{ data.status.message|default('Something went wong') }}</p>
+            <p>{{ countries.status.message|default('Something went wong') }}</p>
         </div>
     {% endif %}
     {#-

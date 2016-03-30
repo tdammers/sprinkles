@@ -12,6 +12,8 @@ where
 import ClassyPrelude hiding ( (<|>) )
 import Text.Parsec
 import qualified Data.Text as Text
+import Data.Aeson as JSON
+import Data.Aeson.TH as JSON
 
 data BasePatternItem =
     Exactly Text |
@@ -28,6 +30,9 @@ data PatternItem =
 
 newtype Pattern = Pattern [PatternItem]
     deriving (Eq, Show)
+
+instance FromJSON Pattern where
+    parseJSON val = (maybe (fail "invalid pattern") return . parsePattern) =<< parseJSON val
 
 parsePattern :: Text -> Maybe Pattern
 parsePattern input =
