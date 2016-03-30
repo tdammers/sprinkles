@@ -95,12 +95,12 @@ preloadTemplates dir = do
         resolver :: String -> IO (Maybe String)
         resolver name =
             let name' = makeRelative prefix . normalise $ prefix </> name
-            in trace name' $ return $ lookup name' templateSourceMap
+            in return $ lookup name' templateSourceMap
     print $ allFilenames
     print . keys $ templateSourceMap
     let relativeFilenames = map (makeRelative prefix) filenames
     templates <- forM relativeFilenames $ \filename -> do
-        source <- trace filename $ maybe
+        source <- maybe
                     (fail $ "Source not found: " <> filename)
                     return
                     (lookup filename templateSourceMap)
@@ -180,7 +180,6 @@ applyRule rule query = do
 applyRules :: [Rule] -> Text -> Maybe (Text, Text)
 applyRules [] _ = Nothing
 applyRules (rule:rules) query =
-    trace (show rule) $
     applyRule rule query <|> applyRules rules query
 
 loadBackendResponse :: String -> IO JSON.Value
@@ -189,7 +188,6 @@ loadBackendResponse backendURLStr = do
         (fail $ "Invalid backend URL: " ++ backendURLStr)
         return
         (parseURI backendURLStr)
-    hPutStrLn stderr backendURLStr
     let backendRequest =
             HTTP.Request
                 backendURL
@@ -198,7 +196,6 @@ loadBackendResponse backendURLStr = do
                 ""
     backendResponse <- HTTP.simpleHTTP backendRequest
     backendJSON <- HTTP.getResponseBody backendResponse
-    hPutStrLn stderr backendJSON
     case JSON.eitherDecode backendJSON of
         Left err -> fail $ err ++ "\n" ++ show backendJSON
         Right json -> return (json :: JSON.Value)
