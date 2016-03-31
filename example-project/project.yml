@@ -3,5 +3,8 @@ Rules:
   data:
     countries: 'http://api.geonames.org/countryInfoJSON?lang=en&country={country}&username=demo&style=full'
   template: 'default.html'
+- pattern: '/country/full/{country:*}/json'
+  data:
+    countries: 'http://api.geonames.org/countryInfoJSON?lang=en&country={country}&username=demo&style=full'
 - pattern: '/'
   redirect: '/country/full/US'

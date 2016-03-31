@@ -274,7 +274,7 @@ handleRequest project request respond = do
                                     return $ key .= value
                             respond $ Wai.responseLBS
                                 status200
-                                [("Content-type", "text/json")]
+                                [("Content-type", "application/json")]
                                 (JSON.encode backendData)
 
                         TemplateTarget templateName -> do
