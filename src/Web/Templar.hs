@@ -29,7 +29,7 @@ import System.FilePath
 import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Network.Wai as Wai
-import Network.HTTP.Types (Status, status200, status400, status404, status500)
+import Network.HTTP.Types (Status, status200, status302, status400, status404, status500)
 import qualified Network.Wai.Handler.Warp as Warp
 import Data.Default (def)
 import Data.ByteString.Builder (stringUtf8)
@@ -46,20 +46,28 @@ import Web.Templar.Replacement
 instance FromJSON ByteString where
     parseJSON val = UTF8.fromString <$> parseJSON val
 
+data RuleTarget p =
+    TemplateTarget p |
+    RedirectTarget p |
+    JSONTarget
+    deriving (Eq, Show)
+
 data Rule =
     Rule
         { ruleRoutePattern :: Pattern
         , ruleContextData :: HashMap Text Replacement
-        , ruleTemplate :: Text
+        , ruleTarget :: RuleTarget Replacement
         }
         deriving (Show, Eq)
 
 instance FromJSON Rule where
     parseJSON (Object obj) = do
-        pattern <- obj .: "RoutePattern"
-        contextData <- obj .: "Data"
-        template <- obj .: "Template"
-        return $ Rule pattern contextData template
+        pattern <- obj .: "pattern"
+        contextData <- fromMaybe (mapFromList []) <$> obj .:? "data"
+        templateMay <- fmap TemplateTarget <$> (obj .:? "template")
+        redirectMay <- fmap RedirectTarget <$> (obj .:? "redirect")
+        let target = fromMaybe JSONTarget $ redirectMay <|> templateMay
+        return $ Rule pattern contextData target
 
 type FrontendPath = [Text]
 
@@ -168,14 +176,22 @@ appFromProject project request respond = do
             hPutStrLn stderr $ show e
             respond $ Wai.responseLBS status500 [] "Something went pear-shaped."
 
-applyRule :: Rule -> Text -> Maybe (HashMap Text Text, Text)
+expandRuleTarget :: HashMap Text Text -> RuleTarget Replacement -> RuleTarget Text
+expandRuleTarget _ JSONTarget = JSONTarget
+expandRuleTarget varMap (TemplateTarget p) = TemplateTarget $ expandReplacement varMap p
+expandRuleTarget varMap (RedirectTarget p) = RedirectTarget $ expandReplacement varMap p
+
+applyRule :: Rule -> Text -> Maybe (HashMap Text Text, RuleTarget Text)
 applyRule rule query = do
     varMap <- matchPattern (ruleRoutePattern rule) query
     let f :: Replacement -> Text
         f pathPattern = expandReplacement varMap pathPattern
-    return (fmap f (ruleContextData rule), ruleTemplate rule)
+    return
+        ( fmap (expandReplacement varMap) (ruleContextData rule)
+        , expandRuleTarget varMap (ruleTarget rule)
+        )
 
-applyRules :: [Rule] -> Text -> Maybe (HashMap Text Text, Text)
+applyRules :: [Rule] -> Text -> Maybe (HashMap Text Text, RuleTarget Text)
 applyRules [] _ = Nothing
 applyRules (rule:rules) query =
     applyRule rule query <|> applyRules rules query
@@ -241,17 +257,37 @@ handleRequest project request respond = do
                         (mapFromList [])
                         request
                         respond
-                Just (backendPaths, templateName) -> do
-                    backendData <-
-                        forM (mapToList backendPaths) $ \(key, backendPath) -> do
-                            let backendURLStr :: String
-                                backendURLStr = unpack backendPath
-                            value <- loadBackendResponse backendURLStr
-                            return $ key ~> value
-                    respondTemplate
-                        project
-                        status200
-                        templateName
-                        (mapFromList backendData)
-                        request
-                        respond
+                Just (backendPaths, target) -> do
+                    case target of
+                        RedirectTarget redirectPath -> do
+                            respond $ Wai.responseLBS
+                                status302
+                                [("Location", UTF8.fromString . unpack $ redirectPath)]
+                                ""
+
+                        JSONTarget -> do
+                            backendData <- fmap (JSON.Object . mapFromList) $
+                                forM (mapToList backendPaths) $ \(key, backendPath) -> do
+                                    let backendURLStr :: String
+                                        backendURLStr = unpack backendPath
+                                    value <- loadBackendResponse backendURLStr
+                                    return $ key .= value
+                            respond $ Wai.responseLBS
+                                status200
+                                [("Content-type", "text/json")]
+                                (JSON.encode backendData)
+
+                        TemplateTarget templateName -> do
+                            backendData <-
+                                forM (mapToList backendPaths) $ \(key, backendPath) -> do
+                                    let backendURLStr :: String
+                                        backendURLStr = unpack backendPath
+                                    value <- loadBackendResponse backendURLStr
+                                    return $ key ~> value
+                            respondTemplate
+                                project
+                                status200
+                                templateName
+                                (mapFromList backendData)
+                                request
+                                respond

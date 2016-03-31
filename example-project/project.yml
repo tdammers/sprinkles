@@ -1,5 +1,7 @@
 Rules:
-- RoutePattern: '/country/full/{country:*}'
-  Data:
+- pattern: '/country/full/{country:*}'
+  data:
     countries: 'http://api.geonames.org/countryInfoJSON?lang=en&country={country}&username=demo&style=full'
-  Template: 'default.html'
+  template: 'default.html'
+- pattern: '/'
+  redirect: '/country/full/US'
