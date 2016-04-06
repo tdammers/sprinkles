@@ -1,0 +1,5 @@
+Rules:
+- pattern: '/'
+  data:
+    menu: 'file://./data/menu.yml'
+  template: 'home.html'

@@ -1,0 +1,8 @@
+- label: "Home"
+  url: "/"
+- label: "Latest"
+  url: "/latest"
+- label: "Favorites"
+  sub:
+  - label: "About Me"
+    url: "/about"
