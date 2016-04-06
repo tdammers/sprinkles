@@ -48,13 +48,14 @@ library
                ,       yaml
   default-language:    Haskell2010
 
-executable templar-exe
+executable templar
   hs-source-dirs:      app
   main-is:             Main.hs
   ghc-options:         -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , templar
                      , classy-prelude
+                     , safe
   default-language:    Haskell2010
 
 test-suite templar-test

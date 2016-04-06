@@ -2,21 +2,22 @@
 
 function watch_serve() {
     echo "Watch..."
-    cd example-project
+    BASEDIR="$(realpath .)"
+    cd "$1"
     for ((;;))
     do
-        templar-exe &
+        templar "$2" &
+        PID="$!"
         inotifywait \
             -e modify \
             -e attrib \
-            "$(which templar-exe)" \
+            "$(which templar)" \
             project.yml \
             templates/ \
-            templates/include/ \
-            ../run-devel.sh || exit 255
-        killall templar-exe
+            "$BASEDIR"/run-devel.sh || exit 255
+        kill "$!"
     done
 }
 
-watch_serve &
+watch_serve examples/countryInfo 5000 &
 stack install --file-watch --test
