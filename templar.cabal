@@ -18,6 +18,7 @@ library
   exposed-modules:     Web.Templar
                  ,     Web.Templar.Pattern
                  ,     Web.Templar.Replacement
+                 ,     Web.Templar.Backends
   build-depends:       base >= 4.7 && < 5
                ,       Glob
                ,       HTTP

@@ -37,12 +37,10 @@ import System.Directory (makeAbsolute)
 import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.ByteString.Lazy.UTF8 as LUTF8
 import qualified Data.CaseInsensitive as CI
-import qualified Network.HTTP as HTTP
-import Network.URI (parseURI)
-import Network.Mime (MimeType)
 
 import Web.Templar.Pattern
 import Web.Templar.Replacement
+import Web.Templar.Backends
 
 instance FromJSON ByteString where
     parseJSON val = UTF8.fromString <$> parseJSON val
@@ -197,53 +195,6 @@ applyRules [] _ = Nothing
 applyRules (rule:rules) query =
     applyRule rule query <|> applyRules rules query
 
-loadBackendResponse :: String -> IO JSON.Value
-loadBackendResponse backendURLStr = do
-    (mimeType, responseBody) <- fetchBackendResponse backendURLStr
-    parseBackendResponse mimeType responseBody
-
-fetchBackendResponse :: String -> IO (MimeType, LByteString)
-fetchBackendResponse backendURLStr = do
-    let protocol = takeWhile (/= ':') backendURLStr
-    case protocol of
-        "http" -> fetchBackendResponseHTTP backendURLStr
-        "https" -> fetchBackendResponseHTTP backendURLStr
-
-fetchBackendResponseHTTP :: String -> IO (MimeType, LByteString)
-fetchBackendResponseHTTP backendURLStr = do
-    backendURL <- maybe
-        (fail $ "Invalid backend URL: " ++ backendURLStr)
-        return
-        (parseURI backendURLStr)
-    let backendRequest =
-            HTTP.Request
-                backendURL
-                HTTP.GET
-                []
-                ""
-    backendResponse <- HTTP.simpleHTTP backendRequest
-    backendBody <- HTTP.getResponseBody backendResponse
-    headers <- case backendResponse of
-                    Left err -> fail (show err)
-                    Right resp -> return $ HTTP.getHeaders resp
-    let backendType = encodeUtf8 . pack . fromMaybe "text/plain" . lookupHeader HTTP.HdrContentType $ headers
-    return (backendType, backendBody)
-
-lookupHeader :: HTTP.HeaderName -> [HTTP.Header] -> Maybe String
-lookupHeader name headers =
-    headMay [ v | HTTP.Header n v <- headers, n == name ]
-
-parseBackendResponse :: Monad m => MimeType -> LByteString -> m JSON.Value
-parseBackendResponse "application/json" = parseJSONResponse
-parseBackendResponse "text/json" = parseJSONResponse
-parseBackendResponse m = fail $ "Unknown or invalid content type: " <> show m
-
-parseJSONResponse :: Monad m => LByteString -> m JSON.Value
-parseJSONResponse jsonSrc =
-    case JSON.eitherDecode jsonSrc of
-        Left err -> fail $ err ++ "\n" ++ show jsonSrc
-        Right json -> return (json :: JSON.Value)
-
 respondTemplate :: Project -> Status -> Text -> HashMap Text (GVal (Ginger.Run IO Html)) -> Wai.Application
 respondTemplate project status templateName contextMap request respond = do
     let contextMap' =
@@ -266,7 +217,8 @@ handleRequest :: Project -> Wai.Application
 handleRequest project request respond = do
     go `catchIOError` serve500
     where
-        serve500 err =
+        serve500 err = do
+            hPutStrLn stderr . show $ err
             respondTemplate
                 project
                 status500
@@ -300,7 +252,7 @@ handleRequest project request respond = do
                                 forM (mapToList backendPaths) $ \(key, backendPath) -> do
                                     let backendURLStr :: String
                                         backendURLStr = unpack backendPath
-                                    value <- loadBackendResponse backendURLStr
+                                    value <- loadBackendData backendURLStr
                                     return $ key .= value
                             respond $ Wai.responseLBS
                                 status200
@@ -312,7 +264,7 @@ handleRequest project request respond = do
                                 forM (mapToList backendPaths) $ \(key, backendPath) -> do
                                     let backendURLStr :: String
                                         backendURLStr = unpack backendPath
-                                    value <- loadBackendResponse backendURLStr
+                                    value <- loadBackendData backendURLStr
                                     return $ key ~> value
                             respondTemplate
                                 project
