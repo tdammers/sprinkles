@@ -7,53 +7,38 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE MultiParamTypeClasses #-}
 module Web.Templar.Replacement
+( Replacement
+, expandReplacement
+)
 where
 
-import ClassyPrelude hiding ( (<|>) )
-import Text.Parsec
+import ClassyPrelude
 import Data.Aeson as JSON
 import Data.Aeson.TH as JSON
+import Text.Ginger (Template, runGinger, parseGinger, makeContextText, toGVal)
 
 data ReplacementItem =
     Literal Text |
     Variable Text
     deriving (Show, Eq)
 
-newtype Replacement = Replacement [ReplacementItem]
-    deriving (Show, Eq)
+newtype Replacement = Replacement Template
+    deriving (Show)
 
 instance FromJSON Replacement where
     parseJSON val = (maybe (fail "invalid replacement") return . parseReplacement) =<< parseJSON val
 
-expandReplacement :: HashMap Text Text -> Replacement -> Text
-expandReplacement variables (Replacement items) =
-    mconcat . map (expandReplacementItem variables) $ items
-
-expandReplacementItem :: HashMap Text Text -> ReplacementItem -> Text
-expandReplacementItem variables (Literal t) = t
-expandReplacementItem variables (Variable t) = fromMaybe "" $ lookup t variables
-
 parseReplacement :: Text -> Maybe Replacement
 parseReplacement input =
-    either (const Nothing) Just $
-    runParser replacementP () "" input
+    either (const Nothing) (Just . Replacement) . runIdentity $
+    parseGinger
+        (const $ return Nothing)
+        Nothing
+        (unpack input)
 
-replacementP :: Parsec Text () Replacement
-replacementP = Replacement <$> some replacementItemP
-
-replacementItemP :: Parsec Text () ReplacementItem
-replacementItemP =
-    namedP <|>
-    literalP
-
-namedP :: Parsec Text () ReplacementItem
-namedP = do
-    char '{'
-    char '{'
-    name <- fmap pack (some alphaNum)
-    char '}'
-    char '}'
-    return $ Variable name
-
-literalP :: Parsec Text () ReplacementItem
-literalP = Literal . pack <$> some (noneOf ['{', '}'])
+expandReplacement :: HashMap Text Text -> Replacement -> Text
+expandReplacement variables (Replacement template) =
+    runGinger context template
+    where
+        context = makeContextText lookupFn
+        lookupFn varName = toGVal $ lookup varName variables

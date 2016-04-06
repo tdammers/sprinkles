@@ -39,6 +39,7 @@ import qualified Data.ByteString.Lazy.UTF8 as LUTF8
 import qualified Data.CaseInsensitive as CI
 import qualified Network.HTTP as HTTP
 import Network.URI (parseURI)
+import Network.Mime (MimeType)
 
 import Web.Templar.Pattern
 import Web.Templar.Replacement
@@ -58,7 +59,7 @@ data Rule =
         , ruleContextData :: HashMap Text Replacement
         , ruleTarget :: RuleTarget Replacement
         }
-        deriving (Show, Eq)
+        deriving (Show)
 
 instance FromJSON Rule where
     parseJSON (Object obj) = do
@@ -198,6 +199,18 @@ applyRules (rule:rules) query =
 
 loadBackendResponse :: String -> IO JSON.Value
 loadBackendResponse backendURLStr = do
+    (mimeType, responseBody) <- fetchBackendResponse backendURLStr
+    parseBackendResponse mimeType responseBody
+
+fetchBackendResponse :: String -> IO (MimeType, LByteString)
+fetchBackendResponse backendURLStr = do
+    let protocol = takeWhile (/= ':') backendURLStr
+    case protocol of
+        "http" -> fetchBackendResponseHTTP backendURLStr
+        "https" -> fetchBackendResponseHTTP backendURLStr
+
+fetchBackendResponseHTTP :: String -> IO (MimeType, LByteString)
+fetchBackendResponseHTTP backendURLStr = do
     backendURL <- maybe
         (fail $ "Invalid backend URL: " ++ backendURLStr)
         return
@@ -209,9 +222,26 @@ loadBackendResponse backendURLStr = do
                 []
                 ""
     backendResponse <- HTTP.simpleHTTP backendRequest
-    backendJSON <- HTTP.getResponseBody backendResponse
-    case JSON.eitherDecode backendJSON of
-        Left err -> fail $ err ++ "\n" ++ show backendJSON
+    backendBody <- HTTP.getResponseBody backendResponse
+    headers <- case backendResponse of
+                    Left err -> fail (show err)
+                    Right resp -> return $ HTTP.getHeaders resp
+    let backendType = encodeUtf8 . pack . fromMaybe "text/plain" . lookupHeader HTTP.HdrContentType $ headers
+    return (backendType, backendBody)
+
+lookupHeader :: HTTP.HeaderName -> [HTTP.Header] -> Maybe String
+lookupHeader name headers =
+    headMay [ v | HTTP.Header n v <- headers, n == name ]
+
+parseBackendResponse :: Monad m => MimeType -> LByteString -> m JSON.Value
+parseBackendResponse "application/json" = parseJSONResponse
+parseBackendResponse "text/json" = parseJSONResponse
+parseBackendResponse m = fail $ "Unknown or invalid content type: " <> show m
+
+parseJSONResponse :: Monad m => LByteString -> m JSON.Value
+parseJSONResponse jsonSrc =
+    case JSON.eitherDecode jsonSrc of
+        Left err -> fail $ err ++ "\n" ++ show jsonSrc
         Right json -> return (json :: JSON.Value)
 
 respondTemplate :: Project -> Status -> Text -> HashMap Text (GVal (Ginger.Run IO Html)) -> Wai.Application
@@ -228,7 +258,7 @@ respondTemplate project status templateName contextMap request respond = do
     respond . Wai.responseStream status200 headers $ \write flush -> do
         let writeHtml = write . stringUtf8 . unpack . htmlSource
             context :: GingerContext IO Html
-            context = Ginger.makeContextM contextLookup writeHtml
+            context = Ginger.makeContextHtmlM contextLookup writeHtml
         runGingerT context template
         flush
 

@@ -19,5 +19,6 @@ function watch_serve() {
     done
 }
 
-watch_serve examples/countryInfo 5000 &
+watch_serve examples/blogg 5000 &
+watch_serve examples/countryInfo 5001 &
 stack install --file-watch --test
