@@ -100,7 +100,7 @@ parseSimpleExactlyTest =
 
 parseNamedExactlyTest =
     testCase "parse named Exactly" $ do
-        let src = "{who:hello}"
+        let src = "{{who:hello}}"
             expected = Just $ Pattern
                         [ PatternItem (Just "who") (Exactly "hello")
                         ]
@@ -109,7 +109,7 @@ parseNamedExactlyTest =
 
 parseSimpleAnyOneTest =
     testCase "parse simple AnyOne" $ do
-        let src = "{*}"
+        let src = "{{*}}"
             expected = Just $ Pattern
                         [ PatternItem Nothing AnyOne
                         ]
@@ -127,7 +127,7 @@ parseShorthandAnyOneTest =
 
 parseNamedAnyOneTest =
     testCase "parse named AnyOne" $ do
-        let src = "{who:*}"
+        let src = "{{who:*}}"
             expected = Just $ Pattern
                         [ PatternItem (Just "who") AnyOne
                         ]
@@ -136,7 +136,7 @@ parseNamedAnyOneTest =
 
 parseSimpleAnyTest =
     testCase "parse simple Any" $ do
-        let src = "{**}"
+        let src = "{{**}}"
             expected = Just $ Pattern
                         [ PatternItem Nothing Any
                         ]
@@ -154,7 +154,7 @@ parseShorthandAnyTest =
 
 parseNamedAnyTest =
     testCase "parse named Any" $ do
-        let src = "{who:**}"
+        let src = "{{who:**}}"
             expected = Just $ Pattern
                         [ PatternItem (Just "who") Any
                         ]
@@ -163,7 +163,7 @@ parseNamedAnyTest =
 
 parseRealWorldExampleTest1 =
     testCase "parse real world example 1" $ do
-        let src = "/country?{query:*}"
+        let src = "/country?{{query:*}}"
             expected = Just $ Pattern
                         [ PatternItem Nothing (Exactly "/country?")
                         , PatternItem (Just "query") AnyOne

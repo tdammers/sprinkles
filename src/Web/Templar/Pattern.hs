@@ -51,8 +51,10 @@ patternItemP =
 namedP :: Parsec Text () PatternItem
 namedP = do
     char '{'
+    char '{'
     name <- optionMaybe $ fmap pack (some alphaNum <* char ':')
     base <- anyP <|> literalP
+    char '}'
     char '}'
     return $ PatternItem name base
 

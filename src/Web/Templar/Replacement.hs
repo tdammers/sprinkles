@@ -49,7 +49,9 @@ replacementItemP =
 namedP :: Parsec Text () ReplacementItem
 namedP = do
     char '{'
+    char '{'
     name <- fmap pack (some alphaNum)
+    char '}'
     char '}'
     return $ Variable name
 

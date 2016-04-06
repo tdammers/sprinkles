@@ -214,7 +214,7 @@ loadBackendResponse backendURLStr = do
         Left err -> fail $ err ++ "\n" ++ show backendJSON
         Right json -> return (json :: JSON.Value)
 
-respondTemplate :: Project -> Status -> Text -> HashMap Text (GVal (Ginger.Run IO)) -> Wai.Application
+respondTemplate :: Project -> Status -> Text -> HashMap Text (GVal (Ginger.Run IO Html)) -> Wai.Application
 respondTemplate project status templateName contextMap request respond = do
     let contextMap' =
             contextMap <>
@@ -227,7 +227,7 @@ respondTemplate project status templateName contextMap request respond = do
     template <- getTemplate project templateName
     respond . Wai.responseStream status200 headers $ \write flush -> do
         let writeHtml = write . stringUtf8 . unpack . htmlSource
-            context :: GingerContext IO
+            context :: GingerContext IO Html
             context = Ginger.makeContextM contextLookup writeHtml
         runGingerT context template
         flush
