@@ -1,10 +1,14 @@
 Rules:
+- pattern: '/country?code={country:*}'
+  redirect: '/country/full/{country}'
 - pattern: '/country/full/{country:*}'
   data:
     countries: 'http://api.geonames.org/countryInfoJSON?lang=en&country={country}&username=demo&style=full'
-  template: 'default.html'
+  template: 'country.html'
 - pattern: '/country/full/{country:*}/json'
   data:
     countries: 'http://api.geonames.org/countryInfoJSON?lang=en&country={country}&username=demo&style=full'
 - pattern: '/'
-  redirect: '/country/full/US'
+  data:
+    countries: 'http://api.geonames.org/countryInfoJSON?username=demo'
+  template: 'countryList.html'

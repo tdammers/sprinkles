@@ -1,0 +1,30 @@
+{%- extends 'master.html' -%}
+
+{%- block background -%}
+    <div class="background background-empty"></div>
+{%- endblock -%}
+
+{%- block content -%}
+    {% if countries.geonames %}
+        <div class="box">
+            <form method="GET" action="country">
+                <select name="code">
+                    {%- for country in countries.geonames -%}
+                    <option value="{{ country.countryCode }}">
+                    {{ country.countryName }}
+                    </option>
+                    {%- endfor -%}
+                </select>
+                <button type="submit">Show</button>
+            </form>
+        </div>
+    {% else %}
+        <div class="box">
+            <h1>Error</h1>
+            <p>{{ countries.status.message|default('Something went wong') }}</p>
+        </div>
+    {% endif %}
+    {#-
+    vim:ft=django
+    -#}
+{% endblock %}
