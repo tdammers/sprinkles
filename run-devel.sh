@@ -19,6 +19,7 @@ function watch_serve() {
     done
 }
 
+stack install --test
 watch_serve examples/blogg 5000 &
 watch_serve examples/countryInfo 5001 &
 stack install --file-watch --test

@@ -253,7 +253,7 @@ handleRequest project request respond = do
                                     let backendURLStr :: String
                                         backendURLStr = unpack backendPath
                                     value <- loadBackendData backendURLStr
-                                    return $ key .= value
+                                    return $ key .= toJSON value
                             respond $ Wai.responseLBS
                                 status200
                                 [("Content-type", "application/json")]
@@ -265,7 +265,7 @@ handleRequest project request respond = do
                                     let backendURLStr :: String
                                         backendURLStr = unpack backendPath
                                     value <- loadBackendData backendURLStr
-                                    return $ key ~> value
+                                    return $ (key, bdGVal value)
                             respondTemplate
                                 project
                                 status200

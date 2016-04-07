@@ -18,6 +18,9 @@ import Network.Mime
             , FileName
             )
 import Network.URI (parseURI)
+import qualified Text.Pandoc as Pandoc
+import Text.Pandoc (Pandoc)
+import Text.Ginger (ToGVal (..), GVal, Run (..), dict, (~>))
 
 mimeMap :: MimeMap
 mimeMap =
@@ -30,7 +33,19 @@ mimeMap =
 mimeLookup :: FileName -> MimeType
 mimeLookup = mimeByExt mimeMap defaultMimeType
 
-loadBackendData :: String -> IO JSON.Value
+data BackendData m h =
+    BackendData
+        { bdJSON :: JSON.Value
+        , bdGVal :: GVal (Run m h)
+        }
+
+instance ToJSON (BackendData m h) where
+    toJSON = bdJSON
+
+jsonToBackend :: JSON.Value -> BackendData m h
+jsonToBackend val = BackendData val (toGVal val)
+
+loadBackendData :: String -> IO (BackendData m h)
 loadBackendData backendURLStr = do
     (mimeType, responseBody) <- fetchBackendData backendURLStr
     parseBackendData mimeType responseBody
@@ -74,23 +89,23 @@ lookupHeader :: HTTP.HeaderName -> [HTTP.Header] -> Maybe String
 lookupHeader name headers =
     headMay [ v | HTTP.Header n v <- headers, n == name ]
 
-parseBackendData :: Monad m => MimeType -> LByteString -> m JSON.Value
-parseBackendData "application/json" = parseJSONResponse
-parseBackendData "text/json" = parseJSONResponse
-parseBackendData "application/x-yaml" = parseYamlResponse
-parseBackendData "application/yaml" = parseYamlResponse
-parseBackendData "text/yaml" = parseYamlResponse
-parseBackendData "text/x-yaml" = parseYamlResponse
+parseBackendData :: Monad m => MimeType -> LByteString -> m (BackendData n h)
+parseBackendData "application/json" = parseJSONData
+parseBackendData "text/json" = parseJSONData
+parseBackendData "application/x-yaml" = parseYamlData
+parseBackendData "application/yaml" = parseYamlData
+parseBackendData "text/yaml" = parseYamlData
+parseBackendData "text/x-yaml" = parseYamlData
 parseBackendData m = fail $ "Unknown or invalid content type: " <> show m
 
-parseJSONResponse :: Monad m => LByteString -> m JSON.Value
-parseJSONResponse jsonSrc =
+parseJSONData :: Monad m => LByteString -> m (BackendData n h)
+parseJSONData jsonSrc =
     case JSON.eitherDecode jsonSrc of
         Left err -> fail $ err ++ "\n" ++ show jsonSrc
-        Right json -> return (json :: JSON.Value)
+        Right json -> return . jsonToBackend $ (json :: JSON.Value)
 
-parseYamlResponse :: Monad m => LByteString -> m JSON.Value
-parseYamlResponse yamlSrc =
+parseYamlData :: Monad m => LByteString -> m (BackendData n h)
+parseYamlData yamlSrc =
     case YAML.decodeEither (toStrict yamlSrc) of
         Left err -> fail $ err ++ "\n" ++ show yamlSrc
-        Right json -> return (json :: JSON.Value)
+        Right json -> return . jsonToBackend $ (json :: JSON.Value)

@@ -36,6 +36,7 @@ library
                ,       mime-types
                ,       network-uri
                ,       parsec
+               ,       pandoc
                ,       regex-base
                ,       regex-pcre
                ,       safe
