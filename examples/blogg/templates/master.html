@@ -1,0 +1,33 @@
+{%- macro render_menu(menu) -%}
+    {%- if menu.url -%}<a href="{{ menu.url }}">{%- endif -%}
+    <span>{{ menu.label }}</span>
+    {%- if menu.url -%}</a>{%- endif -%}
+    {%- if menu.sub -%}
+    <menu>
+        {%- for sub in menu.sub -%}
+        <li>
+            {{ render_menu(sub) }}
+        </li>
+        {%- endfor -%}
+    </menu>
+    {%- endif -%}
+{%- endmacro -%}
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>{% block title %}BLOGG{% endblock %}</title>
+    </head>
+    <body>
+        <section class="header">
+            <section class="menu">
+            {{ render_menu({"sub":menu}) }}
+            </section>
+        </section>
+        <section class="content">
+        {% block content %}
+        {% endblock %}
+        </section>
+    </body>
+</html>
+

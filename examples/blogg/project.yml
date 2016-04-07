@@ -8,8 +8,10 @@ Rules:
   data:
     menu: 'file://./data/menu.yml'
     page: 'file://./data/pages/{{page}}.md'
+  required: [ 'page' ]
   template: 'page.html'
 - pattern: '/{{page:*}}/json'
   data:
     menu: 'file://./data/menu.yml'
     page: 'file://./data/pages/{{page}}.md'
+  required: [ 'page' ]

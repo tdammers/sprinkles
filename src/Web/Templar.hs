@@ -1,5 +1,6 @@
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
+{-#LANGUAGE OverloadedLists #-}
 {-#LANGUAGE TemplateHaskell #-}
 {-#LANGUAGE GeneralizedNewtypeDeriving #-}
 {-#LANGUAGE LambdaCase #-}
@@ -56,6 +57,7 @@ data Rule =
         { ruleRoutePattern :: Pattern
         , ruleContextData :: HashMap Text Replacement
         , ruleTarget :: RuleTarget Replacement
+        , ruleRequired :: Set Text
         }
         deriving (Show)
 
@@ -66,7 +68,8 @@ instance FromJSON Rule where
         templateMay <- fmap TemplateTarget <$> (obj .:? "template")
         redirectMay <- fmap RedirectTarget <$> (obj .:? "redirect")
         let target = fromMaybe JSONTarget $ redirectMay <|> templateMay
-        return $ Rule pattern contextData target
+        required <- obj .:? "required" .!= []
+        return $ Rule pattern contextData target required
 
 type FrontendPath = [Text]
 
@@ -180,17 +183,18 @@ expandRuleTarget _ JSONTarget = JSONTarget
 expandRuleTarget varMap (TemplateTarget p) = TemplateTarget $ expandReplacement varMap p
 expandRuleTarget varMap (RedirectTarget p) = RedirectTarget $ expandReplacement varMap p
 
-applyRule :: Rule -> Text -> Maybe (HashMap Text Text, RuleTarget Text)
+applyRule :: Rule -> Text -> Maybe (HashMap Text Text, Set Text, RuleTarget Text)
 applyRule rule query = do
     varMap <- matchPattern (ruleRoutePattern rule) query
     let f :: Replacement -> Text
         f pathPattern = expandReplacement varMap pathPattern
     return
         ( fmap (expandReplacement varMap) (ruleContextData rule)
+        , ruleRequired rule
         , expandRuleTarget varMap (ruleTarget rule)
         )
 
-applyRules :: [Rule] -> Text -> Maybe (HashMap Text Text, RuleTarget Text)
+applyRules :: [Rule] -> Text -> Maybe (HashMap Text Text, Set Text, RuleTarget Text)
 applyRules [] _ = Nothing
 applyRules (rule:rules) query =
     applyRule rule query <|> applyRules rules query
@@ -212,6 +216,11 @@ respondTemplate project status templateName contextMap request respond = do
             context = Ginger.makeContextHtmlM contextLookup writeHtml
         runGingerT context template
         flush
+
+data NotFoundException = NotFoundException
+    deriving (Show)
+
+instance Exception NotFoundException where
 
 handleRequest :: Project -> Wai.Application
 handleRequest project request respond = do
@@ -239,7 +248,7 @@ handleRequest project request respond = do
                         (mapFromList [])
                         request
                         respond
-                Just (backendPaths, target) -> do
+                Just (backendPaths, required, target) -> do
                     case target of
                         RedirectTarget redirectPath -> do
                             respond $ Wai.responseLBS
@@ -260,16 +269,32 @@ handleRequest project request respond = do
                                 (JSON.encode backendData)
 
                         TemplateTarget templateName -> do
-                            backendData <-
-                                forM (mapToList backendPaths) $ \(key, backendPath) -> do
-                                    let backendURLStr :: String
-                                        backendURLStr = unpack backendPath
-                                    value <- loadBackendData backendURLStr
-                                    return $ (key, bdGVal value)
-                            respondTemplate
-                                project
-                                status200
-                                templateName
-                                (mapFromList backendData)
-                                request
-                                respond
+                            let handleNotFound :: NotFoundException -> IO Wai.ResponseReceived
+                                handleNotFound _ =
+                                    respondTemplate
+                                        project
+                                        status404
+                                        "404.html"
+                                        (mapFromList [])
+                                        request
+                                        respond
+                            let go = do
+                                    backendData <-
+                                        forM (mapToList backendPaths) $ \(key, backendPath) -> do
+                                            let backendURLStr :: String
+                                                backendURLStr = unpack backendPath
+                                            valueMay <- loadBackendData backendURLStr
+                                            case valueMay of
+                                                Just value -> return $ (key, bdGVal value)
+                                                Nothing ->
+                                                    if key `elem` required
+                                                        then throwM NotFoundException
+                                                        else return $ (key, def)
+                                    respondTemplate
+                                        project
+                                        status200
+                                        templateName
+                                        (mapFromList backendData)
+                                        request
+                                        respond
+                            go `catch` handleNotFound

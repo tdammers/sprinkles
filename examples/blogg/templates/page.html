@@ -1,26 +1,10 @@
-{%- macro render_menu(menu) -%}
-    {%- if menu.url -%}<a href="{{ menu.url }}">{%- endif -%}
-    <span>{{ menu.label }}</span>
-    {%- if menu.url -%}</a>{%- endif -%}
-    {%- if menu.sub -%}
-    <menu>
-        {%- for sub in menu.sub -%}
-        <li>
-            {{ render_menu(sub) }}
-        </li>
-        {%- endfor -%}
-    </menu>
-    {%- endif -%}
-{%- endmacro -%}
+{%- extends 'master.html' -%}
 
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>{{ page.meta.title|default(page[0])|str }}</title>
-    </head>
-    <body>
-        {{ render_menu({"sub":menu}) }}
-        <h1>{{ page.meta.title }}</h1>
-        {{ page }}
-    </body>
-</html>
+{%- block title %}
+    {{ page.meta.title|default(page[0])|str }}
+{% endblock -%}
+
+{%- block content %}
+    <h1>{{ page.meta.title }}</h1>
+    {{ page }}
+{% endblock -%}

@@ -49,12 +49,17 @@ instance ToJSON (BackendData m h) where
 jsonToBackend :: JSON.Value -> BackendData m h
 jsonToBackend val = BackendData val (toGVal val)
 
-loadBackendData :: String -> IO (BackendData m h)
+loadBackendData :: String -> IO (Maybe (BackendData m h))
 loadBackendData backendURLStr = do
-    (mimeType, responseBody) <- fetchBackendData backendURLStr
-    parseBackendData mimeType responseBody
+    fetchedMay <- fetchBackendData backendURLStr
+    case fetchedMay of
+        Nothing ->
+            return Nothing
+        Just (mimeType, responseBody) -> do
+            beData <- parseBackendData mimeType responseBody
+            return $ Just beData
 
-fetchBackendData :: String -> IO (MimeType, LByteString)
+fetchBackendData :: String -> IO (Maybe (MimeType, LByteString))
 fetchBackendData backendURLStr = do
     let protocol = takeWhile (/= ':') backendURLStr
     case protocol of
@@ -63,13 +68,18 @@ fetchBackendData backendURLStr = do
         "file" -> fetchBackendDataFile (drop 7 backendURLStr)
         x -> fail $ "Unknown protocol: " <> show x
 
-fetchBackendDataFile :: String -> IO (MimeType, LByteString)
-fetchBackendDataFile filename = do
-    let mimeType = mimeLookup . pack $ filename
-    contents <- readFile filename
-    return (mimeType, contents)
+fetchBackendDataFile :: String -> IO (Maybe (MimeType, LByteString))
+fetchBackendDataFile filename = fetch `catchIOError` handle
+    where
+        fetch = do
+            let mimeType = mimeLookup . pack $ filename
+            contents <- readFile filename
+            return $ Just (mimeType, contents)
+        handle err
+            | isDoesNotExistError err = return Nothing
+            | otherwise = ioError err
 
-fetchBackendDataHTTP :: String -> IO (MimeType, LByteString)
+fetchBackendDataHTTP :: String -> IO (Maybe (MimeType, LByteString))
 fetchBackendDataHTTP backendURLStr = do
     backendURL <- maybe
         (fail $ "Invalid backend URL: " ++ backendURLStr)
@@ -87,7 +97,7 @@ fetchBackendDataHTTP backendURLStr = do
                     Left err -> fail (show err)
                     Right resp -> return $ HTTP.getHeaders resp
     let backendType = encodeUtf8 . pack . fromMaybe "text/plain" . lookupHeader HTTP.HdrContentType $ headers
-    return (backendType, backendBody)
+    return $ Just (backendType, backendBody)
 
 lookupHeader :: HTTP.HeaderName -> [HTTP.Header] -> Maybe String
 lookupHeader name headers =
