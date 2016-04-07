@@ -92,20 +92,20 @@ currently supported:
   kind of data structures as JSON
 - Markdown (`application/x-markdown`, `text/x-markdown`): parsed as Pandoc
   Markdown. The resulting value behaves as follows:
-  - When converted to JSON, generates the same output as Pandoc's JSON writer,
-    i.e., a JSON representation of Pandoc's parse tree.
-  - When converted to plain text, generates the same output as Pandoc's
-    plaintext writer.
-  - When converted to HTML, generates the same output as Pandoc's HTML5 writer.
-  - When used as a list (iterating without keys, or indexing with numeric
-    keys), behaves as a list of the top-level blocks, which in turn behave like
-    documents themselves. This means that you can step through the parsed
-    DOM-like tree using array indexing, e.g. `page[0]` will get the first block
-    in the `page` document, typically a level-1 heading, or the first paragraph
-    of the document.
-  - When used as a dictionary, two keys are exposed: `meta`, which gives access
-    to meta properties defined in the input document, and `body`, which points
-    at the input document contents.
+    - When converted to JSON, generates the same output as Pandoc's JSON writer,
+      i.e., a JSON representation of Pandoc's parse tree.
+    - When converted to plain text, generates the same output as Pandoc's
+      plaintext writer.
+    - When converted to HTML, generates the same output as Pandoc's HTML5 writer.
+    - When used as a list (iterating without keys, or indexing with numeric
+      keys), behaves as a list of the top-level blocks, which in turn behave like
+      documents themselves. This means that you can step through the parsed
+      DOM-like tree using array indexing, e.g. `page[0]` will get the first block
+      in the `page` document, typically a level-1 heading, or the first paragraph
+      of the document.
+    - When used as a dictionary, two keys are exposed: `meta`, which gives access
+      to meta properties defined in the input document, and `body`, which points
+      at the input document contents.
 - Any other content type will not be parsed, but can be served as-is using the
   `static` directive. Using such data in templates or trying to serve them as
   JSON will produce empty values / `null`.
