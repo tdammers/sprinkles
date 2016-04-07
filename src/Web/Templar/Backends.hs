@@ -106,17 +106,25 @@ lookupHeader name headers =
     headMay [ v | HTTP.Header n v <- headers, n == name ]
 
 parseBackendData :: Monad m => MimeType -> LByteString -> m (BackendData n h)
-parseBackendData "application/json" = parseJSONData
-parseBackendData "text/json" = parseJSONData
-parseBackendData "application/x-yaml" = parseYamlData
-parseBackendData "application/yaml" = parseYamlData
-parseBackendData "text/yaml" = parseYamlData
-parseBackendData "text/x-yaml" = parseYamlData
-parseBackendData "application/x-markdown" =
-    parsePandocDataString
-        (Pandoc.readMarkdown Pandoc.def)
-        "application/x-markdown"
-parseBackendData t = parseRawData t
+parseBackendData t =
+    fromMaybe (parseRawData t) $ lookup t parsersTable
+
+parsersTable :: Monad m => HashMap MimeType (LByteString -> m (BackendData n h))
+parsersTable = mapFromList . mconcat $
+    [ zip mimeTypes (repeat parser) | (mimeTypes, parser) <- parsers ]
+
+parsers :: Monad m => [([MimeType], (LByteString -> m (BackendData n h)))]
+parsers =
+    [ ( ["application/json", "text/json"]
+      , parseJSONData
+      )
+    , ( ["application/x-yaml", "text/x-yaml", "application/yaml", "text/yaml"]
+      , parseYamlData
+      )
+    , ( ["application/x-markdown", "text/x-markdown"]
+      , parsePandocDataString (Pandoc.readMarkdown Pandoc.def) "application/x-markdown"
+      )
+    ]
 
 parseRawData :: Monad m => MimeType-> LByteString -> m (BackendData n h)
 parseRawData mimeType input =

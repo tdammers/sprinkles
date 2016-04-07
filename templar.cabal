@@ -20,6 +20,10 @@ library
                  ,     Web.Templar.Replacement
                  ,     Web.Templar.Backends
                  ,     Web.Templar.PandocGVal
+                 ,     Web.Templar.Rule
+                 ,     Web.Templar.ProjectConfig
+                 ,     Web.Templar.Project
+                 ,     Web.Templar.Serve
   build-depends:       base >= 4.7 && < 5
                ,       Glob
                ,       HTTP
