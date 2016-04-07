@@ -14,7 +14,12 @@ body {
 .header {
     box-shadow: 0px 0px 10px black;
     padding: 1rem;
-    background-color: #FFC;
+    background: linear-gradient(0deg, #88F, #008);
+    color: white;
+}
+
+.header a {
+    color: white;
 }
 
 .content {
