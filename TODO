@@ -1,12 +1,10 @@
 - Cache backend responses
 - Backend authentication
     - Requires backend abstraction
-- Backend abstraction: data Backend, HashMap BackendID Backend, Route -> BackendID
-- File backend
-- Static files
+- Backend data sources:
+    - 'dir://': provide a directory listing
 - Backend response types
-    - YAML
     - Plain text
     - HTML (parse as DOM, expose DOM-like API to Ginger)
     - XML?
-    - Markdown / RST / Textile / ... (Pandoc)
+    - ~Markdown~ / RST / Textile / ... (Pandoc)
