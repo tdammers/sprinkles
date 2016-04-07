@@ -1,5 +1,15 @@
+# vim: ts=2 sw=2 expandtab
 Rules:
 - pattern: '/'
   data:
     menu: 'file://./data/menu.yml'
   template: 'home.html'
+- pattern: '/{{page:*}}'
+  data:
+    menu: 'file://./data/menu.yml'
+    page: 'file://./data/pages/{{page}}.md'
+  template: 'page.html'
+- pattern: '/{{page:*}}/json'
+  data:
+    menu: 'file://./data/menu.yml'
+    page: 'file://./data/pages/{{page}}.md'

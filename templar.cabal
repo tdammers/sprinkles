@@ -19,6 +19,7 @@ library
                  ,     Web.Templar.Pattern
                  ,     Web.Templar.Replacement
                  ,     Web.Templar.Backends
+                 ,     Web.Templar.PandocGVal
   build-depends:       base >= 4.7 && < 5
                ,       Glob
                ,       HTTP

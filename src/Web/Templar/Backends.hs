@@ -20,7 +20,9 @@ import Network.Mime
 import Network.URI (parseURI)
 import qualified Text.Pandoc as Pandoc
 import Text.Pandoc (Pandoc)
+import Text.Pandoc.Error (PandocError)
 import Text.Ginger (ToGVal (..), GVal, Run (..), dict, (~>))
+import Web.Templar.PandocGVal
 
 mimeMap :: MimeMap
 mimeMap =
@@ -28,6 +30,8 @@ mimeMap =
     mapFromList
         [ ("yml", "application/x-yaml")
         , ("yaml", "application/x-yaml")
+        , ("md", "application/x-markdown")
+        , ("markdown", "application/x-markdown")
         ]
 
 mimeLookup :: FileName -> MimeType
@@ -96,6 +100,7 @@ parseBackendData "application/x-yaml" = parseYamlData
 parseBackendData "application/yaml" = parseYamlData
 parseBackendData "text/yaml" = parseYamlData
 parseBackendData "text/x-yaml" = parseYamlData
+parseBackendData "application/x-markdown" = parsePandocDataString (Pandoc.readMarkdown Pandoc.def)
 parseBackendData m = fail $ "Unknown or invalid content type: " <> show m
 
 parseJSONData :: Monad m => LByteString -> m (BackendData n h)
@@ -109,3 +114,23 @@ parseYamlData yamlSrc =
     case YAML.decodeEither (toStrict yamlSrc) of
         Left err -> fail $ err ++ "\n" ++ show yamlSrc
         Right json -> return . jsonToBackend $ (json :: JSON.Value)
+
+parsePandocDataLBS :: Monad m
+                   => (LByteString -> Either PandocError Pandoc)
+                   -> LByteString
+                   -> m (BackendData n h)
+parsePandocDataLBS reader input = do
+    case reader input of
+        Left err -> fail . show $ err
+        Right pandoc ->
+            return $ BackendData
+                        { bdJSON = toJSON pandoc
+                        , bdGVal = toGVal pandoc
+                        }
+
+parsePandocDataString :: Monad m
+                   => (String -> Either PandocError Pandoc)
+                   -> LByteString
+                   -> m (BackendData n h)
+parsePandocDataString reader =
+    parsePandocDataLBS (reader . unpack . decodeUtf8)
