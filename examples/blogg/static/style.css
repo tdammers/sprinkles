@@ -1,0 +1,37 @@
+html {
+    font-family: sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    padding: 0;
+    margin: 0;
+}
+
+body {
+    padding: 0;
+    margin: 0;
+}
+
+.header {
+    box-shadow: 0px 0px 10px black;
+    padding: 1rem;
+    background-color: #FFC;
+}
+
+.content {
+    padding: 1rem;
+}
+
+menu>li {
+    list-style: none;
+    display: inline-block;
+    vertical-align: top;
+    padding: 0 1rem;
+    margin: 0;
+    text-indent: 0;
+}
+
+menu {
+    padding: 0;
+    margin: 0;
+    text-indent: 0;
+}

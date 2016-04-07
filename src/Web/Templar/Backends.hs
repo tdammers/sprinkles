@@ -41,13 +41,15 @@ data BackendData m h =
     BackendData
         { bdJSON :: JSON.Value
         , bdGVal :: GVal (Run m h)
+        , bdRaw :: LByteString
+        , bdMimeType :: MimeType
         }
 
 instance ToJSON (BackendData m h) where
     toJSON = bdJSON
 
 jsonToBackend :: JSON.Value -> BackendData m h
-jsonToBackend val = BackendData val (toGVal val)
+jsonToBackend val = BackendData val (toGVal val) (JSON.encode val) "application/json"
 
 loadBackendData :: String -> IO (Maybe (BackendData m h))
 loadBackendData backendURLStr = do
@@ -110,8 +112,20 @@ parseBackendData "application/x-yaml" = parseYamlData
 parseBackendData "application/yaml" = parseYamlData
 parseBackendData "text/yaml" = parseYamlData
 parseBackendData "text/x-yaml" = parseYamlData
-parseBackendData "application/x-markdown" = parsePandocDataString (Pandoc.readMarkdown Pandoc.def)
-parseBackendData m = fail $ "Unknown or invalid content type: " <> show m
+parseBackendData "application/x-markdown" =
+    parsePandocDataString
+        (Pandoc.readMarkdown Pandoc.def)
+        "application/x-markdown"
+parseBackendData t = parseRawData t
+
+parseRawData :: Monad m => MimeType-> LByteString -> m (BackendData n h)
+parseRawData mimeType input =
+    return $ BackendData
+        { bdJSON = JSON.Null
+        , bdGVal = toGVal JSON.Null
+        , bdRaw = input
+        , bdMimeType = mimeType
+        }
 
 parseJSONData :: Monad m => LByteString -> m (BackendData n h)
 parseJSONData jsonSrc =
@@ -127,19 +141,23 @@ parseYamlData yamlSrc =
 
 parsePandocDataLBS :: Monad m
                    => (LByteString -> Either PandocError Pandoc)
+                   -> MimeType
                    -> LByteString
                    -> m (BackendData n h)
-parsePandocDataLBS reader input = do
+parsePandocDataLBS reader mimeType input = do
     case reader input of
         Left err -> fail . show $ err
         Right pandoc ->
             return $ BackendData
                         { bdJSON = toJSON pandoc
                         , bdGVal = toGVal pandoc
+                        , bdRaw = input
+                        , bdMimeType = mimeType
                         }
 
 parsePandocDataString :: Monad m
                    => (String -> Either PandocError Pandoc)
+                   -> MimeType
                    -> LByteString
                    -> m (BackendData n h)
 parsePandocDataString reader =

@@ -49,6 +49,7 @@ instance FromJSON ByteString where
 data RuleTarget p =
     TemplateTarget p |
     RedirectTarget p |
+    StaticTarget |
     JSONTarget
     deriving (Eq, Show)
 
@@ -67,7 +68,11 @@ instance FromJSON Rule where
         contextData <- fromMaybe (mapFromList []) <$> obj .:? "data"
         templateMay <- fmap TemplateTarget <$> (obj .:? "template")
         redirectMay <- fmap RedirectTarget <$> (obj .:? "redirect")
-        let target = fromMaybe JSONTarget $ redirectMay <|> templateMay
+        static <- fromMaybe False <$> (obj .:? "static")
+        let target =
+                if static
+                    then StaticTarget
+                    else (fromMaybe JSONTarget $ redirectMay <|> templateMay)
         required <- obj .:? "required" .!= []
         return $ Rule pattern contextData target required
 
@@ -180,6 +185,7 @@ appFromProject project request respond = do
 
 expandRuleTarget :: HashMap Text Text -> RuleTarget Replacement -> RuleTarget Text
 expandRuleTarget _ JSONTarget = JSONTarget
+expandRuleTarget _ StaticTarget = StaticTarget
 expandRuleTarget varMap (TemplateTarget p) = TemplateTarget $ expandReplacement varMap p
 expandRuleTarget varMap (RedirectTarget p) = RedirectTarget $ expandReplacement varMap p
 
@@ -255,6 +261,29 @@ handleRequest project request respond = do
                                 status302
                                 [("Location", UTF8.fromString . unpack $ redirectPath)]
                                 ""
+
+                        StaticTarget -> do
+                            let go = do
+                                    backendPath <-
+                                        maybe (throwM NotFoundException) return $
+                                            lookup "file" backendPaths
+                                    backendData <-
+                                        loadBackendData (unpack backendPath) >>=
+                                            maybe (throwM NotFoundException) return
+                                    respond $ Wai.responseLBS
+                                        status200
+                                        [("Content-type", bdMimeType backendData)]
+                                        (bdRaw backendData)
+                                handle :: NotFoundException -> IO Wai.ResponseReceived
+                                handle _ =
+                                    respondTemplate
+                                        project
+                                        status404
+                                        "404.html"
+                                        (mapFromList [])
+                                        request
+                                        respond
+                            go `catch` handle
 
                         JSONTarget -> do
                             backendData <- fmap (JSON.Object . mapFromList) $

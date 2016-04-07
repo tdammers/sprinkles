@@ -4,6 +4,10 @@ Rules:
   data:
     menu: 'file://./data/menu.yml'
   template: 'home.html'
+- pattern: '/static/{{file:**}}'
+  data:
+    file: 'file://./static/{{file}}'
+  static: true
 - pattern: '/{{page:*}}'
   data:
     menu: 'file://./data/menu.yml'
