@@ -124,6 +124,12 @@ parsers =
     , ( ["application/x-markdown", "text/x-markdown"]
       , parsePandocDataString (Pandoc.readMarkdown Pandoc.def) "application/x-markdown"
       )
+    , ( ["application/x-textile", "text/x-textile"]
+      , parsePandocDataString (Pandoc.readTextile Pandoc.def) "application/x-textile"
+      )
+    , ( ["application/html", "text/html"]
+      , parsePandocDataString (Pandoc.readHtml Pandoc.def) "text/html;charset=utf8"
+      )
     ]
 
 parseRawData :: Monad m => MimeType-> LByteString -> m (BackendData n h)
