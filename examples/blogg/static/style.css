@@ -24,6 +24,16 @@ a:hover {
     text-decoration: underline;
 }
 
+blockquote {
+    font-style: italic;
+    font-family: serif;
+    border-left: solid 3px #DDD;
+    color: #666;
+    margin-left: 0;
+    padding: 0.25rem;
+    padding-left: 1rem;
+}
+
 hr {
     border: none;
     border-bottom: solid 1px #666;
