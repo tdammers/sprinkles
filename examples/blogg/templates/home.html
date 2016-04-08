@@ -2,8 +2,18 @@
 
 {%- block content %}
 {% for file in files %}
-<section>
-    <a href="/{{ file.basename }}">{{ file.basename }}</h1>
+<section class="page-preview">
+    {%- set page=load('file://./data/pages/' ~ file.filename)[0] -%}
+    <h1>
+        <a href="/{{ file.basename }}">
+            {{ (page.meta.title|default(page[0]|str)|default(file.basename))|ellipse(22) }}
+        </a>
+    </h1>
+    {%- if page.meta.excerpt %}
+    <p>{{ page.meta.excerpt }}</p>
+    {%- else -%}
+    <p>{{ page.body|str|ellipse(150) }}</p>
+    {% endif -%}
 </section>
 {% endfor %}
 {% endblock -%}

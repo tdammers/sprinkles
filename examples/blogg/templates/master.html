@@ -26,7 +26,7 @@
         </section>
         <section class="header">
             <section class="menu">
-            {{ render_menu({"sub":menu}) }}
+            {{ render_menu(load(sub="file://./data/menu.yml")) }}
             </section>
         </section>
         <section class="content">

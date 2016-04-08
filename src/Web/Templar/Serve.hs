@@ -78,6 +78,8 @@ respondTemplate project status templateName contextMap request respond = do
             contextMap <>
             mapFromList
                 [ "request" ~> request
+                , "load" ~> Ginger.fromFunction gfnLoadBackendData
+                , "ellipse" ~> Ginger.fromFunction gfnEllipse
                 ]
         contextLookup key = return . fromMaybe def $ lookup key contextMap'
         headers = [("Content-type", "text/html;charset=utf8")]
@@ -88,6 +90,37 @@ respondTemplate project status templateName contextMap request respond = do
             context = Ginger.makeContextHtmlM contextLookup writeHtml
         runGingerT context template
         flush
+    where
+        gfnLoadBackendData :: Ginger.Function (Ginger.Run IO Html)
+        gfnLoadBackendData args =
+            Ginger.dict <$> forM (zip [0..] args) loadPair
+        loadPair :: (Int, (Maybe Text, GVal (Ginger.Run IO Html))) -> Ginger.Run IO Html (Text, GVal (Ginger.Run IO Html))
+        loadPair (index, (keyMay, gBackendURL)) = do
+            let backendURL = unpack . Ginger.asText $ gBackendURL
+            backendData <- liftIO $ loadBackendData backendURL
+            return
+                ( fromMaybe (tshow index) keyMay
+                , fromMaybe def $ bdGVal <$> backendData
+                )
+        gfnEllipse :: Ginger.Function (Ginger.Run IO Html)
+        gfnEllipse [] = return def
+        gfnEllipse [(Nothing, str)] =
+            gfnEllipse [(Nothing, str), (Nothing, toGVal (100 :: Int))]
+        gfnEllipse [(Nothing, str), (Nothing, len)] = do
+            let txt = Ginger.asText str
+                actualLen = ClassyPrelude.length txt
+                targetLen = fromMaybe 100 $ ceiling <$> Ginger.asNumber len
+                txt' = if actualLen + 3 > targetLen
+                            then take (targetLen - 3) txt <> "..."
+                            else txt
+            return . toGVal $ txt'
+        gfnEllipse ((Nothing, str):xs) = do
+            let len = fromMaybe (toGVal (100 :: Int)) $ lookup (Just "len") xs
+            gfnEllipse [(Nothing, str), (Nothing, len)]
+        gfnEllipse xs = do
+            let str = fromMaybe def $ lookup (Just "str") xs
+            gfnEllipse $ (Nothing, str):xs
+
 
 data NotFoundException = NotFoundException
     deriving (Show)

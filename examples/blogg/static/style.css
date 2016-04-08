@@ -93,3 +93,27 @@ menu {
 menu menu {
     font-size: 12px;
 }
+
+.page-preview {
+    width: 15rem;
+    height: 15rem;
+    margin-right: 1rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    vertical-align: top;
+    display: inline-block;
+    overflow: hidden;
+    position: relative;
+}
+
+.page-preview:after {
+    position: absolute;
+    display: block;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(0deg, rgba(255,255,255,1.0), rgba(255,255,255,0));
+    height: 2rem;
+    content: '';
+    z-index: 1;
+}
