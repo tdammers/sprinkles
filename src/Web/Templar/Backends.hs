@@ -35,7 +35,9 @@ mimeMap =
         [ ("yml", "application/x-yaml")
         , ("yaml", "application/x-yaml")
         , ("md", "application/x-markdown")
+        , ("rst", "text/x-rst")
         , ("markdown", "application/x-markdown")
+        , ("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         ]
 
 mimeLookup :: FileName -> MimeType
@@ -78,6 +80,7 @@ fetchBackendData backendURLStr = do
         "https" -> fetchBackendDataHTTP backendURLStr
         "file" -> fetchBackendDataFile (drop 7 backendURLStr)
         "dir" -> fetchBackendDataFiles (drop 6 backendURLStr </> "*")
+        "glob" -> fetchBackendDataFiles (drop 7 backendURLStr)
         x -> fail $ "Unknown protocol: " <> show x
 
 fetchBackendDataFile :: String -> IO (Maybe (MimeType, LByteString))
@@ -167,8 +170,14 @@ parsers =
     , ( ["application/x-textile", "text/x-textile"]
       , parsePandocDataString (Pandoc.readTextile Pandoc.def) "application/x-textile"
       )
+    , ( ["application/x-rst", "text/x-rst"]
+      , parsePandocDataString (Pandoc.readRST Pandoc.def) "text/x-rst"
+      )
     , ( ["application/html", "text/html"]
       , parsePandocDataString (Pandoc.readHtml Pandoc.def) "text/html;charset=utf8"
+      )
+    , ( ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+      , parsePandocDataLBS (fmap fst . Pandoc.readDocx Pandoc.def) "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       )
     ]
 

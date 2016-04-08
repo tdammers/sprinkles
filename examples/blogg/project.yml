@@ -10,6 +10,7 @@ Rules:
   static: true
 - pattern: '/{{page:*}}'
   data:
+    file: 'glob://./data/pages/{{page}}.*'
     page: 'file://./data/pages/{{page}}.*'
   required: [ 'page' ]
   template: 'page.html'
