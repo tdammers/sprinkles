@@ -23,6 +23,10 @@ import Text.Pandoc (Pandoc)
 import Text.Pandoc.Error (PandocError)
 import Text.Ginger (ToGVal (..), GVal, Run (..), dict, (~>))
 import Web.Templar.PandocGVal
+import System.FilePath (takeFileName, takeBaseName)
+import System.FilePath.Glob (glob)
+import System.PosixCompat.Files
+import Foreign.C.Types (CTime (..))
 
 mimeMap :: MimeMap
 mimeMap =
@@ -68,18 +72,48 @@ fetchBackendData backendURLStr = do
         "http" -> fetchBackendDataHTTP backendURLStr
         "https" -> fetchBackendDataHTTP backendURLStr
         "file" -> fetchBackendDataFile (drop 7 backendURLStr)
+        "dir" -> fetchBackendDataFiles (drop 6 backendURLStr </> "*")
         x -> fail $ "Unknown protocol: " <> show x
 
 fetchBackendDataFile :: String -> IO (Maybe (MimeType, LByteString))
 fetchBackendDataFile filename = fetch `catchIOError` handle
     where
         fetch = do
-            let mimeType = mimeLookup . pack $ filename
-            contents <- readFile filename
-            return $ Just (mimeType, contents)
+            candidates <- glob filename
+            case candidates of
+                [] -> return Nothing
+                (candidate:_) -> do
+                    let mimeType = mimeLookup . pack $ candidate
+                    contents <- readFile candidate
+                    return $ Just (mimeType, contents)
         handle err
             | isDoesNotExistError err = return Nothing
             | otherwise = ioError err
+
+unCTime :: CTime -> Int64
+unCTime (CTime i) = i
+
+fetchBackendDataFiles :: String -> IO (Maybe (MimeType, LByteString))
+fetchBackendDataFiles filename = fetch `catchIOError` handle
+    where
+        fetch = do
+            candidates <- glob filename
+            listing <- forM candidates $ \candidate -> do
+                let mimeType = mimeLookup . pack $ candidate
+                status <- getFileStatus candidate
+                return $ JSON.object
+                    [ "type" .= decodeUtf8 mimeType
+                    , "path" .= candidate
+                    , "basename" .= takeBaseName candidate
+                    , "filename" .= takeFileName candidate
+                    , "size" .= (fromIntegral $ fileSize status :: Integer)
+                    , "mtime" .= (fromIntegral . unCTime $ modificationTime status :: Integer)
+                    ]
+            return $ Just ("application/json", JSON.encode listing)
+        handle err
+            | isDoesNotExistError err = return Nothing
+            | otherwise = ioError err
+
 
 fetchBackendDataHTTP :: String -> IO (Maybe (MimeType, LByteString))
 fetchBackendDataHTTP backendURLStr = do

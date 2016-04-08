@@ -47,6 +47,7 @@ library
                ,       safe
                ,       text
                ,       transformers
+               ,       unix-compat
                ,       unordered-containers
                ,       utf8-string
                ,       vector

@@ -1,1 +1,9 @@
 {% extends 'master.html' %}
+
+{%- block content %}
+{% for file in files %}
+<section>
+    <a href="/{{ file.basename }}">{{ file.basename }}</h1>
+</section>
+{% endfor %}
+{% endblock -%}

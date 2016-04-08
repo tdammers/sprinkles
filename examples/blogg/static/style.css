@@ -11,15 +11,59 @@ body {
     margin: 0;
 }
 
-.header {
-    box-shadow: 0px 0px 10px black;
-    padding: 1rem;
-    background: linear-gradient(0deg, #88F, #008);
-    color: white;
+a {
+    color: #666;
+    text-decoration: none;
 }
 
-.header a {
+a:visited {
+    color: #333;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+hr {
+    border: none;
+    border-bottom: solid 1px #666;
+}
+
+.hero {
+    padding: 0 1rem;
+    background-image: url('/static/img/archipelago.jpg');
+    background-size: cover;
+    background-position: 50% 80%;
     color: white;
+    text-shadow: 2px 2px 8px black;
+    font-weight: bold;
+    vertical-align: top;
+}
+
+.hero h1 {
+    font-size: 4rem;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+}
+
+.hero h3 {
+    font-size: 1.5rem;
+    line-height: 1.5;
+    margin: 0;
+    padding: 0;
+    padding-bottom: 0.5em;
+}
+
+.hero a {
+    color: white;
+    text-decoration: none;
+    margin: 0;
+    padding: 0;
+}
+
+.header {
+    padding: 1rem;
 }
 
 .content {
@@ -43,6 +87,7 @@ menu {
     padding: 0;
     margin: 0;
     text-indent: 0;
+    font-weight: bold;
 }
 
 menu menu {

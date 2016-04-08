@@ -3,6 +3,7 @@ Rules:
 - pattern: '/'
   data:
     menu: 'file://./data/menu.yml'
+    files: 'dir://./data/pages'
   template: 'home.html'
 - pattern: '/static/{{file:**}}'
   data:
@@ -11,11 +12,11 @@ Rules:
 - pattern: '/{{page:*}}'
   data:
     menu: 'file://./data/menu.yml'
-    page: 'file://./data/pages/{{page}}.md'
+    page: 'file://./data/pages/{{page}}.*'
   required: [ 'page' ]
   template: 'page.html'
 - pattern: '/{{page:*}}/json'
   data:
     menu: 'file://./data/menu.yml'
-    page: 'file://./data/pages/{{page}}.md'
+    page: 'file://./data/pages/{{page}}.*'
   required: [ 'page' ]
