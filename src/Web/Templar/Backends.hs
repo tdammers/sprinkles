@@ -53,7 +53,12 @@ instance ToJSON (BackendData m h) where
     toJSON = bdJSON
 
 jsonToBackend :: JSON.Value -> BackendData m h
-jsonToBackend val = BackendData val (toGVal val) (JSON.encode val) "application/json"
+jsonToBackend val =
+    BackendData
+        val
+        (toGVal val)
+        (JSON.encode val)
+        "application/json"
 
 loadBackendData :: String -> IO (Maybe (BackendData m h))
 loadBackendData backendURLStr = do
@@ -101,13 +106,14 @@ fetchBackendDataFiles filename = fetch `catchIOError` handle
             listing <- forM candidates $ \candidate -> do
                 let mimeType = mimeLookup . pack $ candidate
                 status <- getFileStatus candidate
+                let mtimeUnix = (fromIntegral . unCTime $ modificationTime status :: Integer)
                 return $ JSON.object
                     [ "type" .= decodeUtf8 mimeType
                     , "path" .= candidate
                     , "basename" .= takeBaseName candidate
                     , "filename" .= takeFileName candidate
                     , "size" .= (fromIntegral $ fileSize status :: Integer)
-                    , "mtime" .= (fromIntegral . unCTime $ modificationTime status :: Integer)
+                    , "mtime" .= mtimeUnix
                     ]
             return $ Just ("application/json", JSON.encode listing)
         handle err

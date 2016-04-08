@@ -102,6 +102,7 @@ respondTemplate project status templateName contextMap request respond = do
                 ( fromMaybe (tshow index) keyMay
                 , fromMaybe def $ bdGVal <$> backendData
                 )
+
         gfnEllipse :: Ginger.Function (Ginger.Run IO Html)
         gfnEllipse [] = return def
         gfnEllipse [(Nothing, str)] =

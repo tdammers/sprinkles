@@ -1,7 +1,7 @@
 {% extends 'master.html' %}
 
 {%- block content %}
-{% for file in files %}
+{% for file in files|sort(by="mtime", reverse=true) %}
 <section class="page-preview">
     {%- set page=load('file://./data/pages/' ~ file.filename)[0] -%}
     <h1>
@@ -9,6 +9,7 @@
             {{ (page.meta.title|default(page[0]|str)|default(file.basename))|ellipse(22) }}
         </a>
     </h1>
+    <p class="meta tiny">({{ file.type }}, {{ file.size }} bytes)</p>
     {%- if page.meta.excerpt %}
     <p>{{ page.meta.excerpt }}</p>
     {%- else -%}

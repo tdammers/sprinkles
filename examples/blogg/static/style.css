@@ -127,3 +127,7 @@ menu menu {
     content: '';
     z-index: 1;
 }
+
+.tiny {
+    font-size: 75%;
+}
