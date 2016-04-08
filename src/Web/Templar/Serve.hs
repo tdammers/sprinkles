@@ -78,7 +78,6 @@ respondTemplate project status templateName contextMap request respond = do
             contextMap <>
             mapFromList
                 [ "request" ~> request
-                , "foo" ~> ("bar" :: Text)
                 ]
         contextLookup key = return . fromMaybe def $ lookup key contextMap'
         headers = [("Content-type", "text/html;charset=utf8")]
