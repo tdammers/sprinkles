@@ -27,6 +27,7 @@ import System.FilePath (takeFileName, takeBaseName)
 import System.FilePath.Glob (glob)
 import System.PosixCompat.Files
 import Foreign.C.Types (CTime (..))
+import Data.Char (ord)
 
 mimeMap :: MimeMap
 mimeMap =
@@ -149,7 +150,8 @@ lookupHeader name headers =
     headMay [ v | HTTP.Header n v <- headers, n == name ]
 
 parseBackendData :: Monad m => MimeType -> LByteString -> m (BackendData n h)
-parseBackendData t =
+parseBackendData t' = do
+    let t = takeWhile (/= fromIntegral (ord ';')) t'
     fromMaybe (parseRawData t) $ lookup t parsersTable
 
 parsersTable :: Monad m => HashMap MimeType (LByteString -> m (BackendData n h))
