@@ -53,7 +53,6 @@ mimeLookup = mimeByExt mimeMap defaultMimeType
 
 data BackendType = HttpBackend Text Credentials
                  | FileBackend Text
-                 | DirBackend Text
                  deriving (Show)
 
 type instance Element BackendType = Text
@@ -61,7 +60,6 @@ type instance Element BackendType = Text
 instance MonoFunctor BackendType where
     omap f (HttpBackend t c) = HttpBackend (f t) c
     omap f (FileBackend t) = FileBackend (f t)
-    omap f (DirBackend t) = DirBackend (f t)
 
 data BackendSpec =
     BackendSpec
@@ -124,7 +122,7 @@ backendSpecFromJSON (Object obj) = do
             return (FileBackend (pack path), m)
         parseDirBackendSpec = do
             path <- obj .: "path"
-            return (DirBackend (pack $ path </> "*"), FetchAll)
+            return (FileBackend (pack $ path </> "*"), FetchAll)
 
 parseBackendURI :: Monad m => Text -> m BackendSpec
 parseBackendURI t = do
@@ -260,37 +258,6 @@ fetchBackendData (BackendSpec (FileBackend filepath) fetchMode) =
                         , bmSize = (Just . fromIntegral $ fileSize status :: Maybe Integer)
                         }
             return $ BackendSource meta contents
-fetchBackendData (BackendSpec (DirBackend filepath) fetchMode) =
-    fetch `catchIOError` handle
-    where
-        filename = unpack filepath
-        fetch = do
-            candidates' <- glob (filename </> "*")
-            hPutStrLn stderr $ show candidates'
-            let candidates =
-                    if fetchMode == FetchOne
-                        then take 1 candidates'
-                        else candidates'
-            mapM fetchOne candidates
-        handle err
-            | isDoesNotExistError err = return []
-            | otherwise = ioError err
-
-        fetchOne candidate = do
-            hPutStrLn stderr $ "fetching: " ++ show candidate
-            let mimeType = mimeLookup . pack $ candidate
-            hPutStrLn stderr $ show mimeType
-            status <- getFileStatus candidate
-            let mtimeUnix = modificationTime status
-                meta = BackendMeta
-                        { bmMimeType = mimeType
-                        , bmMTime = Just mtimeUnix
-                        , bmName = pack $ takeBaseName candidate
-                        , bmPath = pack candidate
-                        , bmSize = (Just . fromIntegral $ fileSize status :: Maybe Integer)
-                        }
-            hPutStrLn stderr $ show meta
-            return $ BackendSource meta (JSON.encode meta)
 fetchBackendData (BackendSpec (HttpBackend uriText credentials) fetchMode) = do
     backendURL <- maybe
         (fail $ "Invalid backend URL: " ++ show uriText)

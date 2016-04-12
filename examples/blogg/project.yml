@@ -2,7 +2,9 @@
 Rules:
 - pattern: '/'
   data:
-    files: 'dir://./data/pages'
+    files:
+      type: 'dir'
+      path: './data/pages'
   template: 'home.html'
 - pattern: '/static/{{file:**}}'
   data:
