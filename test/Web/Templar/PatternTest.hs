@@ -7,6 +7,7 @@ import ClassyPrelude
 import Web.Templar.Pattern
 import Test.Tasty
 import Test.Tasty.HUnit
+import qualified Text.Regex.PCRE as RE
 
 patternTests =
     testGroup "Web.Templar.Pattern"
@@ -19,6 +20,7 @@ patternTests =
 matchPatternTests = testGroup "matchPattern"
     [ matchPatternSingleExactlyTest
     , matchPatternSingleAnyOneTest
+    , matchPatternSingleRegexTest
     , matchPatternCombinedExactlyAnyOneTest
     , matchFailExcessiveTest
     , matchRealWorldExampleTest1
@@ -38,6 +40,18 @@ matchPatternSingleAnyOneTest =
             query = "hello"
             actual = matchPattern pattern query
             expected = Just $ mapFromList [("who", "hello")]
+        assertEqual "" expected actual
+
+matchPatternSingleRegexTest =
+    testCase "single Regex" $ do
+        let pattern = Pattern
+                        [ PatternItem
+                            (Just "who")
+                            (Regex "hello, [a-z]*" RE.compBlank)
+                        ]
+            query = "hello, world"
+            actual = matchPattern pattern query
+            expected = Just $ mapFromList [("who", "hello, world")]
         assertEqual "" expected actual
 
 matchPatternCombinedExactlyAnyOneTest =
@@ -82,6 +96,7 @@ parsePatternTests =
         , parseNamedExactlyTest
         , parseSimpleAnyOneTest
         , parseNamedAnyOneTest
+        , parseNamedRegexTest
         , parseShorthandAnyOneTest
         , parseSimpleAnyTest
         , parseNamedAnyTest
@@ -130,6 +145,15 @@ parseNamedAnyOneTest =
         let src = "{{who:*}}"
             expected = Just $ Pattern
                         [ PatternItem (Just "who") AnyOne
+                        ]
+            actual = parsePattern src
+        assertEqual "" expected actual
+
+parseNamedRegexTest =
+    testCase "parse named Regex" $ do
+        let src = "{{who:/foo/}}"
+            expected = Just $ Pattern
+                        [ PatternItem (Just "who") (Regex "foo" RE.compBlank)
                         ]
             actual = parsePattern src
         assertEqual "" expected actual

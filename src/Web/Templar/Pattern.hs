@@ -10,13 +10,19 @@ module Web.Templar.Pattern
 where
 
 import ClassyPrelude hiding ( (<|>) )
-import Text.Parsec
+import Text.Parsec as Parsec
 import qualified Data.Text as Text
 import Data.Aeson as JSON
 import Data.Aeson.TH as JSON
+import Text.Regex.PCRE.String as RE
+import Text.Regex.Base as RE
+import qualified Data.Array as Array
+import Control.MaybeEitherMonad
+import System.IO.Unsafe (unsafePerformIO)
 
 data BasePatternItem =
     Exactly Text |
+    Regex String RE.CompOption |
     AnyOne |
     Any
     deriving (Eq, Show)
@@ -53,7 +59,7 @@ namedP = do
     char '{'
     char '{'
     name <- optionMaybe $ fmap pack (some alphaNum <* char ':')
-    base <- anyP <|> literalP
+    base <- regexP <|> anyP <|> literalP
     char '}'
     char '}'
     return $ PatternItem name base
@@ -65,6 +71,23 @@ anyP = do
 
 literalP :: Parsec Text () BasePatternItem
 literalP = Exactly . pack <$> some (noneOf ['{', '}', '*'])
+
+regexP :: Parsec Text () BasePatternItem
+regexP = do
+    char '/'
+    body <- Parsec.many regexCharP
+    char '/'
+    options <- sum <$> Parsec.many regexOptionP
+    return $ Regex body options
+
+regexCharP :: Parsec Text () Char
+regexCharP = (char '\\' >> char '/') <|> noneOf "/"
+
+regexOptionP :: Parsec Text () RE.CompOption
+regexOptionP = (char 'm' >> return RE.compMultiline)
+             <|> (char 'e' >> return RE.compExtended)
+             <|> (char 'i' >> return RE.compCaseless)
+             <|> (char 'u' >> return RE.compUTF8)
 
 anonymousLiteralP = PatternItem Nothing <$> literalP
 
@@ -95,3 +118,10 @@ matchBaseItem AnyOne query =
     in matchBaseItem (Exactly t) query
 matchBaseItem Any query =
     matchBaseItem (Exactly query) query
+matchBaseItem (Regex body options) query = unsafePerformIO $ do
+    re <- RE.compile options RE.execAnchored body >>= eitherFail
+    matches <- RE.execute re (unpack query) >>= eitherFail
+    case Array.elems <$> matches of
+        Just ((offset, length):_) ->
+            return . Just $ splitAt length (drop offset query)
+        _ -> return Nothing
