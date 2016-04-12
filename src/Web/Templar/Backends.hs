@@ -189,13 +189,13 @@ instance ToGVal (Run m h) (BackendData m h) where
     toGVal bd =
         let baseVal = bdGVal bd
             baseLookup = fromMaybe (const def) $ Ginger.asLookup baseVal
-            baseDictItems = fromMaybe [] $ Ginger.asDictItems baseVal
+            baseDictItems = Ginger.asDictItems baseVal
         in baseVal
             { Ginger.asLookup = Just $ \case
                 "props" -> return . toGVal . bdMeta $ bd
                 k -> baseLookup k
-            , Ginger.asDictItems = Just $
-                ("props" ~> bdMeta bd):baseDictItems
+            , Ginger.asDictItems =
+                (("props" ~> bdMeta bd):) <$> baseDictItems
             }
 
 data BackendMeta =
