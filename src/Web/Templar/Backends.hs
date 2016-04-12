@@ -35,6 +35,7 @@ import Foreign.C.Types (CTime (..))
 import Data.Char (ord)
 import qualified Text.Ginger as Ginger
 import Data.Default (def)
+import System.Random.Shuffle (shuffleM)
 
 mimeMap :: MimeMap
 mimeMap =
@@ -65,20 +66,37 @@ data BackendSpec =
     BackendSpec
         { bsType :: BackendType
         , bsFetchMode :: FetchMode
+        , bsOrder :: FetchOrder
         }
         deriving (Show)
 
 type instance Element BackendSpec = Text
 
 instance MonoFunctor BackendSpec where
-    omap f (BackendSpec t m) = BackendSpec (omap f t) m
+    omap f (BackendSpec t m o) = BackendSpec (omap f t) m o
 
-data FetchMode = FetchOne | FetchAll
+data FetchMode = FetchOne | FetchAll | FetchN Int
     deriving (Show, Read, Eq)
 
 instance FromJSON FetchMode where
     parseJSON (String "one") = return FetchOne
     parseJSON (String "all") = return FetchAll
+    parseJSON (Number n) = return . FetchN . ceiling $ n
+    parseJSON _ = fail "Invalid fetch mode (want 'one' or 'all')"
+
+data FetchOrder = ArbitraryOrder -- ^ Do not impose any ordering at all
+                | RandomOrder -- ^ Shuffle randomly
+                | OrderByName -- ^ Order by reported name
+                | OrderByMTime -- ^ Order by modification time
+                deriving (Show, Read, Eq)
+
+instance FromJSON FetchOrder where
+    parseJSON Null = return ArbitraryOrder
+    parseJSON (String "arbitrary") = return ArbitraryOrder
+    parseJSON (String "random") = return RandomOrder
+    parseJSON (String "shuffle") = return RandomOrder
+    parseJSON (String "name") = return OrderByName
+    parseJSON (String "mtime") = return OrderByMTime
     parseJSON _ = fail "Invalid fetch mode (want 'one' or 'all')"
 
 instance FromJSON BackendSpec where
@@ -112,7 +130,8 @@ backendSpecFromJSON (Object obj) = do
             "glob" -> parseFileBackendSpec FetchAll
             "dir" -> parseDirBackendSpec
     fetchMode <- obj .:? "fetch" .!= defFetchMode
-    return $ BackendSpec t fetchMode
+    fetchOrder <- obj .:? "order" .!= ArbitraryOrder
+    return $ BackendSpec t fetchMode fetchOrder
     where
         parseHttpBackendSpec = do
             t <- obj .: "uri"
@@ -134,14 +153,16 @@ parseBackendURI t = do
                 BackendSpec
                     (HttpBackend t AnonymousCredentials)
                     FetchOne
+                    ArbitraryOrder
         "https" ->
             return $
                 BackendSpec
                     (HttpBackend t AnonymousCredentials)
                     FetchOne
-        "dir" -> return $ BackendSpec (FileBackend (pack $ unpack path </> "*")) FetchAll
-        "glob" -> return $ BackendSpec (FileBackend path) FetchAll
-        "file" -> return $ BackendSpec (FileBackend path) FetchOne
+                    ArbitraryOrder
+        "dir" -> return $ BackendSpec (FileBackend (pack $ unpack path </> "*")) FetchAll ArbitraryOrder
+        "glob" -> return $ BackendSpec (FileBackend path) FetchAll ArbitraryOrder
+        "file" -> return $ BackendSpec (FileBackend path) FetchOne ArbitraryOrder
         _ -> fail $ "Unknown protocol: " <> show protocol
 
 data Credentials = AnonymousCredentials
@@ -169,7 +190,16 @@ data BackendSource =
 loadBackendData :: BackendSpec -> IO (Items (BackendData m h))
 loadBackendData bspec =
     fmap (reduceItems (bsFetchMode bspec)) $
-        fetchBackendData bspec >>= mapM parseBackendData
+        fetchBackendData bspec >>=
+        mapM parseBackendData >>=
+        sorter
+    where
+        sorter :: [BackendData m h] -> IO [BackendData m h]
+        sorter = case bsOrder bspec of
+            ArbitraryOrder -> return
+            RandomOrder -> shuffleM
+            OrderByName -> return . sortOn (bmName . bdMeta)
+            OrderByMTime -> return . sortOn (bmMTime . bdMeta)
 
 toBackendData :: (ToJSON a, ToGVal (Run m h) a) => BackendSource -> a -> BackendData m h
 toBackendData src val =
@@ -226,18 +256,14 @@ instance Ginger.ToGVal m BackendMeta where
         ]
 
 fetchBackendData :: BackendSpec -> IO [BackendSource]
-fetchBackendData (BackendSpec (FileBackend filepath) fetchMode) =
+fetchBackendData (BackendSpec (FileBackend filepath) fetchMode fetchOrder) =
     fetch `catchIOError` handle
     where
         filename = unpack filepath
         fetch = do
-            candidates' <- if '*' `elem` filename
+            candidates <- if '*' `elem` filename
                 then glob filename
                 else return [filename]
-            let candidates =
-                    if fetchMode == FetchOne
-                        then take 1 candidates'
-                        else candidates'
             mapM fetchOne candidates
         handle err
             | isDoesNotExistError err = return []
@@ -258,7 +284,7 @@ fetchBackendData (BackendSpec (FileBackend filepath) fetchMode) =
                         , bmSize = (Just . fromIntegral $ fileSize status :: Maybe Integer)
                         }
             return $ BackendSource meta contents
-fetchBackendData (BackendSpec (HttpBackend uriText credentials) fetchMode) = do
+fetchBackendData (BackendSpec (HttpBackend uriText credentials) fetchMode fetchOrder) = do
     backendURL <- maybe
         (fail $ "Invalid backend URL: " ++ show uriText)
         return
