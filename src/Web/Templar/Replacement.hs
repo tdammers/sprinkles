@@ -9,6 +9,7 @@
 module Web.Templar.Replacement
 ( Replacement
 , expandReplacement
+, expandReplacementText
 )
 where
 
@@ -27,6 +28,10 @@ newtype Replacement = Replacement Template
 
 instance FromJSON Replacement where
     parseJSON val = (maybe (fail "invalid replacement") return . parseReplacement) =<< parseJSON val
+
+expandReplacementText :: HashMap Text Text -> Text -> Maybe Text
+expandReplacementText variables input = do
+    expandReplacement variables <$> parseReplacement input
 
 parseReplacement :: Text -> Maybe Replacement
 parseReplacement input =

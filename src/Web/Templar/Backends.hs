@@ -1,5 +1,10 @@
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
+{-#LANGUAGE TypeFamilies #-}
+{-#LANGUAGE MultiParamTypeClasses #-}
+{-#LANGUAGE FlexibleInstances #-}
+{-#LANGUAGE FlexibleContexts #-}
+{-#LANGUAGE LambdaCase #-}
 module Web.Templar.Backends
 where
 
@@ -17,7 +22,7 @@ import Network.Mime
             , defaultMimeType
             , FileName
             )
-import Network.URI (parseURI)
+import Network.URI (parseURI, URI)
 import qualified Text.Pandoc as Pandoc
 import Text.Pandoc (Pandoc)
 import Text.Pandoc.Error (PandocError)
@@ -28,6 +33,8 @@ import System.FilePath.Glob (glob)
 import System.PosixCompat.Files
 import Foreign.C.Types (CTime (..))
 import Data.Char (ord)
+import qualified Text.Ginger as Ginger
+import Data.Default (def)
 
 mimeMap :: MimeMap
 mimeMap =
@@ -44,121 +51,291 @@ mimeMap =
 mimeLookup :: FileName -> MimeType
 mimeLookup = mimeByExt mimeMap defaultMimeType
 
+data BackendType = HttpBackend Text Credentials
+                 | FileBackend Text
+                 | DirBackend Text
+                 deriving (Show)
+
+type instance Element BackendType = Text
+
+instance MonoFunctor BackendType where
+    omap f (HttpBackend t c) = HttpBackend (f t) c
+    omap f (FileBackend t) = FileBackend (f t)
+    omap f (DirBackend t) = DirBackend (f t)
+
+data BackendSpec =
+    BackendSpec
+        { bsType :: BackendType
+        , bsFetchMode :: FetchMode
+        }
+        deriving (Show)
+
+type instance Element BackendSpec = Text
+
+instance MonoFunctor BackendSpec where
+    omap f (BackendSpec t m) = BackendSpec (omap f t) m
+
+data FetchMode = FetchOne | FetchAll
+    deriving (Show, Read, Eq)
+
+instance FromJSON FetchMode where
+    parseJSON (String "one") = return FetchOne
+    parseJSON (String "all") = return FetchAll
+    parseJSON _ = fail "Invalid fetch mode (want 'one' or 'all')"
+
+instance FromJSON BackendSpec where
+    parseJSON = backendSpecFromJSON
+
+data Items a = NotFound | SingleItem a | MultiItem [a]
+
+reduceItems :: FetchMode -> [a] -> Items a
+reduceItems FetchOne [] = NotFound
+reduceItems FetchOne (x:_) = SingleItem x
+reduceItems FetchAll xs = MultiItem xs
+
+instance ToGVal m a => ToGVal m (Items a) where
+    toGVal NotFound = def
+    toGVal (SingleItem x) = toGVal x
+    toGVal (MultiItem xs) = toGVal xs
+
+instance ToJSON a => ToJSON (Items a) where
+    toJSON NotFound = Null
+    toJSON (SingleItem x) = toJSON x
+    toJSON (MultiItem xs) = toJSON xs
+
+backendSpecFromJSON (String uri) =
+    parseBackendURI uri
+backendSpecFromJSON (Object obj) = do
+    bsTypeStr <- obj .: "type"
+    (t, defFetchMode) <- case bsTypeStr :: Text of
+            "http" -> parseHttpBackendSpec
+            "https" -> parseHttpBackendSpec
+            "file" -> parseFileBackendSpec FetchOne
+            "glob" -> parseFileBackendSpec FetchAll
+            "dir" -> parseDirBackendSpec
+    fetchMode <- obj .:? "fetch" .!= defFetchMode
+    return $ BackendSpec t fetchMode
+    where
+        parseHttpBackendSpec = do
+            t <- obj .: "uri"
+            return (HttpBackend t AnonymousCredentials, FetchOne)
+        parseFileBackendSpec m = do
+            path <- obj .: "path"
+            return (FileBackend (pack path), m)
+        parseDirBackendSpec = do
+            path <- obj .: "path"
+            return (DirBackend (pack $ path </> "*"), FetchAll)
+
+parseBackendURI :: Monad m => Text -> m BackendSpec
+parseBackendURI t = do
+    let protocol = takeWhile (/= ':') t
+        path = drop (length protocol + 3) t
+    case protocol of
+        "http" ->
+            return $
+                BackendSpec
+                    (HttpBackend t AnonymousCredentials)
+                    FetchOne
+        "https" ->
+            return $
+                BackendSpec
+                    (HttpBackend t AnonymousCredentials)
+                    FetchOne
+        "dir" -> return $ BackendSpec (FileBackend (pack $ unpack path </> "*")) FetchAll
+        "glob" -> return $ BackendSpec (FileBackend path) FetchAll
+        "file" -> return $ BackendSpec (FileBackend path) FetchOne
+        _ -> fail $ "Unknown protocol: " <> show protocol
+
+data Credentials = AnonymousCredentials
+    deriving (Show)
+
+instance FromJSON Credentials where
+    parseJSON Null = return AnonymousCredentials
+    parseJSON (String "anonymous") = return AnonymousCredentials
+    parseJSON _ = fail "Invalid credentials"
+
 data BackendData m h =
     BackendData
         { bdJSON :: JSON.Value
         , bdGVal :: GVal (Run m h)
         , bdRaw :: LByteString
-        , bdMimeType :: MimeType
+        , bdMeta :: BackendMeta
+        }
+
+data BackendSource =
+    BackendSource
+        { bsMeta :: BackendMeta
+        , bsSource :: LByteString
+        }
+
+loadBackendData :: BackendSpec -> IO (Items (BackendData m h))
+loadBackendData bspec =
+    fmap (reduceItems (bsFetchMode bspec)) $
+        fetchBackendData bspec >>= mapM parseBackendData
+
+toBackendData :: (ToJSON a, ToGVal (Run m h) a) => BackendSource -> a -> BackendData m h
+toBackendData src val =
+    BackendData
+        { bdJSON = toJSON val
+        , bdGVal = toGVal val
+        , bdRaw = bsSource src
+        , bdMeta = bsMeta src
         }
 
 instance ToJSON (BackendData m h) where
     toJSON = bdJSON
 
-jsonToBackend :: JSON.Value -> BackendData m h
-jsonToBackend val =
-    BackendData
-        val
-        (toGVal val)
-        (JSON.encode val)
-        "application/json"
+instance ToGVal (Run m h) (BackendData m h) where
+    toGVal bd =
+        let baseVal = bdGVal bd
+            baseLookup = fromMaybe (const def) $ Ginger.asLookup baseVal
+            baseDictItems = fromMaybe [] $ Ginger.asDictItems baseVal
+        in baseVal
+            { Ginger.asLookup = Just $ \case
+                "props" -> return . toGVal . bdMeta $ bd
+                k -> baseLookup k
+            , Ginger.asDictItems = Just $
+                ("props" ~> bdMeta bd):baseDictItems
+            }
 
-loadBackendData :: String -> IO (Maybe (BackendData m h))
-loadBackendData backendURLStr = do
-    fetchedMay <- fetchBackendData backendURLStr
-    case fetchedMay of
-        Nothing ->
-            return Nothing
-        Just (mimeType, responseBody) -> do
-            beData <- parseBackendData mimeType responseBody
-            return $ Just beData
+data BackendMeta =
+    BackendMeta
+        { bmMimeType :: MimeType
+        , bmMTime :: Maybe CTime
+        , bmName :: Text
+        , bmPath :: Text
+        , bmSize :: Maybe Integer
+        }
+        deriving (Show)
 
-fetchBackendData :: String -> IO (Maybe (MimeType, LByteString))
-fetchBackendData backendURLStr = do
-    let protocol = takeWhile (/= ':') backendURLStr
-    case protocol of
-        "http" -> fetchBackendDataHTTP backendURLStr
-        "https" -> fetchBackendDataHTTP backendURLStr
-        "file" -> fetchBackendDataFile (drop 7 backendURLStr)
-        "dir" -> fetchBackendDataFiles (drop 6 backendURLStr </> "*")
-        "glob" -> fetchBackendDataFiles (drop 7 backendURLStr)
-        x -> fail $ "Unknown protocol: " <> show x
+instance ToJSON BackendMeta where
+    toJSON bm =
+        JSON.object
+            [ "mimeType" .= decodeUtf8 (bmMimeType bm)
+            , "mtime" .= (fromIntegral . unCTime <$> bmMTime bm :: Maybe Integer)
+            , "name" .= bmName bm
+            , "path" .= bmPath bm
+            , "size" .= bmSize bm
+            ]
 
-fetchBackendDataFile :: String -> IO (Maybe (MimeType, LByteString))
-fetchBackendDataFile filename = fetch `catchIOError` handle
+instance Ginger.ToGVal m BackendMeta where
+    toGVal bm = Ginger.dict
+        [ "type" ~> decodeUtf8 (bmMimeType bm)
+        , "mtime" ~> (fromIntegral . unCTime <$> bmMTime bm :: Maybe Integer)
+        , "name" ~> bmName bm
+        , "path" ~> bmPath bm
+        , "size" ~> bmSize bm
+        ]
+
+fetchBackendData :: BackendSpec -> IO [BackendSource]
+fetchBackendData (BackendSpec (FileBackend filepath) fetchMode) =
+    fetch `catchIOError` handle
     where
+        filename = unpack filepath
         fetch = do
-            candidates <- glob filename
-            case candidates of
-                [] -> return Nothing
-                (candidate:_) -> do
-                    let mimeType = mimeLookup . pack $ candidate
-                    contents <- readFile candidate
-                    return $ Just (mimeType, contents)
+            candidates' <- if '*' `elem` filename
+                then glob filename
+                else return [filename]
+            let candidates =
+                    if fetchMode == FetchOne
+                        then take 1 candidates'
+                        else candidates'
+            mapM fetchOne candidates
         handle err
-            | isDoesNotExistError err = return Nothing
+            | isDoesNotExistError err = return []
             | otherwise = ioError err
 
-unCTime :: CTime -> Int64
-unCTime (CTime i) = i
-
-fetchBackendDataFiles :: String -> IO (Maybe (MimeType, LByteString))
-fetchBackendDataFiles filename = fetch `catchIOError` handle
+        fetchOne candidate = do
+            let mimeType = mimeLookup . pack $ candidate
+            contents <- readFile candidate `catchIOError` \err -> do
+                hPutStrLn stderr $ show err
+                return ""
+            status <- getFileStatus candidate
+            let mtimeUnix = modificationTime status
+                meta = BackendMeta
+                        { bmMimeType = mimeType
+                        , bmMTime = Just mtimeUnix
+                        , bmName = pack $ takeBaseName candidate
+                        , bmPath = pack candidate
+                        , bmSize = (Just . fromIntegral $ fileSize status :: Maybe Integer)
+                        }
+            return $ BackendSource meta contents
+fetchBackendData (BackendSpec (DirBackend filepath) fetchMode) =
+    fetch `catchIOError` handle
     where
+        filename = unpack filepath
         fetch = do
-            candidates <- glob filename
-            listing <- forM candidates $ \candidate -> do
-                let mimeType = mimeLookup . pack $ candidate
-                status <- getFileStatus candidate
-                let mtimeUnix = (fromIntegral . unCTime $ modificationTime status :: Integer)
-                return $ JSON.object
-                    [ "type" .= decodeUtf8 mimeType
-                    , "path" .= candidate
-                    , "basename" .= takeBaseName candidate
-                    , "filename" .= takeFileName candidate
-                    , "size" .= (fromIntegral $ fileSize status :: Integer)
-                    , "mtime" .= mtimeUnix
-                    ]
-            return $ Just ("application/json", JSON.encode listing)
+            candidates' <- glob (filename </> "*")
+            hPutStrLn stderr $ show candidates'
+            let candidates =
+                    if fetchMode == FetchOne
+                        then take 1 candidates'
+                        else candidates'
+            mapM fetchOne candidates
         handle err
-            | isDoesNotExistError err = return Nothing
+            | isDoesNotExistError err = return []
             | otherwise = ioError err
 
-
-fetchBackendDataHTTP :: String -> IO (Maybe (MimeType, LByteString))
-fetchBackendDataHTTP backendURLStr = do
+        fetchOne candidate = do
+            hPutStrLn stderr $ "fetching: " ++ show candidate
+            let mimeType = mimeLookup . pack $ candidate
+            hPutStrLn stderr $ show mimeType
+            status <- getFileStatus candidate
+            let mtimeUnix = modificationTime status
+                meta = BackendMeta
+                        { bmMimeType = mimeType
+                        , bmMTime = Just mtimeUnix
+                        , bmName = pack $ takeBaseName candidate
+                        , bmPath = pack candidate
+                        , bmSize = (Just . fromIntegral $ fileSize status :: Maybe Integer)
+                        }
+            hPutStrLn stderr $ show meta
+            return $ BackendSource meta (JSON.encode meta)
+fetchBackendData (BackendSpec (HttpBackend uriText credentials) fetchMode) = do
     backendURL <- maybe
-        (fail $ "Invalid backend URL: " ++ backendURLStr)
+        (fail $ "Invalid backend URL: " ++ show uriText)
         return
-        (parseURI backendURLStr)
+        (parseURI $ unpack uriText)
     let backendRequest =
             HTTP.Request
                 backendURL
                 HTTP.GET
                 []
                 ""
-    backendResponse <- HTTP.simpleHTTP backendRequest
-    backendBody <- HTTP.getResponseBody backendResponse
-    headers <- case backendResponse of
+    response <- HTTP.simpleHTTP backendRequest
+    body <- HTTP.getResponseBody response
+    headers <- case response of
                     Left err -> fail (show err)
                     Right resp -> return $ HTTP.getHeaders resp
-    let backendType = encodeUtf8 . pack . fromMaybe "text/plain" . lookupHeader HTTP.HdrContentType $ headers
-    return $ Just (backendType, backendBody)
+    let mimeType = encodeUtf8 . pack . fromMaybe "text/plain" . lookupHeader HTTP.HdrContentType $ headers
+        contentLength = lookupHeader HTTP.HdrContentLength headers >>= readMay
+        meta = BackendMeta
+                { bmMimeType = mimeType
+                , bmMTime = Nothing
+                , bmName = pack . takeBaseName . unpack $ uriText
+                , bmPath = uriText
+                , bmSize = contentLength
+                }
+    return [BackendSource meta body]
+
+unCTime :: CTime -> Int64
+unCTime (CTime i) = i
 
 lookupHeader :: HTTP.HeaderName -> [HTTP.Header] -> Maybe String
 lookupHeader name headers =
     headMay [ v | HTTP.Header n v <- headers, n == name ]
 
-parseBackendData :: Monad m => MimeType -> LByteString -> m (BackendData n h)
-parseBackendData t' = do
-    let t = takeWhile (/= fromIntegral (ord ';')) t'
-    fromMaybe (parseRawData t) $ lookup t parsersTable
+parseBackendData :: Monad m => BackendSource -> m (BackendData n h)
+parseBackendData item@(BackendSource meta body) = do
+    let t = takeWhile (/= fromIntegral (ord ';')) (bmMimeType meta)
+        parse = fromMaybe parseRawData $ lookup t parsersTable
+    parse item
 
-parsersTable :: Monad m => HashMap MimeType (LByteString -> m (BackendData n h))
+parsersTable :: Monad m => HashMap MimeType (BackendSource -> m (BackendData n h))
 parsersTable = mapFromList . mconcat $
     [ zip mimeTypes (repeat parser) | (mimeTypes, parser) <- parsers ]
 
-parsers :: Monad m => [([MimeType], (LByteString -> m (BackendData n h)))]
+parsers :: Monad m => [([MimeType], (BackendSource -> m (BackendData n h)))]
 parsers =
     [ ( ["application/json", "text/json"]
       , parseJSONData
@@ -167,63 +344,55 @@ parsers =
       , parseYamlData
       )
     , ( ["application/x-markdown", "text/x-markdown"]
-      , parsePandocDataString (Pandoc.readMarkdown Pandoc.def) "application/x-markdown"
+      , parsePandocDataString (Pandoc.readMarkdown Pandoc.def)
       )
     , ( ["application/x-textile", "text/x-textile"]
-      , parsePandocDataString (Pandoc.readTextile Pandoc.def) "application/x-textile"
+      , parsePandocDataString (Pandoc.readTextile Pandoc.def)
       )
     , ( ["application/x-rst", "text/x-rst"]
-      , parsePandocDataString (Pandoc.readRST Pandoc.def) "text/x-rst"
+      , parsePandocDataString (Pandoc.readRST Pandoc.def)
       )
     , ( ["application/html", "text/html"]
-      , parsePandocDataString (Pandoc.readHtml Pandoc.def) "text/html;charset=utf8"
+      , parsePandocDataString (Pandoc.readHtml Pandoc.def)
       )
     , ( ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
-      , parsePandocDataLBS (fmap fst . Pandoc.readDocx Pandoc.def) "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      , parsePandocDataLBS (fmap fst . Pandoc.readDocx Pandoc.def)
       )
     ]
 
-parseRawData :: Monad m => MimeType-> LByteString -> m (BackendData n h)
-parseRawData mimeType input =
+parseRawData :: Monad m => BackendSource -> m (BackendData n h)
+parseRawData (BackendSource meta body) =
     return $ BackendData
         { bdJSON = JSON.Null
         , bdGVal = toGVal JSON.Null
-        , bdRaw = input
-        , bdMimeType = mimeType
+        , bdMeta = meta
+        , bdRaw = body
         }
 
-parseJSONData :: Monad m => LByteString -> m (BackendData n h)
-parseJSONData jsonSrc =
-    case JSON.eitherDecode jsonSrc of
-        Left err -> fail $ err ++ "\n" ++ show jsonSrc
-        Right json -> return . jsonToBackend $ (json :: JSON.Value)
+parseJSONData :: Monad m => BackendSource -> m (BackendData n h)
+parseJSONData item@(BackendSource meta body) =
+    case JSON.eitherDecode body of
+        Left err -> fail $ err ++ "\n" ++ show body
+        Right json -> return . toBackendData item $ (json :: JSON.Value)
 
-parseYamlData :: Monad m => LByteString -> m (BackendData n h)
-parseYamlData yamlSrc =
-    case YAML.decodeEither (toStrict yamlSrc) of
-        Left err -> fail $ err ++ "\n" ++ show yamlSrc
-        Right json -> return . jsonToBackend $ (json :: JSON.Value)
+parseYamlData :: Monad m => BackendSource -> m (BackendData n h)
+parseYamlData item@(BackendSource meta body) =
+    case YAML.decodeEither (toStrict body) of
+        Left err -> fail $ err ++ "\n" ++ show body
+        Right json -> return . toBackendData item $ (json :: JSON.Value)
 
 parsePandocDataLBS :: Monad m
                    => (LByteString -> Either PandocError Pandoc)
-                   -> MimeType
-                   -> LByteString
+                   -> BackendSource
                    -> m (BackendData n h)
-parsePandocDataLBS reader mimeType input = do
-    case reader input of
+parsePandocDataLBS reader input@(BackendSource meta body) = do
+    case reader body of
         Left err -> fail . show $ err
-        Right pandoc ->
-            return $ BackendData
-                        { bdJSON = toJSON pandoc
-                        , bdGVal = toGVal pandoc
-                        , bdRaw = input
-                        , bdMimeType = mimeType
-                        }
+        Right pandoc -> return $ toBackendData input pandoc
 
 parsePandocDataString :: Monad m
                    => (String -> Either PandocError Pandoc)
-                   -> MimeType
-                   -> LByteString
+                   -> BackendSource
                    -> m (BackendData n h)
 parsePandocDataString reader =
     parsePandocDataLBS (reader . unpack . decodeUtf8)

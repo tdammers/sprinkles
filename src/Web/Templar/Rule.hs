@@ -7,7 +7,9 @@ where
 import ClassyPrelude
 import Web.Templar.Pattern
 import Web.Templar.Replacement
+import Web.Templar.Backends
 import Data.Aeson as JSON
+import Control.MaybeEitherMonad
 
 data RuleTarget p =
     TemplateTarget p |
@@ -19,7 +21,7 @@ data RuleTarget p =
 data Rule =
     Rule
         { ruleRoutePattern :: Pattern
-        , ruleContextData :: HashMap Text Replacement
+        , ruleContextData :: HashMap Text BackendSpec
         , ruleTarget :: RuleTarget Replacement
         , ruleRequired :: Set Text
         }
@@ -45,18 +47,21 @@ expandRuleTarget _ StaticTarget = StaticTarget
 expandRuleTarget varMap (TemplateTarget p) = TemplateTarget $ expandReplacement varMap p
 expandRuleTarget varMap (RedirectTarget p) = RedirectTarget $ expandReplacement varMap p
 
-applyRule :: Rule -> Text -> Maybe (HashMap Text Text, Set Text, RuleTarget Text)
+applyRule :: Rule -> Text -> Maybe (HashMap Text BackendSpec, Set Text, RuleTarget Text)
 applyRule rule query = do
     varMap <- matchPattern (ruleRoutePattern rule) query
     let f :: Replacement -> Text
         f pathPattern = expandReplacement varMap pathPattern
+        expandReplacementBackend :: BackendSpec -> BackendSpec
+        expandReplacementBackend =
+            omap (maybeThrow . expandReplacementText varMap)
     return
-        ( fmap (expandReplacement varMap) (ruleContextData rule)
+        ( fmap expandReplacementBackend (ruleContextData rule)
         , ruleRequired rule
         , expandRuleTarget varMap (ruleTarget rule)
         )
 
-applyRules :: [Rule] -> Text -> Maybe (HashMap Text Text, Set Text, RuleTarget Text)
+applyRules :: [Rule] -> Text -> Maybe (HashMap Text BackendSpec, Set Text, RuleTarget Text)
 applyRules [] _ = Nothing
 applyRules (rule:rules) query =
     applyRule rule query <|> applyRules rules query

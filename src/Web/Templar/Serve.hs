@@ -94,13 +94,15 @@ respondTemplate project status templateName contextMap request respond = do
         gfnLoadBackendData :: Ginger.Function (Ginger.Run IO Html)
         gfnLoadBackendData args =
             Ginger.dict <$> forM (zip [0..] args) loadPair
-        loadPair :: (Int, (Maybe Text, GVal (Ginger.Run IO Html))) -> Ginger.Run IO Html (Text, GVal (Ginger.Run IO Html))
+        loadPair :: (Int, (Maybe Text, GVal (Ginger.Run IO Html)))
+                 -> Ginger.Run IO Html (Text, GVal (Ginger.Run IO Html))
         loadPair (index, (keyMay, gBackendURL)) = do
-            let backendURL = unpack . Ginger.asText $ gBackendURL
-            backendData <- liftIO $ loadBackendData backendURL
+            let backendURL = Ginger.asText $ gBackendURL
+            backendData :: Items (BackendData IO Html) <- liftIO $
+                loadBackendData =<< parseBackendURI backendURL
             return
                 ( fromMaybe (tshow index) keyMay
-                , fromMaybe def $ bdGVal <$> backendData
+                , toGVal backendData
                 )
 
         gfnEllipse :: Ginger.Function (Ginger.Run IO Html)
@@ -167,13 +169,16 @@ handleRequest project request respond = do
                                     backendPath <-
                                         maybe (throwM NotFoundException) return $
                                             lookup "file" backendPaths
-                                    backendData <-
-                                        loadBackendData (unpack backendPath) >>=
-                                            maybe (throwM NotFoundException) return
+                                    backendData <- loadBackendData backendPath
+                                    backendItem <- case backendData of
+                                        NotFound -> throwM NotFoundException
+                                        SingleItem item -> return item
+                                        MultiItem [] -> throwM NotFoundException
+                                        MultiItem (x:_) -> return x
                                     respond $ Wai.responseLBS
                                         status200
-                                        [("Content-type", bdMimeType backendData)]
-                                        (bdRaw backendData)
+                                        [("Content-type", bmMimeType . bdMeta $ backendItem)]
+                                        (bdRaw $ backendItem)
                                 handle :: NotFoundException -> IO Wai.ResponseReceived
                                 handle _ =
                                     respondTemplate
@@ -188,9 +193,7 @@ handleRequest project request respond = do
                         JSONTarget -> do
                             backendData <- fmap (JSON.Object . mapFromList) $
                                 forM (mapToList backendPaths) $ \(key, backendPath) -> do
-                                    let backendURLStr :: String
-                                        backendURLStr = unpack backendPath
-                                    value <- loadBackendData backendURLStr
+                                    value <- loadBackendData backendPath
                                     return $ key .= toJSON value
                             respond $ Wai.responseLBS
                                 status200
@@ -210,15 +213,13 @@ handleRequest project request respond = do
                             let go = do
                                     backendData <-
                                         forM (mapToList backendPaths) $ \(key, backendPath) -> do
-                                            let backendURLStr :: String
-                                                backendURLStr = unpack backendPath
-                                            valueMay <- loadBackendData backendURLStr
-                                            case valueMay of
-                                                Just value -> return $ (key, bdGVal value)
-                                                Nothing ->
+                                            bd :: Items (BackendData IO Html) <- loadBackendData backendPath
+                                            case bd of
+                                                NotFound ->
                                                     if key `elem` required
                                                         then throwM NotFoundException
                                                         else return $ (key, def)
+                                                _ -> return (key, toGVal bd)
                                     respondTemplate
                                         project
                                         status200

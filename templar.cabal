@@ -24,6 +24,7 @@ library
                  ,     Web.Templar.ProjectConfig
                  ,     Web.Templar.Project
                  ,     Web.Templar.Serve
+                 ,     Control.MaybeEitherMonad
   build-depends:       base >= 4.7 && < 5
                ,       Glob
                ,       HTTP
