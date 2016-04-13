@@ -5,6 +5,16 @@ Rules:
     files:
       type: 'dir'
       path: './data/pages'
+      fetch: 2
+      order: random
+  template: 'home.html'
+- pattern: '/latest'
+  data:
+    files:
+      type: 'dir'
+      path: './data/pages'
+      fetch: 10
+      order: mtime
   template: 'home.html'
 - pattern: '/static/{{file:**}}'
   data:

@@ -108,6 +108,7 @@ reduceItems :: FetchMode -> [a] -> Items a
 reduceItems FetchOne [] = NotFound
 reduceItems FetchOne (x:_) = SingleItem x
 reduceItems FetchAll xs = MultiItem xs
+reduceItems (FetchN n) xs = MultiItem $ take n xs
 
 instance ToGVal m a => ToGVal m (Items a) where
     toGVal NotFound = def
