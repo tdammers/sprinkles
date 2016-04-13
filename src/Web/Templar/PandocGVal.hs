@@ -3,6 +3,7 @@
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE MultiParamTypeClasses #-}
+{-#LANGUAGE ScopedTypeVariables #-}
 module Web.Templar.PandocGVal
 where
 
@@ -10,8 +11,10 @@ import ClassyPrelude hiding (asText, asList)
 import Text.Ginger as Ginger (GVal (..), ToGVal (..), dict, (~>))
 import Text.Ginger.Html (unsafeRawHtml)
 import Text.Pandoc
+import Text.Pandoc.Walk (query)
 import Data.Default (def)
 import Data.Aeson (ToJSON (..))
+import Data.Scientific (fromFloatDigits)
 
 writerOptions :: WriterOptions
 writerOptions =
@@ -51,7 +54,94 @@ instance ToGVal m MetaValue where
     toGVal (MetaBlocks blocks) = toGVal blocks
 
 instance ToGVal m Block where
-    toGVal block = toGVal (Pandoc nullMeta [block])
+    toGVal block =
+        let pandoc = Pandoc nullMeta [block]
+            listItems =
+                (map toGVal $ (query (:[]) block :: [Inline])) ++
+                (map toGVal $ (query (:[]) block :: [Block]))
+        in def { asList = Just listItems
+               , asDictItems = Just $ mapToList (blockProperties block)
+               , asLookup = Just $ \key -> lookup key (blockProperties block)
+               , asHtml = unsafeRawHtml . pack . writeHtmlString writerOptions $ pandoc
+               , asText = pack . writePlain writerOptions $ pandoc
+               , asBoolean = True
+               , asNumber = Nothing
+               , asFunction = Nothing
+               , Ginger.length = Just (ClassyPrelude.length listItems)
+               , isNull = False
+               }
+
+blockProperties :: forall m. Block -> HashMap Text (GVal m)
+blockProperties (Plain _) = mapFromList ["type" ~> ("plain" :: Text)]
+blockProperties (Para _) = mapFromList ["type" ~> ("p" :: Text)]
+blockProperties (CodeBlock (id, classes, attrs) _) =
+    mapFromList
+        [ "type" ~> ("code" :: Text)
+        , "id" ~> id
+        , "classes" ~> classes
+        , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
+        ]
+blockProperties (RawBlock (Format fmt) _) =
+    mapFromList
+        [ "type" ~> ("raw" :: Text)
+        , "format" ~> fmt
+        ]
+blockProperties (BlockQuote _) = mapFromList ["type" ~> ("blockquote" :: Text)]
+blockProperties (OrderedList _ items) =
+    mapFromList
+        [ "type" ~> ("ol" :: Text)
+        , "items" ~> items
+        ]
+blockProperties (BulletList items) =
+    mapFromList
+        [ "type" ~> ("ul" :: Text)
+        , "items" ~> items
+        ]
+blockProperties (DefinitionList pairs) =
+    mapFromList
+        [ "type" ~> ("dl" :: Text)
+        , "items" ~>
+            [ mapFromList [ "dt" ~> dt, "dd" ~> dd ] :: HashMap Text (GVal m)
+            | (dt, dd) <- pairs
+            ]
+        ]
+blockProperties (Header level (id, classes, attrs) _) =
+    mapFromList
+        [ "type" ~> ("h" ++ show level :: String)
+        , "id" ~> id
+        , "classes" ~> classes
+        , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
+        ]
+blockProperties HorizontalRule = mapFromList ["type" ~> ("hr" :: Text)]
+blockProperties (Table caption alignments widths headers rows) =
+    mapFromList
+        [ "type" ~> ("table" :: Text)
+        , "caption" ~> caption
+        , "columns" ~>
+            [ mapFromList
+                [ "align" ~> alignment
+                , "width" ~> fromFloatDigits width
+                , "header" ~> header
+                ] :: HashMap Text (GVal m)
+            | (alignment, width, header)
+            <- zip3 alignments widths headers
+            ]
+        , "rows" ~> rows
+        ]
+blockProperties (Div (id, classes, attrs) _) =
+    mapFromList
+        [ "type" ~> ("div" :: Text)
+        , "id" ~> id
+        , "classes" ~> classes
+        , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
+        ]
+blockProperties Null = mapFromList []
+
+instance ToGVal m Alignment where
+    toGVal AlignLeft = toGVal ("left" :: Text)
+    toGVal AlignRight = toGVal ("right" :: Text)
+    toGVal AlignCenter = toGVal ("center" :: Text)
+    toGVal AlignDefault = def
 
 instance ToGVal m Inline where
     toGVal inline = toGVal (Pandoc nullMeta [Plain [inline]])

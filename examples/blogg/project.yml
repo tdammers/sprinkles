@@ -5,7 +5,7 @@ Rules:
     files:
       type: 'dir'
       path: './data/pages'
-      fetch: 2
+      fetch: 3
       order: random
   template: 'home.html'
 - pattern: '/latest'

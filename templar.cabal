@@ -44,10 +44,12 @@ library
                , network-uri
                , parsec
                , pandoc
+               , pandoc-types
                , random-shuffle
                , regex-base
                , regex-pcre
                , safe
+               , scientific
                , text
                , transformers
                , unix-compat
