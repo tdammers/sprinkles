@@ -14,7 +14,7 @@ Rules:
       type: 'dir'
       path: './data/pages'
       fetch: 10
-      order: mtime
+      order: '-mtime'
   template: 'home.html'
 - pattern: '/static/{{file:**}}'
   data:

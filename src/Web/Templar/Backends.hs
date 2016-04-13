@@ -36,6 +36,7 @@ import Data.Char (ord)
 import qualified Text.Ginger as Ginger
 import Data.Default (def)
 import System.Random.Shuffle (shuffleM)
+import Data.Default
 
 mimeMap :: MimeMap
 mimeMap =
@@ -84,20 +85,47 @@ instance FromJSON FetchMode where
     parseJSON (Number n) = return . FetchN . ceiling $ n
     parseJSON _ = fail "Invalid fetch mode (want 'one' or 'all')"
 
-data FetchOrder = ArbitraryOrder -- ^ Do not impose any ordering at all
-                | RandomOrder -- ^ Shuffle randomly
-                | OrderByName -- ^ Order by reported name
-                | OrderByMTime -- ^ Order by modification time
-                deriving (Show, Read, Eq)
+data FetchOrderField = ArbitraryOrder -- ^ Do not impose any ordering at all
+                     | RandomOrder -- ^ Shuffle randomly
+                     | OrderByName -- ^ Order by reported name
+                     | OrderByMTime -- ^ Order by modification time
+                     deriving (Show, Read, Eq)
+
+instance Default FetchOrderField where
+    def = ArbitraryOrder
+
+data AscDesc = Ascending | Descending
+    deriving (Show, Read, Eq)
+
+instance Default AscDesc where
+    def = Ascending
+
+data FetchOrder =
+    FetchOrder
+        { fetchField :: FetchOrderField
+        , fetchAscDesc :: AscDesc
+        }
+        deriving (Show, Read, Eq)
+
+instance Default FetchOrder where
+    def = FetchOrder def def
 
 instance FromJSON FetchOrder where
-    parseJSON Null = return ArbitraryOrder
-    parseJSON (String "arbitrary") = return ArbitraryOrder
-    parseJSON (String "random") = return RandomOrder
-    parseJSON (String "shuffle") = return RandomOrder
-    parseJSON (String "name") = return OrderByName
-    parseJSON (String "mtime") = return OrderByMTime
-    parseJSON _ = fail "Invalid fetch mode (want 'one' or 'all')"
+    parseJSON Null = return $ FetchOrder ArbitraryOrder Ascending
+    parseJSON (String str) = do
+        let (order, core) = case take 1 str of
+                "-" -> (Descending, drop 1 str)
+                "+" -> (Ascending, drop 1 str)
+                _ -> (Ascending, str)
+        field <- case core of
+            "arbitrary" -> return ArbitraryOrder
+            "random" -> return RandomOrder
+            "shuffle" -> return RandomOrder
+            "name" -> return OrderByName
+            "mtime" -> return OrderByMTime
+            x -> fail $ "Invalid order field: " ++ show x
+        return $ FetchOrder field order
+    parseJSON val = fail $ "Invalid fetch order specifier: " ++ show val
 
 instance FromJSON BackendSpec where
     parseJSON = backendSpecFromJSON
@@ -131,7 +159,7 @@ backendSpecFromJSON (Object obj) = do
             "glob" -> parseFileBackendSpec FetchAll
             "dir" -> parseDirBackendSpec
     fetchMode <- obj .:? "fetch" .!= defFetchMode
-    fetchOrder <- obj .:? "order" .!= ArbitraryOrder
+    fetchOrder <- obj .:? "order" .!= def
     return $ BackendSpec t fetchMode fetchOrder
     where
         parseHttpBackendSpec = do
@@ -154,16 +182,16 @@ parseBackendURI t = do
                 BackendSpec
                     (HttpBackend t AnonymousCredentials)
                     FetchOne
-                    ArbitraryOrder
+                    def
         "https" ->
             return $
                 BackendSpec
                     (HttpBackend t AnonymousCredentials)
                     FetchOne
-                    ArbitraryOrder
-        "dir" -> return $ BackendSpec (FileBackend (pack $ unpack path </> "*")) FetchAll ArbitraryOrder
-        "glob" -> return $ BackendSpec (FileBackend path) FetchAll ArbitraryOrder
-        "file" -> return $ BackendSpec (FileBackend path) FetchOne ArbitraryOrder
+                    def
+        "dir" -> return $ BackendSpec (FileBackend (pack $ unpack path </> "*")) FetchAll def
+        "glob" -> return $ BackendSpec (FileBackend path) FetchAll def
+        "file" -> return $ BackendSpec (FileBackend path) FetchOne def
         _ -> fail $ "Unknown protocol: " <> show protocol
 
 data Credentials = AnonymousCredentials
@@ -196,7 +224,13 @@ loadBackendData bspec =
         sorter
     where
         sorter :: [BackendData m h] -> IO [BackendData m h]
-        sorter = case bsOrder bspec of
+        sorter = fmap reverter . baseSorter
+        reverter :: [a] -> [a]
+        reverter = case fetchAscDesc (bsOrder bspec) of
+            Ascending -> id
+            Descending -> reverse
+        baseSorter :: [BackendData m h] -> IO [BackendData m h]
+        baseSorter = case fetchField (bsOrder bspec) of
             ArbitraryOrder -> return
             RandomOrder -> shuffleM
             OrderByName -> return . sortOn (bmName . bdMeta)
