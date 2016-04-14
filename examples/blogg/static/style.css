@@ -80,6 +80,11 @@ hr {
     padding: 1rem;
 }
 
+.content img {
+    max-width: 400px;
+    box-shadow: 4px 4px 12px rgba(0,0,0,0.5);
+}
+
 menu>li {
     list-style: none;
     display: inline-block;

@@ -56,12 +56,16 @@ instance ToGVal m MetaValue where
 instance ToGVal m Block where
     toGVal block =
         let pandoc = Pandoc nullMeta [block]
-            listItems =
-                (map toGVal $ (query (:[]) block :: [Inline])) ++
-                (map toGVal $ (query (:[]) block :: [Block]))
+            listItems :: [GVal m]
+            blockProps :: HashMap Text (GVal m)
+            (blockProps, listItems) = blockChildren block
+            baseProps :: HashMap Text (GVal m)
+            baseProps = mapFromList ["children" ~> listItems]
+            props :: HashMap Text (GVal m)
+            props = baseProps <> blockProps
         in def { asList = Just listItems
-               , asDictItems = Just $ mapToList (blockProperties block)
-               , asLookup = Just $ \key -> lookup key (blockProperties block)
+               , asDictItems = Just $ mapToList props
+               , asLookup = Just $ \key -> lookup key props
                , asHtml = unsafeRawHtml . pack . writeHtmlString writerOptions $ pandoc
                , asText = pack . writePlain writerOptions $ pandoc
                , asBoolean = True
@@ -72,49 +76,78 @@ instance ToGVal m Block where
                }
 
 blockProperties :: forall m. Block -> HashMap Text (GVal m)
-blockProperties (Plain _) = mapFromList ["type" ~> ("plain" :: Text)]
-blockProperties (Para _) = mapFromList ["type" ~> ("p" :: Text)]
-blockProperties (CodeBlock (id, classes, attrs) _) =
-    mapFromList
+blockProperties = fst . blockChildren
+blockItems :: forall m. Block -> [GVal m]
+blockItems = snd . blockChildren
+
+blockChildren :: forall m. Block -> (HashMap Text (GVal m), [GVal m])
+blockChildren (Plain items) =
+    ( mapFromList ["type" ~> ("plain" :: Text)]
+    , fmap toGVal items
+    )
+blockChildren (Para items) =
+    ( mapFromList ["type" ~> ("p" :: Text)]
+    , fmap toGVal items
+    )
+blockChildren (CodeBlock (id, classes, attrs) items) =
+    ( mapFromList
         [ "type" ~> ("code" :: Text)
         , "id" ~> id
         , "classes" ~> classes
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
-blockProperties (RawBlock (Format fmt) _) =
-    mapFromList
+    , fmap toGVal items
+    )
+blockChildren (RawBlock (Format fmt) items) =
+    ( mapFromList
         [ "type" ~> ("raw" :: Text)
         , "format" ~> fmt
         ]
-blockProperties (BlockQuote _) = mapFromList ["type" ~> ("blockquote" :: Text)]
-blockProperties (OrderedList _ items) =
-    mapFromList
+    , fmap toGVal items
+    )
+blockChildren (BlockQuote items) =
+    ( mapFromList ["type" ~> ("blockquote" :: Text)]
+    , fmap toGVal items
+    )
+blockChildren (OrderedList _ items) =
+    ( mapFromList
         [ "type" ~> ("ol" :: Text)
         , "items" ~> items
         ]
-blockProperties (BulletList items) =
-    mapFromList
+    , fmap toGVal items
+    )
+blockChildren (BulletList items) =
+    ( mapFromList
         [ "type" ~> ("ul" :: Text)
         , "items" ~> items
         ]
-blockProperties (DefinitionList pairs) =
-    mapFromList
+    , fmap toGVal items
+    )
+blockChildren (DefinitionList pairs) =
+    ( mapFromList
         [ "type" ~> ("dl" :: Text)
         , "items" ~>
             [ mapFromList [ "dt" ~> dt, "dd" ~> dd ] :: HashMap Text (GVal m)
             | (dt, dd) <- pairs
             ]
         ]
-blockProperties (Header level (id, classes, attrs) _) =
-    mapFromList
+    , fmap toGVal pairs
+    )
+blockChildren (Header level (id, classes, attrs) items) =
+    ( mapFromList
         [ "type" ~> ("h" ++ show level :: String)
         , "id" ~> id
         , "classes" ~> classes
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
-blockProperties HorizontalRule = mapFromList ["type" ~> ("hr" :: Text)]
-blockProperties (Table caption alignments widths headers rows) =
-    mapFromList
+    , fmap toGVal items
+    )
+blockChildren HorizontalRule =
+    ( mapFromList ["type" ~> ("hr" :: Text)]
+    , []
+    )
+blockChildren (Table caption alignments widths headers rows) =
+    ( mapFromList
         [ "type" ~> ("table" :: Text)
         , "caption" ~> caption
         , "columns" ~>
@@ -128,14 +161,18 @@ blockProperties (Table caption alignments widths headers rows) =
             ]
         , "rows" ~> rows
         ]
-blockProperties (Div (id, classes, attrs) _) =
-    mapFromList
+    , fmap toGVal rows :: [GVal m]
+    )
+blockChildren (Div (id, classes, attrs) items) =
+    ( mapFromList
         [ "type" ~> ("div" :: Text)
         , "id" ~> id
         , "classes" ~> classes
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
-blockProperties Null = mapFromList []
+    , fmap toGVal items
+    )
+blockChildren Null = (mapFromList [], [])
 
 instance ToGVal m Alignment where
     toGVal AlignLeft = toGVal ("left" :: Text)
@@ -146,12 +183,16 @@ instance ToGVal m Alignment where
 instance ToGVal m Inline where
     toGVal inline =
         let pandoc = Pandoc nullMeta [Plain [inline]]
-            listItems =
-                (map toGVal $ (query (:[]) inline :: [Inline])) ++
-                (map toGVal $ (query (:[]) inline :: [Block]))
+            listItems :: [GVal m]
+            inlineProps :: HashMap Text (GVal m)
+            (inlineProps, listItems) = inlineChildren inline
+            baseProps :: HashMap Text (GVal m)
+            baseProps = mapFromList ["children" ~> listItems]
+            props :: HashMap Text (GVal m)
+            props = baseProps <> inlineProps
         in def { asList = Just listItems
-               , asDictItems = Just $ mapToList (inlineProperties inline)
-               , asLookup = Just $ \key -> lookup key (inlineProperties inline)
+               , asDictItems = Just $ mapToList props
+               , asLookup = Just $ \key -> lookup key props
                , asHtml = unsafeRawHtml . pack . writeHtmlString writerOptions $ pandoc
                , asText = pack . writePlain writerOptions $ pandoc
                , asBoolean = True
@@ -161,54 +202,89 @@ instance ToGVal m Inline where
                , isNull = False
                }
 
-inlineProperties :: forall m. Inline -> HashMap Text (GVal m)
-inlineProperties (Str _) = mapFromList ["type" ~> ("str" :: Text)]
-inlineProperties (Emph _) = mapFromList ["type" ~> ("em" :: Text)]
-inlineProperties (Strong _) = mapFromList ["type" ~> ("strong" :: Text)]
-inlineProperties (Strikeout _) = mapFromList ["type" ~> ("strikeout" :: Text)]
-inlineProperties (Superscript _) = mapFromList ["type" ~> ("superscript" :: Text)]
-inlineProperties (Subscript _) = mapFromList ["type" ~> ("subscript" :: Text)]
-inlineProperties (SmallCaps _) = mapFromList ["type" ~> ("smallCaps" :: Text)]
-inlineProperties (Quoted quoteType _) = mapFromList ["type" ~> ("quoted" :: Text)]
-inlineProperties (Cite citations _) =
-    mapFromList
+inlineChildren :: forall m. Inline -> (HashMap Text (GVal m), [GVal m])
+inlineChildren (Str str) =
+    ( mapFromList ["type" ~> ("str" :: Text)]
+    , [toGVal . (pack :: String -> Text) $ str] :: [GVal m]
+    )
+inlineChildren (Emph items) =
+    ( mapFromList ["type" ~> ("em" :: Text)]
+    , fmap toGVal items
+    )
+inlineChildren (Strong items) =
+    ( mapFromList ["type" ~> ("strong" :: Text)]
+    , fmap toGVal items
+    )
+inlineChildren (Strikeout items) =
+    ( mapFromList ["type" ~> ("strikeout" :: Text)]
+    , fmap toGVal items
+    )
+inlineChildren (Superscript items) =
+    ( mapFromList ["type" ~> ("superscript" :: Text)]
+    , fmap toGVal items
+    )
+inlineChildren (Subscript items) =
+    ( mapFromList ["type" ~> ("subscript" :: Text)]
+    , fmap toGVal items
+    )
+inlineChildren (SmallCaps items) =
+    ( mapFromList ["type" ~> ("smallCaps" :: Text)]
+    , fmap toGVal items
+    )
+inlineChildren (Quoted quoteType items) =
+    ( mapFromList ["type" ~> ("quoted" :: Text)]
+    , fmap toGVal items
+    )
+inlineChildren (Cite citations items) =
+    ( mapFromList
         [ "type" ~> ("cite" :: Text)
         , "citations" ~> citations
         ]
-inlineProperties (Code (id, classes, attrs) _) =
-    mapFromList
+    , fmap toGVal items
+    )
+inlineChildren (Code (id, classes, attrs) code) =
+    ( mapFromList
         [ "type" ~> ("code" :: Text)
         , "id" ~> id
         , "classes" ~> classes
         , "attrs" ~> attrs
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
-inlineProperties Space = mapFromList ["type" ~> ("space" :: Text)]
-inlineProperties LineBreak = mapFromList ["type" ~> ("br" :: Text)]
-inlineProperties (Math mathType _) = mapFromList ["type" ~> ("math" :: Text)]
-inlineProperties (RawInline fmt _) = mapFromList ["type" ~> ("rawInline" :: Text)]
-inlineProperties (Link (id, classes, attrs) _ target) =
-    mapFromList
+    , fmap toGVal [code]
+    )
+inlineChildren Space = (mapFromList ["type" ~> ("space" :: Text)], [])
+inlineChildren SoftBreak = (mapFromList ["type" ~> ("sbr" :: Text)], [])
+inlineChildren LineBreak = (mapFromList ["type" ~> ("br" :: Text)], [])
+inlineChildren (Math mathType src) = (mapFromList ["type" ~> ("math" :: Text)], [])
+inlineChildren (RawInline fmt src) = (mapFromList ["type" ~> ("rawInline" :: Text)], [])
+inlineChildren (Link (id, classes, attrs) items target) =
+    ( mapFromList
         [ "type" ~> ("link" :: Text)
         , "id" ~> id
         , "classes" ~> classes
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
-inlineProperties (Image (id, classes, attrs) _ target) =
-    mapFromList
+    , fmap toGVal items
+    )
+inlineChildren (Image (id, classes, attrs) items target) =
+    ( mapFromList
         [ "type" ~> ("image" :: Text)
         , "id" ~> id
         , "classes" ~> classes
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
-inlineProperties (Note _) = mapFromList ["type" ~> ("note" :: Text)]
-inlineProperties (Span (id, classes, attrs) _) =
-    mapFromList
+    , fmap toGVal items
+    )
+inlineChildren (Note items) = (mapFromList ["type" ~> ("note" :: Text)], fmap toGVal items)
+inlineChildren (Span (id, classes, attrs) items) =
+    ( mapFromList
         [ "type" ~> ("span" :: Text)
         , "id" ~> id
         , "classes" ~> classes
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
+    , fmap toGVal items
+    )
 
 instance ToGVal m Citation where
     toGVal c =

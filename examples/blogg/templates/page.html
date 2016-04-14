@@ -5,8 +5,13 @@
 {% endblock -%}
 
 {%- block content %}
-    <h1>{{ page.meta.title }}</h1>
+    <h1>
+        {{
+            ( page.meta.title
+                |default(page[0]|str)
+                |default(page.props.basename)
+            )
+        }}
+    </h1>
     {{ page }}
-    <hr/>
-    {{ page.props|show }}
 {% endblock -%}
