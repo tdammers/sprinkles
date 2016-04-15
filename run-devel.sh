@@ -14,6 +14,7 @@ function watch_serve() {
             "$(which templar)" \
             project.yml \
             templates/ \
+            templates/include/ \
             "$BASEDIR"/run-devel.sh || exit 255
         kill "$!"
     done

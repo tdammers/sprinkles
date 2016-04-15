@@ -1,0 +1,20 @@
+h1. Textile
+
+h2. Introduction
+
+p. From wikipedia:
+
+bq. **Textile** is a lightweight markup language that uses a text
+formatting syntax to convert plain text into structured HTML markup. Textile is
+used for writing articles, forum posts, readme documentation, and any other
+type of written content published online.
+
+p. From "TxStyle":http://txstyle.org/:
+
+bq. Textile
+    * is a _shorthand syntax_ used to generate valid HTML,
+    * is *easy* to read and *easy* to write,
+    * can generate complex pages,
+    * including headers, quotes, lists, tables, and figures.
+
+p{font-size:0.8em}. *TxStyle* is a documentation project of Textile for "Textpattern CMS":http://textpattern.com.

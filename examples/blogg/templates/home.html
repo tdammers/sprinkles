@@ -2,23 +2,6 @@
 
 {%- block content %}
 {% for page in files|sort(by="mtime", reverse=true) %}
-<section class="page-preview">
-    <h1>
-        <a href="/{{ page.props.name }}">
-            {{
-                ( page.meta.title
-                    |default(page[0]|str)
-                    |default(page.props.basename)
-                )|ellipse(22)
-            }}
-        </a>
-    </h1>
-    <p class="meta tiny">({{ page.props.type }}, {{ page.props.size|filesizeformat }})</p>
-    {%- if page.meta.excerpt %}
-    <p>{{ page.meta.excerpt }}</p>
-    {%- else -%}
-    <p>{{ page.body|str|ellipse(150) }}</p>
-    {% endif -%}
-</section>
+    {{ pagePreview(page) }}
 {% endfor %}
 {% endblock -%}

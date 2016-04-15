@@ -46,6 +46,7 @@ mimeMap =
         , ("yaml", "application/x-yaml")
         , ("md", "application/x-markdown")
         , ("rst", "text/x-rst")
+        , ("textile", "text/x-textile")
         , ("markdown", "application/x-markdown")
         , ("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         ]

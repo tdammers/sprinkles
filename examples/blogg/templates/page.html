@@ -1,17 +1,10 @@
 {%- extends 'master.html' -%}
 
 {%- block title %}
-    {{ page.meta.title|default(page[0])|str }}
+    {{ pageTitle(page) }}
 {% endblock -%}
 
 {%- block content %}
-    <h1>
-        {{
-            ( page.meta.title
-                |default(page[0]|str)
-                |default(page.props.basename)
-            )
-        }}
-    </h1>
-    {{ page }}
+    <h1>{{ pageTitle(page) }}</h1>
+    {{ removePageHeading(page) }}
 {% endblock -%}

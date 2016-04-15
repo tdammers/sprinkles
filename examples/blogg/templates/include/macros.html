@@ -1,0 +1,89 @@
+{# A collection of macros used throughout the site. #}
+
+{# The renderMenu macro recursively iterates through a menu data structure
+   and renders it as a nested menu. For example, the following YAML structure:
+
+       label: Main
+       sub:
+       - label: Sub1
+         url: "http://example.org/sub"
+       - label: Sub2
+         url: "http://example.org/something-else"
+
+    ...renders as:
+
+    <span>Main</span>
+    <menu>
+        <li>
+            <a href="http://example.org/sub">
+                <span>Sub1</span>
+            </a>
+        </li>
+        <li>
+            <a href="http://example.org/something-else">
+                <span>Sub2</span>
+            </a>
+        </li>
+    </menu>
+ #}
+{%- macro renderMenu(menu) -%}
+    {%- if menu.url -%}<a href="{{ menu.url }}">{%- endif -%}
+    <span>{{ menu.label }}</span>
+    {%- if menu.url -%}</a>{%- endif -%}
+    {%- if menu.sub -%}
+    <menu>
+        {%- for sub in menu.sub -%}
+        <li>
+            {{ renderMenu(sub) }}
+        </li>
+        {%- endfor -%}
+    </menu>
+    {%- endif -%}
+{%- endmacro -%}
+
+{# If the first top-level element of the given page is a level-1 heading,
+   return its text content.
+ #}
+{%- set extractPageHeading = (page) ->
+    page.body[0].type == 'h1'
+        ? page.body[0]
+        : null
+-%}
+
+{# If the first top-level element of the given page is a level-1 heading,
+   remove it, and return the remaining body; otherwise, return the body
+   unchanged.
+ #}
+{%- set removePageHeading = (page) ->
+    page.body[0].type == 'h1'
+        ? page.body|slice(1)
+        : page.body
+-%}
+
+{# Get a suitable title for the page. #}
+{%- set pageTitle = (page) ->
+        page.meta.title
+          |default(extractPageHeading(page))
+          |default(page.props.name|capitalize)
+          |default(page.body[0]|str|capitalize)
+          |default("<nameless page>")
+-%}
+
+{# Render a page preview: title as text, clipped to max. 22 characters, and
+   excerpt, taken from meta or derived from the body.
+ #}
+{%- macro pagePreview(page) -%}
+<section class="page-preview">
+    <h1>
+        <a href="/{{ page.props.name }}">
+            {{ pageTitle(page)|ellipse(22) }}
+        </a>
+    </h1>
+    <p class="meta tiny">({{ page.props.type }}, {{ page.props.size|filesizeformat }})</p>
+    {%- if page.meta.excerpt %}
+    <p>{{ page.meta.excerpt }}</p>
+    {%- else -%}
+    <p>{{ removePageHeading(page)|ellipse(150) }}</p>
+    {% endif -%}
+</section>
+{%- endmacro -%}

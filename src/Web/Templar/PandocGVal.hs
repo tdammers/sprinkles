@@ -67,7 +67,7 @@ instance ToGVal m Block where
                , asDictItems = Just $ mapToList props
                , asLookup = Just $ \key -> lookup key props
                , asHtml = unsafeRawHtml . pack . writeHtmlString writerOptions $ pandoc
-               , asText = pack . writePlain writerOptions $ pandoc
+               , asText = unwords . fmap asText $ listItems
                , asBoolean = True
                , asNumber = Nothing
                , asFunction = Nothing
@@ -92,8 +92,8 @@ blockChildren (Para items) =
 blockChildren (CodeBlock (id, classes, attrs) items) =
     ( mapFromList
         [ "type" ~> ("code" :: Text)
-        , "id" ~> id
-        , "classes" ~> classes
+        , "id" ~> (pack id :: Text)
+        , "classes" ~> (fmap pack classes :: [Text])
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
     , fmap toGVal items
@@ -135,9 +135,9 @@ blockChildren (DefinitionList pairs) =
     )
 blockChildren (Header level (id, classes, attrs) items) =
     ( mapFromList
-        [ "type" ~> ("h" ++ show level :: String)
-        , "id" ~> id
-        , "classes" ~> classes
+        [ "type" ~> ("h" <> tshow level :: Text)
+        , "id" ~> (pack id :: Text)
+        , "classes" ~> (fmap pack classes :: [Text])
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
     , fmap toGVal items
@@ -166,8 +166,8 @@ blockChildren (Table caption alignments widths headers rows) =
 blockChildren (Div (id, classes, attrs) items) =
     ( mapFromList
         [ "type" ~> ("div" :: Text)
-        , "id" ~> id
-        , "classes" ~> classes
+        , "id" ~> (pack id :: Text)
+        , "classes" ~> (fmap pack classes :: [Text])
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
     , fmap toGVal items
@@ -194,7 +194,7 @@ instance ToGVal m Inline where
                , asDictItems = Just $ mapToList props
                , asLookup = Just $ \key -> lookup key props
                , asHtml = unsafeRawHtml . pack . writeHtmlString writerOptions $ pandoc
-               , asText = pack . writePlain writerOptions $ pandoc
+               , asText = unwords . fmap asText $ listItems
                , asBoolean = True
                , asNumber = Nothing
                , asFunction = Nothing
@@ -245,8 +245,8 @@ inlineChildren (Cite citations items) =
 inlineChildren (Code (id, classes, attrs) code) =
     ( mapFromList
         [ "type" ~> ("code" :: Text)
-        , "id" ~> id
-        , "classes" ~> classes
+        , "id" ~> (pack id :: Text)
+        , "classes" ~> (fmap pack classes :: [Text])
         , "attrs" ~> attrs
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
@@ -260,8 +260,8 @@ inlineChildren (RawInline fmt src) = (mapFromList ["type" ~> ("rawInline" :: Tex
 inlineChildren (Link (id, classes, attrs) items target) =
     ( mapFromList
         [ "type" ~> ("link" :: Text)
-        , "id" ~> id
-        , "classes" ~> classes
+        , "id" ~> (pack id :: Text)
+        , "classes" ~> (fmap pack classes :: [Text])
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
     , fmap toGVal items
@@ -269,8 +269,8 @@ inlineChildren (Link (id, classes, attrs) items target) =
 inlineChildren (Image (id, classes, attrs) items target) =
     ( mapFromList
         [ "type" ~> ("image" :: Text)
-        , "id" ~> id
-        , "classes" ~> classes
+        , "id" ~> (pack id :: Text)
+        , "classes" ~> (fmap pack classes :: [Text])
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
     , fmap toGVal items
@@ -279,8 +279,8 @@ inlineChildren (Note items) = (mapFromList ["type" ~> ("note" :: Text)], fmap to
 inlineChildren (Span (id, classes, attrs) items) =
     ( mapFromList
         [ "type" ~> ("span" :: Text)
-        , "id" ~> id
-        , "classes" ~> classes
+        , "id" ~> (pack id :: Text)
+        , "classes" ~> (fmap pack classes :: [Text])
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
     , fmap toGVal items
