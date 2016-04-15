@@ -62,7 +62,7 @@
 
 {# Get a suitable title for the page. #}
 {%- set pageTitle = (page) ->
-        page.meta.title
+        (page.meta.title ? page.meta.title|str : null)
           |default(extractPageHeading(page))
           |default(page.props.name|capitalize)
           |default(page.body[0]|str|capitalize)
@@ -83,7 +83,7 @@
     {%- if page.meta.excerpt %}
     <p>{{ page.meta.excerpt }}</p>
     {%- else -%}
-    <p>{{ removePageHeading(page)|ellipse(150) }}</p>
+    <p>{{ removePageHeading(page)|ellipse(250) }}</p>
     {% endif -%}
 </section>
 {%- endmacro -%}

@@ -31,7 +31,7 @@ instance ToGVal m Pandoc where
                             "body" -> Just (toGVal blocks)
                             _ -> Nothing
             , asHtml = unsafeRawHtml . pack . writeHtmlString writerOptions $ pandoc
-            , asText = pack . writePlain writerOptions $ pandoc
+            , asText = unwords . fmap (asText . toGVal) $ blocks
             , asBoolean = True
             , asNumber = Nothing
             , asFunction = Nothing
@@ -67,7 +67,7 @@ instance ToGVal m Block where
                , asDictItems = Just $ mapToList props
                , asLookup = Just $ \key -> lookup key props
                , asHtml = unsafeRawHtml . pack . writeHtmlString writerOptions $ pandoc
-               , asText = unwords . fmap asText $ listItems
+               , asText = unwords . fmap (<> " ") . fmap asText $ listItems
                , asBoolean = True
                , asNumber = Nothing
                , asFunction = Nothing
@@ -250,13 +250,13 @@ inlineChildren (Code (id, classes, attrs) code) =
         , "attrs" ~> attrs
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
-    , fmap toGVal [code]
+    , [toGVal (pack code :: Text)]
     )
-inlineChildren Space = (mapFromList ["type" ~> ("space" :: Text)], [])
-inlineChildren SoftBreak = (mapFromList ["type" ~> ("sbr" :: Text)], [])
-inlineChildren LineBreak = (mapFromList ["type" ~> ("br" :: Text)], [])
-inlineChildren (Math mathType src) = (mapFromList ["type" ~> ("math" :: Text)], [])
-inlineChildren (RawInline fmt src) = (mapFromList ["type" ~> ("rawInline" :: Text)], [])
+inlineChildren Space = (mapFromList ["type" ~> ("space" :: Text)], [toGVal (" " :: Text)])
+inlineChildren SoftBreak = (mapFromList ["type" ~> ("sbr" :: Text)], [toGVal (" " :: Text)])
+inlineChildren LineBreak = (mapFromList ["type" ~> ("br" :: Text)], [toGVal (" " :: Text)])
+inlineChildren (Math mathType src) = (mapFromList ["type" ~> ("math" :: Text)], [toGVal (pack src:: Text)])
+inlineChildren (RawInline fmt src) = (mapFromList ["type" ~> ("rawInline" :: Text)], [toGVal (pack src:: Text)])
 inlineChildren (Link (id, classes, attrs) items target) =
     ( mapFromList
         [ "type" ~> ("link" :: Text)
