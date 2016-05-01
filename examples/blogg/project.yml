@@ -1,5 +1,7 @@
 # vim: ts=2 sw=2 expandtab
-Rules:
+data:
+  menu: 'file://./data/menu.yml'
+rules:
 - pattern: '/'
   data:
     files:

@@ -40,6 +40,7 @@ instance FromJSON Rule where
                     else (fromMaybe JSONTarget $ redirectMay <|> templateMay)
         required <- obj .:? "required" .!= []
         return $ Rule pattern contextData target required
+    parseJSON x = fail $ "Expected rule, but found " <> show x
 
 expandRuleTarget :: HashMap Text Text -> RuleTarget Replacement -> RuleTarget Text
 expandRuleTarget _ JSONTarget = JSONTarget

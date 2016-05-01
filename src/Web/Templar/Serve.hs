@@ -149,83 +149,129 @@ handleRequest project request respond = do
                     (pack . UTF8.toString $ Wai.rawQueryString request)
             case applyRules (pcRules . projectConfig $ project) queryPath of
                 Nothing ->
-                    respondTemplate
+                    handle404
                         project
-                        status404
-                        "404.html"
-                        (mapFromList [])
                         request
                         respond
                 Just (backendPaths, required, target) -> do
-                    case target of
-                        RedirectTarget redirectPath -> do
-                            respond $ Wai.responseLBS
-                                status302
-                                [("Location", UTF8.fromString . unpack $ redirectPath)]
-                                ""
+                    let handle = case target of
+                            RedirectTarget redirectPath ->
+                                handleRedirectTarget
+                                    redirectPath
 
-                        StaticTarget -> do
-                            let go = do
-                                    backendPath <-
-                                        maybe (throwM NotFoundException) return $
-                                            lookup "file" backendPaths
-                                    backendData <- loadBackendData backendPath
-                                    backendItem <- case backendData of
-                                        NotFound -> throwM NotFoundException
-                                        SingleItem item -> return item
-                                        MultiItem [] -> throwM NotFoundException
-                                        MultiItem (x:_) -> return x
-                                    respond $ Wai.responseLBS
-                                        status200
-                                        [("Content-type", bmMimeType . bdMeta $ backendItem)]
-                                        (bdRaw $ backendItem)
-                                handle :: NotFoundException -> IO Wai.ResponseReceived
-                                handle _ =
-                                    respondTemplate
-                                        project
-                                        status404
-                                        "404.html"
-                                        (mapFromList [])
-                                        request
-                                        respond
-                            go `catch` handle
+                            StaticTarget ->
+                                handleStaticTarget
 
-                        JSONTarget -> do
-                            backendData <- fmap (JSON.Object . mapFromList) $
-                                forM (mapToList backendPaths) $ \(key, backendPath) -> do
-                                    value <- loadBackendData backendPath
-                                    return $ key .= toJSON value
-                            respond $ Wai.responseLBS
-                                status200
-                                [("Content-type", "application/json")]
-                                (JSON.encode backendData)
+                            JSONTarget ->
+                                handleJSONTarget
 
-                        TemplateTarget templateName -> do
-                            let handleNotFound :: NotFoundException -> IO Wai.ResponseReceived
-                                handleNotFound _ =
-                                    respondTemplate
-                                        project
-                                        status404
-                                        "404.html"
-                                        (mapFromList [])
-                                        request
-                                        respond
-                            let go = do
-                                    backendData <-
-                                        forM (mapToList backendPaths) $ \(key, backendPath) -> do
-                                            bd :: Items (BackendData IO Html) <- loadBackendData backendPath
-                                            case bd of
-                                                NotFound ->
-                                                    if key `elem` required
-                                                        then throwM NotFoundException
-                                                        else return $ (key, def)
-                                                _ -> return (key, toGVal bd)
-                                    respondTemplate
-                                        project
-                                        status200
-                                        templateName
-                                        (mapFromList backendData)
-                                        request
-                                        respond
-                            go `catch` handleNotFound
+                            TemplateTarget templateName ->
+                                handleTemplateTarget
+                                    templateName
+                    handle
+                        (backendPaths, required, target)
+                        project
+                        request
+                        respond
 
+handle404 :: Project -> Wai.Application
+handle404 project request respond = do
+    respondTemplate
+        project
+        status404
+        "404.html"
+        (mapFromList [])
+        request
+        respond
+
+handleRedirectTarget :: Text
+                     -> (HashMap Text BackendSpec, Set Text, RuleTarget Text)
+                     -> Project
+                     -> Wai.Application
+handleRedirectTarget redirectPath
+                     (backendPaths, required, targets) 
+                     project
+                     request
+                     respond = do
+    respond $ Wai.responseLBS
+        status302
+        [("Location", UTF8.fromString . unpack $ redirectPath)]
+        ""
+
+handleJSONTarget :: (HashMap Text BackendSpec, Set Text, RuleTarget Text)
+                 -> Project
+                 -> Wai.Application
+handleJSONTarget (backendPaths, required, targets) 
+                 project
+                 request
+                 respond = do
+    backendData <- fmap (JSON.Object . mapFromList) $
+        forM (mapToList backendPaths) $ \(key, backendPath) -> do
+            value <- loadBackendData backendPath
+            return $ key .= toJSON value
+    respond $ Wai.responseLBS
+        status200
+        [("Content-type", "application/json")]
+        (JSON.encode backendData)
+
+handleStaticTarget :: (HashMap Text BackendSpec, Set Text, RuleTarget Text)
+                     -> Project
+                     -> Wai.Application
+handleStaticTarget (backendPaths, required, targets)
+                   project
+                   request
+                   respond = do
+    let go = do
+            backendPath <-
+                maybe (throwM NotFoundException) return $
+                    lookup "file" backendPaths
+            backendData <- loadBackendData backendPath
+            backendItem <- case backendData of
+                NotFound -> throwM NotFoundException
+                SingleItem item -> return item
+                MultiItem [] -> throwM NotFoundException
+                MultiItem (x:_) -> return x
+            respond $ Wai.responseLBS
+                status200
+                [("Content-type", bmMimeType . bdMeta $ backendItem)]
+                (bdRaw $ backendItem)
+        handle :: NotFoundException -> IO Wai.ResponseReceived
+        handle _ =
+            respondTemplate
+                project
+                status404
+                "404.html"
+                (mapFromList [])
+                request
+                respond
+    go `catch` handle
+
+handleTemplateTarget :: Text
+                     -> (HashMap Text BackendSpec, Set Text, RuleTarget Text)
+                     -> Project
+                     -> Wai.Application
+handleTemplateTarget templateName
+                     (backendPaths, required, targets)
+                     project
+                     request
+                     respond = do
+    let handleNotFound :: NotFoundException -> IO Wai.ResponseReceived
+        handleNotFound _ = handle404 project request respond
+    let go = do
+            backendData <-
+                forM (mapToList backendPaths) $ \(key, backendPath) -> do
+                    bd :: Items (BackendData IO Html) <- loadBackendData backendPath
+                    case bd of
+                        NotFound ->
+                            if key `elem` required
+                                then throwM NotFoundException
+                                else return $ (key, def)
+                        _ -> return (key, toGVal bd)
+            respondTemplate
+                project
+                status200
+                templateName
+                (mapFromList backendData)
+                request
+                respond
+    go `catch` handleNotFound

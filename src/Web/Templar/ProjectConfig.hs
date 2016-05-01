@@ -10,13 +10,22 @@ import Web.Templar.Rule
 import Data.Aeson as JSON
 import Data.Aeson.TH
 import qualified Data.Yaml as YAML
+import Web.Templar.Backends
 
 data ProjectConfig =
     ProjectConfig
-        { pcRules :: [Rule]
+        { pcContextData :: HashMap Text BackendSpec
+        , pcRules :: [Rule]
         }
 
-$(deriveFromJSON defaultOptions { fieldLabelModifier = drop 2 } ''ProjectConfig)
+instance FromJSON ProjectConfig where
+    parseJSON (Object obj) = do
+        contextData <- fromMaybe (mapFromList []) <$> obj .:? "data"
+        rules <- fromMaybe [] <$> (obj .:? "rules" <|> obj .:? "Rules")
+        return $ ProjectConfig
+            { pcContextData = contextData
+            , pcRules = rules
+            }
 
 loadProjectConfig :: FilePath -> IO ProjectConfig
 loadProjectConfig dir = do
