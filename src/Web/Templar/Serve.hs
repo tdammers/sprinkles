@@ -74,16 +74,9 @@ appFromProject project request respond = do
             hPutStrLn stderr $ show e
             respond $ Wai.responseLBS status500 [] "Something went pear-shaped."
 
-respondTemplate :: ToGVal (Ginger.Run IO Html) a => Project -> Status -> Text -> HashMap Text a -> Wai.Application
-respondTemplate project status templateName contextMap request respond = do
-    let contextMap' =
-            fmap toGVal contextMap <>
-            mapFromList
-                [ "request" ~> request
-                , "load" ~> Ginger.fromFunction gfnLoadBackendData
-                , "ellipse" ~> Ginger.fromFunction gfnEllipse
-                ]
-        contextLookup key = return . fromMaybe def $ lookup key contextMap'
+respondTemplateHtml :: ToGVal (Ginger.Run IO Html) a => Project -> Status -> Text -> HashMap Text a -> Wai.Application
+respondTemplateHtml project status templateName contextMap request respond = do
+    let contextLookup = mkContextLookup request contextMap
         headers = [("Content-type", "text/html;charset=utf8")]
     template <- getTemplate project templateName
     respond . Wai.responseStream status200 headers $ \write flush -> do
@@ -92,39 +85,67 @@ respondTemplate project status templateName contextMap request respond = do
             context = Ginger.makeContextHtmlM contextLookup writeHtml
         runGingerT context template
         flush
+
+respondTemplateText :: ToGVal (Ginger.Run IO Text) a => Project -> Status -> Text -> HashMap Text a -> Wai.Application
+respondTemplateText project status templateName contextMap request respond = do
+    let contextLookup = mkContextLookup request contextMap
+        headers = [("Content-type", "text/plain;charset=utf8")]
+    template <- getTemplate project templateName
+    respond . Wai.responseStream status200 headers $ \write flush -> do
+        let writeText = write . stringUtf8 . unpack
+            context :: GingerContext IO Text
+            context = Ginger.makeContextTextM contextLookup writeText
+        runGingerT context template
+        flush
+
+mkContextLookup :: (ToGVal (Ginger.Run IO h) a)
+                => Wai.Request
+                -> HashMap Text a
+                -> Text
+                -> Ginger.Run IO h (GVal (Ginger.Run IO h))
+mkContextLookup request contextMap key = do
+    let contextMap' =
+            fmap toGVal contextMap <>
+            mapFromList
+                [ "request" ~> request
+                , ("load", Ginger.fromFunction gfnLoadBackendData)
+                , ("ellipse", Ginger.fromFunction gfnEllipse)
+                ]
+    return . fromMaybe def $ lookup key contextMap'
+
+gfnLoadBackendData :: forall h. Ginger.Function (Ginger.Run IO h)
+gfnLoadBackendData args =
+    Ginger.dict <$> forM (zip [0..] args) loadPair
     where
-        gfnLoadBackendData :: Ginger.Function (Ginger.Run IO Html)
-        gfnLoadBackendData args =
-            Ginger.dict <$> forM (zip [0..] args) loadPair
-        loadPair :: (Int, (Maybe Text, GVal (Ginger.Run IO Html)))
-                 -> Ginger.Run IO Html (Text, GVal (Ginger.Run IO Html))
+        loadPair :: (Int, (Maybe Text, GVal (Ginger.Run IO h)))
+                 -> Ginger.Run IO h (Text, GVal (Ginger.Run IO h))
         loadPair (index, (keyMay, gBackendURL)) = do
             let backendURL = Ginger.asText $ gBackendURL
-            backendData :: Items (BackendData IO Html) <- liftIO $
+            backendData :: Items (BackendData IO h) <- liftIO $
                 loadBackendData =<< parseBackendURI backendURL
             return
                 ( fromMaybe (tshow index) keyMay
                 , toGVal backendData
                 )
 
-        gfnEllipse :: Ginger.Function (Ginger.Run IO Html)
-        gfnEllipse [] = return def
-        gfnEllipse [(Nothing, str)] =
-            gfnEllipse [(Nothing, str), (Nothing, toGVal (100 :: Int))]
-        gfnEllipse [(Nothing, str), (Nothing, len)] = do
-            let txt = Ginger.asText str
-                actualLen = ClassyPrelude.length txt
-                targetLen = fromMaybe 100 $ ceiling <$> Ginger.asNumber len
-                txt' = if actualLen + 3 > targetLen
-                            then take (targetLen - 3) txt <> "..."
-                            else txt
-            return . toGVal $ txt'
-        gfnEllipse ((Nothing, str):xs) = do
-            let len = fromMaybe (toGVal (100 :: Int)) $ lookup (Just "len") xs
-            gfnEllipse [(Nothing, str), (Nothing, len)]
-        gfnEllipse xs = do
-            let str = fromMaybe def $ lookup (Just "str") xs
-            gfnEllipse $ (Nothing, str):xs
+gfnEllipse :: Ginger.Function (Ginger.Run IO h)
+gfnEllipse [] = return def
+gfnEllipse [(Nothing, str)] =
+    gfnEllipse [(Nothing, str), (Nothing, toGVal (100 :: Int))]
+gfnEllipse [(Nothing, str), (Nothing, len)] = do
+    let txt = Ginger.asText str
+        actualLen = ClassyPrelude.length txt
+        targetLen = fromMaybe 100 $ ceiling <$> Ginger.asNumber len
+        txt' = if actualLen + 3 > targetLen
+                    then take (targetLen - 3) txt <> "..."
+                    else txt
+    return . toGVal $ txt'
+gfnEllipse ((Nothing, str):xs) = do
+    let len = fromMaybe (toGVal (100 :: Int)) $ lookup (Just "len") xs
+    gfnEllipse [(Nothing, str), (Nothing, len)]
+gfnEllipse xs = do
+    let str = fromMaybe def $ lookup (Just "str") xs
+    gfnEllipse $ (Nothing, str):xs
 
 
 data NotFoundException = NotFoundException
@@ -174,7 +195,7 @@ handle404 :: (HashMap Text BackendSpec, Set Text)
           -> Wai.Application
 handle404 (backendPaths, required) project request respond = do
     backendData <- loadBackendDict backendPaths required
-    respondTemplate
+    respondTemplateHtml
         project
         status404
         "404.html"
@@ -190,11 +211,11 @@ handle500 err project request respond = do
     hPutStrLn stderr . show $ err
     let backendPaths = pcContextData . projectConfig $ project
     backendData <- loadBackendDict backendPaths (setFromList [])
-    respondTemplate
+    respondTemplateHtml
         project
         status500
         "500.html"
-        (mapFromList [] :: HashMap Text Text)
+        backendData
         request
         respond
 
@@ -236,7 +257,7 @@ handleTemplateTarget templateName
                      respond = do
     let go = do
             backendData <- loadBackendDict backendPaths required
-            respondTemplate
+            respondTemplateHtml
                 project
                 status200
                 templateName
