@@ -43,8 +43,6 @@ preloadTemplates dir = do
         resolver name =
             let name' = makeRelative prefix . normalise $ prefix </> name
             in return $ lookup name' templateSourceMap
-    print $ allFilenames
-    print . keys $ templateSourceMap
     let relativeFilenames = map (makeRelative prefix) filenames
     templates <- forM relativeFilenames $ \filename -> do
         source <- maybe

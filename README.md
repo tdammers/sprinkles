@@ -31,7 +31,7 @@ source. The easiest way to do that is to use
 The core of every templar project is the `project.yml` file. (See
 http://yaml.org/ for details on YAML). When starting up, templar parses that
 file and configures itself accordingly. The most important (and currently only)
-key in that file is `Rules`, a list of routing rules.
+key in that file is `rules`, a list of routing rules.
 
 ### Routing Rules
 
