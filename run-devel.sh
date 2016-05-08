@@ -13,8 +13,7 @@ function watch_serve() {
             -e attrib \
             "$(which templar)" \
             project.yml \
-            templates/ \
-            templates/include/ \
+            templates/** \
             "$BASEDIR"/run-devel.sh || exit 255
         kill "$!"
     done

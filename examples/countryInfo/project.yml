@@ -1,4 +1,4 @@
-Rules:
+rules:
 - pattern: '/country?code={{country:*}}'
   redirect: '/country/full/{{country}}'
 - pattern: '/country/full/{{country:*}}'
