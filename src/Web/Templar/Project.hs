@@ -42,12 +42,16 @@ loadProject dir = do
     templates <- preloadTemplates dir
     -- let cache = nullCache
     let cache :: Cache ByteString LByteString
-        cache = filesystemCache
-                    (unpack . decodeUtf8) -- "serialize" key
-                    hPut -- write value
-                    (fmap fromStrict . hGetContents) -- read value
-                    (dir </> ".cache")
+        cache = mconcat $ fmap (createCache dir) (pcBackendCache config)
     return $ Project config templates cache
+
+createCache :: FilePath -> BackendCacheConfig -> Cache ByteString LByteString
+createCache cwd (FilesystemCache dir) =
+    filesystemCache
+        (unpack . decodeUtf8) -- "serialize" key
+        hPut -- write value
+        (fmap fromStrict . hGetContents) -- read value
+        (cwd </> dir)
 
 preloadTemplates :: FilePath -> IO TemplateCache
 preloadTemplates dir = do
