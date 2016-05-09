@@ -2,9 +2,7 @@
 data:
   menu: 'file://./data/menu.yml'
 backend-cache:
-  - type: 'file'
-    dir: '.cache'
-  - 'file:.cache'
+  'file:.cache'
 rules:
 - pattern: '/'
   data:

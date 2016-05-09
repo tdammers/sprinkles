@@ -56,7 +56,10 @@ instance FromJSON ProjectConfig where
     parseJSON (Object obj) = do
         contextData <- fromMaybe (mapFromList []) <$> obj .:? "data"
         rules <- fromMaybe [] <$> (obj .:? "rules" <|> obj .:? "Rules")
-        caches <- fromMaybe [] <$> obj .:? "backend-cache"
+        caches <- fromMaybe []
+                    <$> ( obj .:? "backend-cache"
+                          <|> (fmap (:[]) <$> obj .:? "backend-cache")
+                        )
         return $ ProjectConfig
             { pcContextData = contextData
             , pcRules = rules
