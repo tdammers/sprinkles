@@ -16,6 +16,8 @@ cabal-version:       >=1.10
 library
   hs-source-dirs: src
   exposed-modules: Web.Templar
+                 , Web.Templar.Cache
+                 , Web.Templar.Cache.Filesystem
                  , Web.Templar.Pattern
                  , Web.Templar.Replacement
                  , Web.Templar.Backends
@@ -32,6 +34,7 @@ library
                , array
                , bytestring
                , case-insensitive
+               , cereal
                , classy-prelude
                , containers
                , data-default

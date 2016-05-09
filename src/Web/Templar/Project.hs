@@ -6,7 +6,6 @@ module Web.Templar.Project
 where
 
 import ClassyPrelude
-import Web.Templar.Rule
 import Data.Aeson as JSON
 import Text.Ginger
         ( parseGinger
@@ -23,7 +22,10 @@ import System.Directory (makeAbsolute)
 import System.FilePath.Glob (glob)
 import System.FilePath
 
+import Web.Templar.Rule
 import Web.Templar.ProjectConfig
+import Web.Templar.Cache
+import Web.Templar.Cache.Filesystem (filesystemCache)
 
 newtype TemplateCache = TemplateCache (HashMap Text Template)
 
@@ -31,13 +33,21 @@ data Project =
     Project
         { projectConfig :: ProjectConfig
         , projectTemplates :: TemplateCache
+        , projectBackendCache :: Cache ByteString LByteString
         }
 
 loadProject :: FilePath -> IO Project
 loadProject dir = do
     config <- loadProjectConfig dir
     templates <- preloadTemplates dir
-    return $ Project config templates
+    -- let cache = nullCache
+    let cache :: Cache ByteString LByteString
+        cache = filesystemCache
+                    (unpack . decodeUtf8) -- "serialize" key
+                    hPut -- write value
+                    (fmap fromStrict . hGetContents) -- read value
+                    (dir </> ".cache")
+    return $ Project config templates cache
 
 preloadTemplates :: FilePath -> IO TemplateCache
 preloadTemplates dir = do

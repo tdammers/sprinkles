@@ -76,7 +76,7 @@ appFromProject project request respond = do
 
 respondTemplateHtml :: ToGVal (Ginger.Run IO Html) a => Project -> Status -> Text -> HashMap Text a -> Wai.Application
 respondTemplateHtml project status templateName contextMap request respond = do
-    let contextLookup = mkContextLookup request contextMap
+    let contextLookup = mkContextLookup request project contextMap
         headers = [("Content-type", "text/html;charset=utf8")]
     template <- getTemplate project templateName
     respond . Wai.responseStream status200 headers $ \write flush -> do
@@ -88,7 +88,7 @@ respondTemplateHtml project status templateName contextMap request respond = do
 
 respondTemplateText :: ToGVal (Ginger.Run IO Text) a => Project -> Status -> Text -> HashMap Text a -> Wai.Application
 respondTemplateText project status templateName contextMap request respond = do
-    let contextLookup = mkContextLookup request contextMap
+    let contextLookup = mkContextLookup request project contextMap
         headers = [("Content-type", "text/plain;charset=utf8")]
     template <- getTemplate project templateName
     respond . Wai.responseStream status200 headers $ \write flush -> do
@@ -100,21 +100,23 @@ respondTemplateText project status templateName contextMap request respond = do
 
 mkContextLookup :: (ToGVal (Ginger.Run IO h) a)
                 => Wai.Request
+                -> Project
                 -> HashMap Text a
                 -> Text
                 -> Ginger.Run IO h (GVal (Ginger.Run IO h))
-mkContextLookup request contextMap key = do
-    let contextMap' =
+mkContextLookup request project contextMap key = do
+    let cache = projectBackendCache project
+        contextMap' =
             fmap toGVal contextMap <>
             mapFromList
                 [ "request" ~> request
-                , ("load", Ginger.fromFunction gfnLoadBackendData)
+                , ("load", Ginger.fromFunction (gfnLoadBackendData cache))
                 , ("ellipse", Ginger.fromFunction gfnEllipse)
                 ]
     return . fromMaybe def $ lookup key contextMap'
 
-gfnLoadBackendData :: forall h. Ginger.Function (Ginger.Run IO h)
-gfnLoadBackendData args =
+gfnLoadBackendData :: forall h. RawBackendCache -> Ginger.Function (Ginger.Run IO h)
+gfnLoadBackendData cache args =
     Ginger.dict <$> forM (zip [0..] args) loadPair
     where
         loadPair :: (Int, (Maybe Text, GVal (Ginger.Run IO h)))
@@ -122,7 +124,7 @@ gfnLoadBackendData args =
         loadPair (index, (keyMay, gBackendURL)) = do
             let backendURL = Ginger.asText $ gBackendURL
             backendData :: Items (BackendData IO h) <- liftIO $
-                loadBackendData =<< parseBackendURI backendURL
+                loadBackendData cache =<< parseBackendURI backendURL
             return
                 ( fromMaybe (tshow index) keyMay
                 , toGVal backendData
@@ -157,6 +159,7 @@ handleRequest :: Project -> Wai.Application
 handleRequest project request respond = do
     go `catchIOError` \e -> handle500 e project request respond
     where
+        cache = projectBackendCache project
         go = do
             let queryPath =
                     (pack . UTF8.toString $ Wai.rawPathInfo request) <>
@@ -194,7 +197,8 @@ handle404 :: (HashMap Text BackendSpec, Set Text)
           -> Project
           -> Wai.Application
 handle404 (backendPaths, required) project request respond = do
-    backendData <- loadBackendDict backendPaths required
+    let cache = projectBackendCache project
+    backendData <- loadBackendDict cache backendPaths required
     respondTemplateHtml
         project
         status404
@@ -209,8 +213,9 @@ handle500 :: Show e
           -> Wai.Application
 handle500 err project request respond = do
     hPutStrLn stderr . show $ err
-    let backendPaths = pcContextData . projectConfig $ project
-    backendData <- loadBackendDict backendPaths (setFromList [])
+    let cache = projectBackendCache project
+        backendPaths = pcContextData . projectConfig $ project
+    backendData <- loadBackendDict cache backendPaths (setFromList [])
     respondTemplateHtml
         project
         status500
@@ -240,7 +245,8 @@ handleJSONTarget (backendPaths, required)
                  project
                  request
                  respond = do
-    backendData <- loadBackendDict backendPaths required
+    let cache = projectBackendCache project
+    backendData <- loadBackendDict cache backendPaths required
     respond $ Wai.responseLBS
         status200
         [("Content-type", "application/json")]
@@ -255,8 +261,9 @@ handleTemplateTarget templateName
                      project
                      request
                      respond = do
-    let go = do
-            backendData <- loadBackendDict backendPaths required
+    let cache = projectBackendCache project
+        go = do
+            backendData <- loadBackendDict cache backendPaths required
             respondTemplateHtml
                 project
                 status200
@@ -273,8 +280,9 @@ handleStaticTarget (backendPaths, required)
                    project
                    request
                    respond = do
-    let go = do
-            backendData <- loadBackendDict backendPaths required
+    let cache = projectBackendCache project
+        go = do
+            backendData <- loadBackendDict cache backendPaths required
             backendItem <- case lookup "file" backendData of
                 Nothing -> throwM NotFoundException
                 Just NotFound -> throwM NotFoundException
@@ -296,10 +304,10 @@ handleNotFound project request respond _ = do
         request
         respond
 
-loadBackendDict :: HashMap Text BackendSpec -> Set Text -> IO (HashMap Text (Items (BackendData IO Html)))
-loadBackendDict backendPaths required = do
+loadBackendDict :: RawBackendCache -> HashMap Text BackendSpec -> Set Text -> IO (HashMap Text (Items (BackendData IO Html)))
+loadBackendDict cache backendPaths required = do
     pairs <- forM (mapToList backendPaths) $ \(key, backendPath) -> do
-        bd :: Items (BackendData IO Html) <- loadBackendData backendPath
+        bd :: Items (BackendData IO Html) <- loadBackendData cache backendPath
         case bd of
             NotFound ->
                 if key `elem` required

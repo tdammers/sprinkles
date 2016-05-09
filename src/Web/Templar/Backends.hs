@@ -5,6 +5,7 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE LambdaCase #-}
+{-#LANGUAGE DeriveGeneric #-}
 module Web.Templar.Backends
 where
 
@@ -37,6 +38,10 @@ import qualified Text.Ginger as Ginger
 import Data.Default (def)
 import System.Random.Shuffle (shuffleM)
 import Data.Default
+import Web.Templar.Cache
+import qualified Data.Serialize as Cereal
+import Data.Serialize (Serialize)
+import Control.MaybeEitherMonad (eitherFailS)
 
 mimeMap :: MimeMap
 mimeMap =
@@ -56,7 +61,21 @@ mimeLookup = mimeByExt mimeMap defaultMimeType
 
 data BackendType = HttpBackend Text Credentials
                  | FileBackend Text
-                 deriving (Show)
+                 deriving (Show, Generic)
+
+instance Serialize BackendType where
+    put (HttpBackend url credentials) = do
+        Cereal.put 'h'
+        Cereal.put (encodeUtf8 . unpack $ url)
+        Cereal.put credentials
+    put (FileBackend path) = do
+        Cereal.put 'f'
+        Cereal.put (encodeUtf8 . unpack $ path)
+    get = do
+        Cereal.get >>= \case
+            'h' -> HttpBackend <$> (pack . decodeUtf8 <$> Cereal.get) <*> Cereal.get
+            'f' -> FileBackend <$> (pack . decodeUtf8 <$> Cereal.get)
+            x -> fail $ "Invalid backend type identifier: " <> show x
 
 type instance Element BackendType = Text
 
@@ -70,7 +89,9 @@ data BackendSpec =
         , bsFetchMode :: FetchMode
         , bsOrder :: FetchOrder
         }
-        deriving (Show)
+        deriving (Show, Generic)
+
+instance Serialize BackendSpec
 
 type instance Element BackendSpec = Text
 
@@ -78,7 +99,9 @@ instance MonoFunctor BackendSpec where
     omap f (BackendSpec t m o) = BackendSpec (omap f t) m o
 
 data FetchMode = FetchOne | FetchAll | FetchN Int
-    deriving (Show, Read, Eq)
+    deriving (Show, Read, Eq, Generic)
+
+instance Serialize FetchMode where
 
 instance FromJSON FetchMode where
     parseJSON (String "one") = return FetchOne
@@ -90,13 +113,17 @@ data FetchOrderField = ArbitraryOrder -- ^ Do not impose any ordering at all
                      | RandomOrder -- ^ Shuffle randomly
                      | OrderByName -- ^ Order by reported name
                      | OrderByMTime -- ^ Order by modification time
-                     deriving (Show, Read, Eq)
+                     deriving (Show, Read, Eq, Generic)
+
+instance Serialize FetchOrderField where
 
 instance Default FetchOrderField where
     def = ArbitraryOrder
 
 data AscDesc = Ascending | Descending
-    deriving (Show, Read, Eq)
+    deriving (Show, Read, Eq, Generic)
+
+instance Serialize AscDesc where
 
 instance Default AscDesc where
     def = Ascending
@@ -106,7 +133,9 @@ data FetchOrder =
         { fetchField :: FetchOrderField
         , fetchAscDesc :: AscDesc
         }
-        deriving (Show, Read, Eq)
+        deriving (Show, Read, Eq, Generic)
+
+instance Serialize FetchOrder where
 
 instance Default FetchOrder where
     def = FetchOrder def def
@@ -196,7 +225,9 @@ parseBackendURI t = do
         _ -> fail $ "Unknown protocol: " <> show protocol
 
 data Credentials = AnonymousCredentials
-    deriving (Show)
+    deriving (Show, Generic)
+
+instance Serialize Credentials where
 
 instance FromJSON Credentials where
     parseJSON Null = return AnonymousCredentials
@@ -216,11 +247,18 @@ data BackendSource =
         { bsMeta :: BackendMeta
         , bsSource :: LByteString
         }
+        deriving (Generic)
 
-loadBackendData :: BackendSpec -> IO (Items (BackendData m h))
-loadBackendData bspec =
+instance Serialize BackendSource where
+
+type RawBackendCache = Cache ByteString LByteString
+
+type BackendCache = Cache BackendSpec [BackendSource]
+
+loadBackendData :: RawBackendCache -> BackendSpec -> IO (Items (BackendData m h))
+loadBackendData cache bspec =
     fmap (reduceItems (bsFetchMode bspec)) $
-        fetchBackendData bspec >>=
+        fetchBackendData cache bspec >>=
         mapM parseBackendData >>=
         sorter
     where
@@ -270,7 +308,21 @@ data BackendMeta =
         , bmPath :: Text
         , bmSize :: Maybe Integer
         }
-        deriving (Show)
+        deriving (Show, Generic)
+
+instance Serialize BackendMeta where
+    put bm = do
+        Cereal.put $ bmMimeType bm
+        Cereal.put . fmap fromEnum $ bmMTime bm
+        Cereal.put . encodeUtf8 $ bmName bm
+        Cereal.put . encodeUtf8 $ bmPath bm
+        Cereal.put $ bmSize bm
+    get =
+        BackendMeta <$> Cereal.get
+                    <*> (fmap toEnum <$> Cereal.get)
+                    <*> (decodeUtf8 <$> Cereal.get)
+                    <*> (decodeUtf8 <$> Cereal.get)
+                    <*> Cereal.get
 
 instance ToJSON BackendMeta where
     toJSON bm =
@@ -291,8 +343,22 @@ instance Ginger.ToGVal m BackendMeta where
         , "size" ~> bmSize bm
         ]
 
-fetchBackendData :: BackendSpec -> IO [BackendSource]
-fetchBackendData (BackendSpec (FileBackend filepath) fetchMode fetchOrder) =
+wrapBackendCache :: RawBackendCache -> BackendCache
+wrapBackendCache =
+    transformCache
+        Cereal.encode
+        (return . Just . Cereal.encodeLazy)
+        (fmap Just . eitherFailS . Cereal.decodeLazy)
+
+fetchBackendData :: RawBackendCache -> BackendSpec -> IO [BackendSource]
+fetchBackendData rawCache =
+    cached cache fetchBackendData'
+    where
+        cache :: BackendCache
+        cache = wrapBackendCache rawCache
+
+fetchBackendData' :: BackendSpec -> IO [BackendSource]
+fetchBackendData' (BackendSpec (FileBackend filepath) fetchMode fetchOrder) =
     fetch `catchIOError` handle
     where
         filename = unpack filepath
@@ -320,7 +386,7 @@ fetchBackendData (BackendSpec (FileBackend filepath) fetchMode fetchOrder) =
                         , bmSize = (Just . fromIntegral $ fileSize status :: Maybe Integer)
                         }
             return $ BackendSource meta contents
-fetchBackendData (BackendSpec (HttpBackend uriText credentials) fetchMode fetchOrder) = do
+fetchBackendData' (BackendSpec (HttpBackend uriText credentials) fetchMode fetchOrder) = do
     backendURL <- maybe
         (fail $ "Invalid backend URL: " ++ show uriText)
         return
