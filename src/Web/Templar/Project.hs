@@ -27,6 +27,18 @@ import Web.Templar.ProjectConfig
 
 newtype TemplateCache = TemplateCache (HashMap Text Template)
 
+data Project =
+    Project
+        { projectConfig :: ProjectConfig
+        , projectTemplates :: TemplateCache
+        }
+
+loadProject :: FilePath -> IO Project
+loadProject dir = do
+    config <- loadProjectConfig dir
+    templates <- preloadTemplates dir
+    return $ Project config templates
+
 preloadTemplates :: FilePath -> IO TemplateCache
 preloadTemplates dir = do
     prefix <- makeAbsolute $ dir </> "templates"
@@ -53,18 +65,6 @@ preloadTemplates dir = do
             Left err -> fail . show $ err
             Right t -> return t
     return . TemplateCache . mapFromList $ zip (map pack relativeFilenames) templates
-
-data Project =
-    Project
-        { projectConfig :: ProjectConfig
-        , projectTemplates :: TemplateCache
-        }
-
-loadProject :: FilePath -> IO Project
-loadProject dir = do
-    config <- loadProjectConfig dir
-    templates <- preloadTemplates dir
-    return $ Project config templates
 
 resolveTemplateName :: Project -> [Text] -> IO Text
 resolveTemplateName project path = do
