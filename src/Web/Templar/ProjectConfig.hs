@@ -26,6 +26,7 @@ instance FromJSON BackendCacheConfig where
         (obj .: "type") >>= \case
             "file" -> FilesystemCache <$> (obj .:? "dir" .!= ".cache")
             x -> fail $ "Invalid backend cache type: '" <> x
+    parseJSON x = fail $ "Invalid backend cache specification: " <> show x
 
 backendCacheConfigFromString :: Text -> Maybe BackendCacheConfig
 backendCacheConfigFromString str = do
