@@ -26,6 +26,7 @@ import Web.Templar.Rule
 import Web.Templar.ProjectConfig
 import Web.Templar.Cache
 import Web.Templar.Cache.Filesystem (filesystemCache)
+import Web.Templar.Cache.Memory (memCache)
 
 newtype TemplateCache = TemplateCache (HashMap Text Template)
 
@@ -33,7 +34,7 @@ data Project =
     Project
         { projectConfig :: ProjectConfig
         , projectTemplates :: TemplateCache
-        , projectBackendCache :: Cache ByteString LByteString
+        , projectBackendCache :: Cache ByteString ByteString
         }
 
 loadProject :: FilePath -> IO Project
@@ -41,17 +42,18 @@ loadProject dir = do
     config <- loadProjectConfig dir
     templates <- preloadTemplates dir
     -- let cache = nullCache
-    let cache :: Cache ByteString LByteString
-        cache = mconcat $ fmap (createCache dir) (pcBackendCache config)
+    caches <- sequence $ fmap (createCache dir) (pcBackendCache config)
+    let cache = mconcat caches
     return $ Project config templates cache
 
-createCache :: FilePath -> BackendCacheConfig -> Cache ByteString LByteString
+createCache :: FilePath -> BackendCacheConfig -> IO (Cache ByteString ByteString)
 createCache cwd (FilesystemCache dir) =
-    filesystemCache
+    return $ filesystemCache
         (unpack . decodeUtf8) -- "serialize" key
         hPut -- write value
-        (fmap fromStrict . hGetContents) -- read value
+        hGetContents -- read value
         (cwd </> dir)
+createCache _ MemCache = memCache
 
 preloadTemplates :: FilePath -> IO TemplateCache
 preloadTemplates dir = do

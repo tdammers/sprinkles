@@ -18,13 +18,15 @@ import System.Environment (getEnv)
 import Control.MaybeEitherMonad (maybeFail)
 
 data BackendCacheConfig =
-    FilesystemCache FilePath
+    FilesystemCache FilePath |
+    MemCache
 
 instance FromJSON BackendCacheConfig where
     parseJSON (String str) = maybeFail $ backendCacheConfigFromString str
     parseJSON (Object obj) = do
         (obj .: "type") >>= \case
             "file" -> FilesystemCache <$> (obj .:? "dir" .!= ".cache")
+            "mem" -> return MemCache
             x -> fail $ "Invalid backend cache type: '" <> x
     parseJSON x = fail $ "Invalid backend cache specification: " <> show x
 
@@ -33,6 +35,7 @@ backendCacheConfigFromString str = do
     case splitSeq ":" str of
         ["file", dir] -> return $ FilesystemCache (unpack dir)
         ["file"] -> return $ FilesystemCache ".cache"
+        ["mem"] -> return MemCache
         xs -> Nothing
 
 data ProjectConfig =

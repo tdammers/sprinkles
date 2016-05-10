@@ -18,6 +18,7 @@ library
   exposed-modules: Web.Templar
                  , Web.Templar.Cache
                  , Web.Templar.Cache.Filesystem
+                 , Web.Templar.Cache.Memory
                  , Web.Templar.Pattern
                  , Web.Templar.Replacement
                  , Web.Templar.Backends

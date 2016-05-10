@@ -251,7 +251,7 @@ data BackendSource =
 
 instance Serialize BackendSource where
 
-type RawBackendCache = Cache ByteString LByteString
+type RawBackendCache = Cache ByteString ByteString
 
 type BackendCache = Cache BackendSpec [BackendSource]
 
@@ -347,8 +347,8 @@ wrapBackendCache :: RawBackendCache -> BackendCache
 wrapBackendCache =
     transformCache
         Cereal.encode
-        (return . Just . Cereal.encodeLazy)
-        (fmap Just . eitherFailS . Cereal.decodeLazy)
+        (return . Just . Cereal.encode)
+        (fmap Just . eitherFailS . Cereal.decode)
 
 fetchBackendData :: RawBackendCache -> BackendSpec -> IO [BackendSource]
 fetchBackendData rawCache =
