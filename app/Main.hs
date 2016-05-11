@@ -1,4 +1,6 @@
 {-#LANGUAGE NoImplicitPrelude #-}
+
+-- | CLI program that drives a Templar instance.
 module Main where
 
 import ClassyPrelude

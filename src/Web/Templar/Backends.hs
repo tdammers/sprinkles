@@ -6,7 +6,20 @@
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE DeriveGeneric #-}
+
+-- | Backend type and implementations.
 module Web.Templar.Backends
+(
+-- * Defining backends
+  BackendSpec
+, parseBackendURI
+-- * Fetching backend data
+, BackendData (..)
+, BackendMeta (..)
+, Items (..)
+, loadBackendData
+, RawBackendCache
+)
 where
 
 import ClassyPrelude
@@ -43,6 +56,8 @@ import qualified Data.Serialize as Cereal
 import Data.Serialize (Serialize)
 import Control.MaybeEitherMonad (eitherFailS)
 
+-- | Our own extended MIME type dictionary. The default one lacks appropriate
+-- entries for some of the important types we use, so we add them here.
 mimeMap :: MimeMap
 mimeMap =
     defaultMimeMap <>
@@ -56,11 +71,14 @@ mimeMap =
         , ("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         ]
 
+-- | Custom MIME lookup function that knows about the extra types declared in
+-- 'mimeMap'.
 mimeLookup :: FileName -> MimeType
 mimeLookup = mimeByExt mimeMap defaultMimeType
 
-data BackendType = HttpBackend Text Credentials
-                 | FileBackend Text
+-- | A type of backend.
+data BackendType = HttpBackend Text Credentials -- ^ Fetch data over HTTP(S)
+                 | FileBackend Text -- ^ Read local files
                  deriving (Show, Generic)
 
 instance Serialize BackendType where
@@ -83,11 +101,12 @@ instance MonoFunctor BackendType where
     omap f (HttpBackend t c) = HttpBackend (f t) c
     omap f (FileBackend t) = FileBackend (f t)
 
+-- | A specification of a backend query.
 data BackendSpec =
     BackendSpec
-        { bsType :: BackendType
-        , bsFetchMode :: FetchMode
-        , bsOrder :: FetchOrder
+        { bsType :: BackendType -- ^ Defines the data source
+        , bsFetchMode :: FetchMode -- ^ How many items to fetch, and in what shape
+        , bsOrder :: FetchOrder -- ^ How to order items
         }
         deriving (Show, Generic)
 
@@ -98,7 +117,101 @@ type instance Element BackendSpec = Text
 instance MonoFunctor BackendSpec where
     omap f (BackendSpec t m o) = BackendSpec (omap f t) m o
 
-data FetchMode = FetchOne | FetchAll | FetchN Int
+-- | The JSON shape of a backend spec is:
+--
+-- @
+-- {
+--   // type: one of:
+--   // - "http" (fetch over HTTP)
+--   // - "https" (fetch over HTTPS)
+--   // - "file" (load an individual file)
+--   // - "glob" (resolve a glob and load all matching files)
+--   // - "dir" (get a directory listing)
+--   "type": type,
+--
+--   // fetch mode. One of:
+--   - "one": Fetch exactly one item, as a scalar
+--   - "all": Fetch all items, as a list
+--   - n (numeric value): Fetch up to n items, as a list
+--   "fetch": fetchMode,
+--
+--   // ordering. One of:
+--   // - "arbitrary": do not reorder, use whatever the backend produces
+--   // - "random": random-shuffle results
+--   // - "shuffle": same as "random"
+--   // - "name": order by name
+--   // - "mtime": order by modification time
+--   // The ordering can be preceded with a "+" or "-" sign to indicate
+--   // ascending or descending ordering.
+--   "order": ordering,
+--
+--   // The rest of the structure depends on the type.
+--
+--   // For "http" and "https":
+--   // The HTTP(S) URI to load from
+--   "uri": uri,
+--
+--   // For "file", "glob", "dir":
+--   // The local file path or glob
+--   "path": path
+-- }
+-- @
+instance FromJSON BackendSpec where
+    parseJSON = backendSpecFromJSON
+
+-- | Read a backend spec from a JSON value.
+backendSpecFromJSON (String uri) =
+    parseBackendURI uri
+backendSpecFromJSON (Object obj) = do
+    bsTypeStr <- obj .: "type"
+    (t, defFetchMode) <- case bsTypeStr :: Text of
+            "http" -> parseHttpBackendSpec
+            "https" -> parseHttpBackendSpec
+            "file" -> parseFileBackendSpec FetchOne
+            "glob" -> parseFileBackendSpec FetchAll
+            "dir" -> parseDirBackendSpec
+    fetchMode <- obj .:? "fetch" .!= defFetchMode
+    fetchOrder <- obj .:? "order" .!= def
+    return $ BackendSpec t fetchMode fetchOrder
+    where
+        parseHttpBackendSpec = do
+            t <- obj .: "uri"
+            return (HttpBackend t AnonymousCredentials, FetchOne)
+        parseFileBackendSpec m = do
+            path <- obj .: "path"
+            return (FileBackend (pack path), m)
+        parseDirBackendSpec = do
+            path <- obj .: "path"
+            return (FileBackend (pack $ path </> "*"), FetchAll)
+backendSpecFromJSON x = fail $ "Invalid JSON value for BackendSpec: " <> show x <> ", expecting object or string"
+
+-- | Parse a 'Text' into a 'BackendSpec'.
+parseBackendURI :: Monad m => Text -> m BackendSpec
+parseBackendURI t = do
+    let protocol = takeWhile (/= ':') t
+        path = drop (length protocol + 3) t
+    case protocol of
+        "http" ->
+            return $
+                BackendSpec
+                    (HttpBackend t AnonymousCredentials)
+                    FetchOne
+                    def
+        "https" ->
+            return $
+                BackendSpec
+                    (HttpBackend t AnonymousCredentials)
+                    FetchOne
+                    def
+        "dir" -> return $ BackendSpec (FileBackend (pack $ unpack path </> "*")) FetchAll def
+        "glob" -> return $ BackendSpec (FileBackend path) FetchAll def
+        "file" -> return $ BackendSpec (FileBackend path) FetchOne def
+        _ -> fail $ "Unknown protocol: " <> show protocol
+
+-- | How many items to fetch, and in what shape.
+data FetchMode = FetchOne -- ^ Fetch only the first result
+               | FetchAll -- ^ Fetch all results
+               | FetchN Int -- ^ Fetch at most @n@ results, starting from the top
     deriving (Show, Read, Eq, Generic)
 
 instance Serialize FetchMode where
@@ -109,6 +222,7 @@ instance FromJSON FetchMode where
     parseJSON (Number n) = return . FetchN . ceiling $ n
     parseJSON _ = fail "Invalid fetch mode (want 'one' or 'all')"
 
+-- | By which field should we order results?
 data FetchOrderField = ArbitraryOrder -- ^ Do not impose any ordering at all
                      | RandomOrder -- ^ Shuffle randomly
                      | OrderByName -- ^ Order by reported name
@@ -128,10 +242,11 @@ instance Serialize AscDesc where
 instance Default AscDesc where
     def = Ascending
 
+-- | How to order results.
 data FetchOrder =
     FetchOrder
-        { fetchField :: FetchOrderField
-        , fetchAscDesc :: AscDesc
+        { fetchField :: FetchOrderField -- ^ By which field?
+        , fetchAscDesc :: AscDesc -- ^ Reverse ordering?
         }
         deriving (Show, Read, Eq, Generic)
 
@@ -157,11 +272,17 @@ instance FromJSON FetchOrder where
         return $ FetchOrder field order
     parseJSON val = fail $ "Invalid fetch order specifier: " ++ show val
 
-instance FromJSON BackendSpec where
-    parseJSON = backendSpecFromJSON
+-- | The shapes of data that can be returned from a backend query.
+data Items a = NotFound -- ^ Nothing was found
+             | SingleItem a -- ^ A single item was requested, and this is it
+             | MultiItem [a] -- ^ Multiple items were requested, here they are
 
-data Items a = NotFound | SingleItem a | MultiItem [a]
-
+-- | Transform a raw list of results into an 'Items' value. This allows us
+-- later to distinguish between Nothing Found vs. Empty List, and between
+-- Single Item Requested And Found vs. Many Items Requested, One Found. This
+-- is needed such that when a single item is requested, it gets converted to
+-- 'GVal' and JSON as a scalar, while when we request many items and receive
+-- one, it becomes a singleton list.
 reduceItems :: FetchMode -> [a] -> Items a
 reduceItems FetchOne [] = NotFound
 reduceItems FetchOne (x:_) = SingleItem x
@@ -178,52 +299,8 @@ instance ToJSON a => ToJSON (Items a) where
     toJSON (SingleItem x) = toJSON x
     toJSON (MultiItem xs) = toJSON xs
 
-backendSpecFromJSON (String uri) =
-    parseBackendURI uri
-backendSpecFromJSON (Object obj) = do
-    bsTypeStr <- obj .: "type"
-    (t, defFetchMode) <- case bsTypeStr :: Text of
-            "http" -> parseHttpBackendSpec
-            "https" -> parseHttpBackendSpec
-            "file" -> parseFileBackendSpec FetchOne
-            "glob" -> parseFileBackendSpec FetchAll
-            "dir" -> parseDirBackendSpec
-    fetchMode <- obj .:? "fetch" .!= defFetchMode
-    fetchOrder <- obj .:? "order" .!= def
-    return $ BackendSpec t fetchMode fetchOrder
-    where
-        parseHttpBackendSpec = do
-            t <- obj .: "uri"
-            return (HttpBackend t AnonymousCredentials, FetchOne)
-        parseFileBackendSpec m = do
-            path <- obj .: "path"
-            return (FileBackend (pack path), m)
-        parseDirBackendSpec = do
-            path <- obj .: "path"
-            return (FileBackend (pack $ path </> "*"), FetchAll)
-
-parseBackendURI :: Monad m => Text -> m BackendSpec
-parseBackendURI t = do
-    let protocol = takeWhile (/= ':') t
-        path = drop (length protocol + 3) t
-    case protocol of
-        "http" ->
-            return $
-                BackendSpec
-                    (HttpBackend t AnonymousCredentials)
-                    FetchOne
-                    def
-        "https" ->
-            return $
-                BackendSpec
-                    (HttpBackend t AnonymousCredentials)
-                    FetchOne
-                    def
-        "dir" -> return $ BackendSpec (FileBackend (pack $ unpack path </> "*")) FetchAll def
-        "glob" -> return $ BackendSpec (FileBackend path) FetchAll def
-        "file" -> return $ BackendSpec (FileBackend path) FetchOne def
-        _ -> fail $ "Unknown protocol: " <> show protocol
-
+-- | Credentials to pass to an external backend data source. Currently stubbed,
+-- supporting only anonymous access.
 data Credentials = AnonymousCredentials
     deriving (Show, Generic)
 
@@ -234,14 +311,16 @@ instance FromJSON Credentials where
     parseJSON (String "anonymous") = return AnonymousCredentials
     parseJSON _ = fail "Invalid credentials"
 
+-- | A parsed record from a query result.
 data BackendData m h =
     BackendData
-        { bdJSON :: JSON.Value
-        , bdGVal :: GVal (Run m h)
-        , bdRaw :: LByteString
-        , bdMeta :: BackendMeta
+        { bdJSON :: JSON.Value -- ^ Result body as JSON
+        , bdGVal :: GVal (Run m h) -- ^ Result body as GVal
+        , bdRaw :: LByteString -- ^ Raw result body source
+        , bdMeta :: BackendMeta -- ^ Meta-information
         }
 
+-- | A raw (unparsed) record from a query result.
 data BackendSource =
     BackendSource
         { bsMeta :: BackendMeta
@@ -251,10 +330,13 @@ data BackendSource =
 
 instance Serialize BackendSource where
 
+-- | Cache for raw backend data, stored as bytestrings.
 type RawBackendCache = Cache ByteString ByteString
 
+-- | Well-typed backend cache.
 type BackendCache = Cache BackendSpec [BackendSource]
 
+-- | Execute a backend query, with caching.
 loadBackendData :: RawBackendCache -> BackendSpec -> IO (Items (BackendData m h))
 loadBackendData cache bspec =
     fmap (reduceItems (bsFetchMode bspec)) $
@@ -275,6 +357,10 @@ loadBackendData cache bspec =
             OrderByName -> return . sortOn (bmName . bdMeta)
             OrderByMTime -> return . sortOn (bmMTime . bdMeta)
 
+-- | Wrap a parsed backend value in a 'BackendData' structure. The original
+-- raw 'BackendSource' value is needed alongside the parsed value, because the
+-- resulting structure contains both the 'BackendMeta' and the raw (unparsed)
+-- data from it.
 toBackendData :: (ToJSON a, ToGVal (Run m h) a) => BackendSource -> a -> BackendData m h
 toBackendData src val =
     BackendData
@@ -300,13 +386,14 @@ instance ToGVal (Run m h) (BackendData m h) where
                 (("props" ~> bdMeta bd):) <$> baseDictItems
             }
 
+-- | Metadata for a backend query result.
 data BackendMeta =
     BackendMeta
         { bmMimeType :: MimeType
-        , bmMTime :: Maybe CTime
-        , bmName :: Text
-        , bmPath :: Text
-        , bmSize :: Maybe Integer
+        , bmMTime :: Maybe CTime -- ^ Last modification time, if available
+        , bmName :: Text -- ^ Human-friendly name
+        , bmPath :: Text -- ^ Path, according to the semantics of the backend (file path or URI)
+        , bmSize :: Maybe Integer -- ^ Size of the raw source, in bytes, if available
         }
         deriving (Show, Generic)
 
@@ -343,6 +430,8 @@ instance Ginger.ToGVal m BackendMeta where
         , "size" ~> bmSize bm
         ]
 
+-- | What the type says: expose a raw backend cache (bytestrings) as a
+-- well-typed backend cache.
 wrapBackendCache :: RawBackendCache -> BackendCache
 wrapBackendCache =
     transformCache
@@ -350,6 +439,7 @@ wrapBackendCache =
         (return . Just . Cereal.encode)
         (fmap Just . eitherFailS . Cereal.decode)
 
+-- | Fetch raw backend data from a backend source, with caching.
 fetchBackendData :: RawBackendCache -> BackendSpec -> IO [BackendSource]
 fetchBackendData rawCache =
     cached cache fetchBackendData'
@@ -357,6 +447,7 @@ fetchBackendData rawCache =
         cache :: BackendCache
         cache = wrapBackendCache rawCache
 
+-- | Fetch raw backend data from a backend source, without caching.
 fetchBackendData' :: BackendSpec -> IO [BackendSource]
 fetchBackendData' (BackendSpec (FileBackend filepath) fetchMode fetchOrder) =
     fetch `catchIOError` handle
@@ -413,23 +504,28 @@ fetchBackendData' (BackendSpec (HttpBackend uriText credentials) fetchMode fetch
                 }
     return [BackendSource meta body]
 
+-- | Extract raw integer value from a 'CTime'
 unCTime :: CTime -> Int64
 unCTime (CTime i) = i
 
+-- | Get a HTTP header value by header name from a list of headers.
 lookupHeader :: HTTP.HeaderName -> [HTTP.Header] -> Maybe String
 lookupHeader name headers =
     headMay [ v | HTTP.Header n v <- headers, n == name ]
 
+-- | Parse raw backend data source into a structured backend data record.
 parseBackendData :: Monad m => BackendSource -> m (BackendData n h)
 parseBackendData item@(BackendSource meta body) = do
     let t = takeWhile (/= fromIntegral (ord ';')) (bmMimeType meta)
         parse = fromMaybe parseRawData $ lookup t parsersTable
     parse item
 
+-- | Lookup table of mime types to parsers.
 parsersTable :: Monad m => HashMap MimeType (BackendSource -> m (BackendData n h))
 parsersTable = mapFromList . mconcat $
     [ zip mimeTypes (repeat parser) | (mimeTypes, parser) <- parsers ]
 
+-- | The parsers we know, by mime types.
 parsers :: Monad m => [([MimeType], (BackendSource -> m (BackendData n h)))]
 parsers =
     [ ( ["application/json", "text/json"]
@@ -455,6 +551,8 @@ parsers =
       )
     ]
 
+-- | Parser for raw data (used for static files); this is also the default
+-- fallback for otherwise unsupported file types.
 parseRawData :: Monad m => BackendSource -> m (BackendData n h)
 parseRawData (BackendSource meta body) =
     return $ BackendData
@@ -464,18 +562,21 @@ parseRawData (BackendSource meta body) =
         , bdRaw = body
         }
 
+-- | Parser for JSON source data.
 parseJSONData :: Monad m => BackendSource -> m (BackendData n h)
 parseJSONData item@(BackendSource meta body) =
     case JSON.eitherDecode body of
         Left err -> fail $ err ++ "\n" ++ show body
         Right json -> return . toBackendData item $ (json :: JSON.Value)
 
+-- | Parser for YAML source data.
 parseYamlData :: Monad m => BackendSource -> m (BackendData n h)
 parseYamlData item@(BackendSource meta body) =
     case YAML.decodeEither (toStrict body) of
         Left err -> fail $ err ++ "\n" ++ show body
         Right json -> return . toBackendData item $ (json :: JSON.Value)
 
+-- | Parser for Pandoc-supported formats that are read from 'LByteString's.
 parsePandocDataLBS :: Monad m
                    => (LByteString -> Either PandocError Pandoc)
                    -> BackendSource
@@ -485,6 +586,7 @@ parsePandocDataLBS reader input@(BackendSource meta body) = do
         Left err -> fail . show $ err
         Right pandoc -> return $ toBackendData input pandoc
 
+-- | Parser for Pandoc-supported formats that are read from 'String's.
 parsePandocDataString :: Monad m
                    => (String -> Either PandocError Pandoc)
                    -> BackendSource

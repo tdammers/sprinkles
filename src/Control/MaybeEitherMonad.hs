@@ -1,3 +1,5 @@
+-- | A collection of utility functions to mediate between 'Maybe', 'Either',
+-- other 'Monad's, and exceptions.
 module Control.MaybeEitherMonad
 where
 
