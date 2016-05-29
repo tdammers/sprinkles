@@ -24,7 +24,7 @@ deploy:
   provider: releases
   api_key:
     secure: 4+JouzbwKldPjaC3APuG2E9R2PfRH/TQZi8PhfZeHLu1LC/pi1HxSnAvKH/97jaAuQmdYsLU9a07P54TYlJ3zITkrRIf0q+H6rSCDadx5Yz9L4wxwHC1byGcOARpxxlliFhRtE/4T83b8q0W2+ijW9nC0ehbLfNOVbjJzkTbG0SmA4AfazsJ+pvwM4TwOA5XRAZtGnmADN7igvXNSXcC/ckItihkYBpv06VC3qYJaK6e/j7wjjv4lhjKOn1C4QHY7xWNZMdeEMjp2VlWqdodEiVB+ocVkAUmrruBGVvtyt4T1jea55Pt/W/KG5TzO6Ovh0r/XX3+LVUxXdL7Xbmv8RqpFZiPn9Dg9cw8UzV7fpPOpkqz035UBNBhFTAfFYegtlL6hSBEPwQOShi9z+MhXXyRGUF8Etv6G8fJBP90+gT3KLnNsybBfeY4+i+tp3CQ52eomV8D5Xd5iijKepjXsDYs5LOvjKVCV3zd1qLPIIaVpH3fMGvZLnbbibeCD3KT0vzYlGqoSl55D415KmY4/kN3UZ6dtEtXLsdDHL5Kw03Ong3sIaotCoi7MtRd3a8EZc7ewoXhTAonPJUdqZxyvTddqNgG09ciHol7R4wTDvO622rJgc0h0X0RLT8kSTsXsZ2vxtcNdq7FpnE2DfUSw6aSbrystugt83YFtY1occQ=
-  file: "~/.local/bin/templar"
+  file: "/home/travis/.local/bin/templar"
   skip_cleanup: true
   on:
     tags: true
