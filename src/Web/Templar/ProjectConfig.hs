@@ -14,7 +14,7 @@ import qualified Data.Yaml as YAML
 import Web.Templar.Backends
 import Data.Default
 import System.FilePath.Glob (glob)
-import System.Environment (getEnv)
+import System.Environment (getEnv, lookupEnv)
 import Control.MaybeEitherMonad (maybeFail)
 
 data ProjectConfig =
@@ -63,17 +63,5 @@ loadProjectConfigFile fn = do
 
 loadProjectConfig :: FilePath -> IO ProjectConfig
 loadProjectConfig dir = do
-    systemGlobalFilenames <- glob "/etc/templar/*.yml"
-    globalFilenames <- glob "/usr/local/etc/templar/*.yml"
-    homeDir <- getEnv "HOME"
-    userFilenames <- glob (homeDir </> ".config" </> "templar" </> "*.yml")
-    localFilenames <- glob (dir </> "config" </> "*.yml")
-    projectFilenames <- glob (dir </> "project.yml")
-    let filenames = mconcat
-            [ systemGlobalFilenames
-            , globalFilenames
-            , userFilenames
-            , localFilenames
-            , projectFilenames
-            ]
-    mconcat <$> forM filenames loadProjectConfigFile
+    loadProjectConfigFile $ dir </> "project.yml"
+

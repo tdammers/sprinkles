@@ -15,7 +15,7 @@ import qualified Data.Yaml as YAML
 import Web.Templar.Backends
 import Data.Default
 import System.FilePath.Glob (glob)
-import System.Environment (getEnv)
+import System.Environment (getEnv, lookupEnv)
 import Control.MaybeEitherMonad (maybeFail)
 import System.Directory (doesFileExist)
 
@@ -131,18 +131,18 @@ loadServerConfigFile fn = do
 loadServerConfig :: FilePath -> IO ServerConfig
 loadServerConfig dir = do
     hPutStrLn stderr $ "loadServerConfig " ++ dir
-    homeDir <- getEnv "HOME"
+    homeDirMay <- lookupEnv "HOME"
     let systemGlobalFilename = "/etc/templar/server.yml"
         globalFilename = "/usr/local/etc/templar/server.yml"
-        userFilename = homeDir </> ".config" </> "templar" </> "server.yml"
+        userFilenameMay = (</> ".config" </> "templar" </> "server.yml") <$> homeDirMay
         localFilename = dir </> "config" </> "server.yml"
         serverConfigFilename = dir </> "server.yml"
-    let filenames' =
-            [ systemGlobalFilename
-            , globalFilename
-            , userFilename
-            , localFilename
-            , serverConfigFilename
+    let filenames' = catMaybes
+            [ Just systemGlobalFilename
+            , Just globalFilename
+            , userFilenameMay
+            , Just localFilename
+            , Just serverConfigFilename
             ]
     filenames <- filterM doesFileExist filenames'
     hPutStrLn stderr $ show filenames
