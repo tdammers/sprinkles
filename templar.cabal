@@ -25,6 +25,7 @@ library
                  , Web.Templar.PandocGVal
                  , Web.Templar.Rule
                  , Web.Templar.ProjectConfig
+                 , Web.Templar.ServerConfig
                  , Web.Templar.Project
                  , Web.Templar.Serve
                  , Control.MaybeEitherMonad
@@ -62,6 +63,7 @@ library
                , vector
                , wai
                , wai-extra
+               , wai-handler-fastcgi
                , warp
                , yaml
   default-language:    Haskell2010
@@ -73,6 +75,7 @@ executable templar
   build-depends: base
                , templar
                , classy-prelude
+               , data-default
                , safe
   default-language: Haskell2010
 

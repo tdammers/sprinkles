@@ -36,8 +36,8 @@ function watch_hasktags() {
         inotifywait \
             -e modify \
             -e attrib \
-            src app test \
-            hasktags . -c
+            src/**/*.hs app/*.hs test
+        hasktags . -c
     done
 }
 

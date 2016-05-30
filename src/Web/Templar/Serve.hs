@@ -34,6 +34,9 @@ import qualified Data.Text as Text
 import qualified Network.Wai as Wai
 import Network.HTTP.Types (Status, status200, status302, status400, status404, status500)
 import qualified Network.Wai.Handler.Warp as Warp
+import qualified Network.Wai.Handler.CGI as CGI
+import qualified Network.Wai.Handler.SCGI as SCGI
+import qualified Network.Wai.Handler.FastCGI as FastCGI
 import Data.Default (def)
 import Data.ByteString.Builder (stringUtf8)
 import qualified Data.ByteString.UTF8 as UTF8
@@ -43,11 +46,31 @@ import qualified Data.CaseInsensitive as CI
 import Web.Templar.Backends
 import Web.Templar.Rule
 import Web.Templar.ProjectConfig
+import Web.Templar.ServerConfig
 import Web.Templar.Project
 
-serveProject :: Project -> Int -> IO ()
-serveProject project port =
+serveProject :: ServerConfig -> Project -> IO ()
+serveProject config =
+    case scDriver config of
+        DefaultDriver -> serveWarp 5000
+        WarpDriver port -> serveWarp port
+        CGIDriver -> serveCGI
+        SCGIDriver -> serveSCGI
+        FastCGIDriver -> serveFastCGI
+
+serveWarp :: Int -> Project -> IO ()
+serveWarp port project = do
+    hPutStrLn stderr $ "Running server on port " ++ show port ++ "..."
     Warp.run port (appFromProject project)
+
+serveCGI :: Project -> IO ()
+serveCGI project = CGI.run (appFromProject project)
+
+serveSCGI :: Project -> IO ()
+serveSCGI project = SCGI.run (appFromProject project)
+
+serveFastCGI :: Project -> IO ()
+serveFastCGI project = FastCGI.run (appFromProject project)
 
 instance ToGVal m ByteString where
     toGVal = toGVal . UTF8.toString

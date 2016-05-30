@@ -20,6 +20,9 @@ as a drop-in replacement for a static site generator.
 On a reasonably modern x64 Linux system, this is the preferred way of
 installing templar.
 
+- Install the system dependencies; at the time of writing, those are:
+    - `libfcgi` (for FCGI support)
+    - `libgmp` (for Haskell's bignum type)
 - Get the binary release tarball from
   https://github.com/tdammers/templar/releases/latest (both zip file and
   tarball are available, both contain the same files)
@@ -37,6 +40,10 @@ installing templar.
 The easiest way to do that is to use
 [Stack](https://haskellstack.org/):
 
+- Install development versions of the system dependencies; at the time of
+  writing, those are:
+    - `libfcgi` (for FCGI support)
+    - `libgmp` (for Haskell's bignum type)
 - Install stack
 - Clone the Templar repository:
   `git clone https://bitbucket.org/tdammers/templar.git`

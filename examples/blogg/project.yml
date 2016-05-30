@@ -1,9 +1,6 @@
 # vim: ts=2 sw=2 expandtab
 data:
   menu: 'file://./data/menu.yml'
-backend-cache:
-  - 'mem'
-  - 'file:.cache'
 rules:
 - pattern: '/'
   data:

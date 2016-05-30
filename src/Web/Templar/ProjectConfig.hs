@@ -17,39 +17,16 @@ import System.FilePath.Glob (glob)
 import System.Environment (getEnv)
 import Control.MaybeEitherMonad (maybeFail)
 
-data BackendCacheConfig =
-    FilesystemCache FilePath |
-    MemCache
-
-instance FromJSON BackendCacheConfig where
-    parseJSON (String str) = maybeFail $ backendCacheConfigFromString str
-    parseJSON (Object obj) = do
-        (obj .: "type") >>= \case
-            "file" -> FilesystemCache <$> (obj .:? "dir" .!= ".cache")
-            "mem" -> return MemCache
-            x -> fail $ "Invalid backend cache type: '" <> x
-    parseJSON x = fail $ "Invalid backend cache specification: " <> show x
-
-backendCacheConfigFromString :: Text -> Maybe BackendCacheConfig
-backendCacheConfigFromString str = do
-    case splitSeq ":" str of
-        ["file", dir] -> return $ FilesystemCache (unpack dir)
-        ["file"] -> return $ FilesystemCache ".cache"
-        ["mem"] -> return MemCache
-        xs -> Nothing
-
 data ProjectConfig =
     ProjectConfig
         { pcContextData :: HashMap Text BackendSpec
         , pcRules :: [Rule]
-        , pcBackendCache :: [BackendCacheConfig]
         }
 
 instance Default ProjectConfig where
     def = ProjectConfig
             { pcContextData = mapFromList []
             , pcRules = []
-            , pcBackendCache = def
             }
 
 instance Monoid ProjectConfig where
@@ -60,14 +37,9 @@ instance FromJSON ProjectConfig where
     parseJSON (Object obj) = do
         contextData <- fromMaybe (mapFromList []) <$> obj .:? "data"
         rules <- fromMaybe [] <$> (obj .:? "rules" <|> obj .:? "Rules")
-        caches <- fromMaybe []
-                    <$> ( obj .:? "backend-cache"
-                          <|> (fmap (:[]) <$> obj .:? "backend-cache")
-                        )
         return $ ProjectConfig
             { pcContextData = contextData
             , pcRules = rules
-            , pcBackendCache = caches
             }
 
 pcAppend :: ProjectConfig -> ProjectConfig -> ProjectConfig
@@ -75,8 +47,6 @@ pcAppend a b =
     ProjectConfig
         { pcContextData = pcContextData a <> pcContextData b
         , pcRules = pcRules a <> pcRules b
-        , pcBackendCache =
-            firstNonNull (pcBackendCache b) (pcBackendCache a)
         }
 
 firstNonNull :: [a] -> [a] -> [a]
