@@ -21,7 +21,7 @@ script:
 - stack --version
 - stack +RTS -N2 -RTS install --test --haddock --no-haddock-deps
 before_deploy:
-- "$HOME/package-release.sh"
+- "$TRAVIS_BUILD_DIR/package-release.sh"
 deploy:
   provider: releases
   api_key:
