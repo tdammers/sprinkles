@@ -13,8 +13,28 @@ as a drop-in replacement for a static site generator.
 
 ## Getting Started
 
-At the time of writing, the only way of installing Templar is to install from
-source. The easiest way to do that is to use
+### Installing
+
+#### Binary Install (x64 Linux)
+
+On a reasonably modern x64 Linux system, this is the preferred way of
+installing templar.
+
+- Get the binary release tarball from
+  https://github.com/tdammers/templar/releases/latest (both zip file and
+  tarball are available, both contain the same files)
+- Unzip or untar
+- Copy the templar binary in `templar/bin/templar` to somewhere on your `$PATH`
+  (the suggested location for single-user deployments is
+  `~/.local/bin/templar`, or `~/bin/templar`; for system-wide installation as
+  root, `/usr/local/bin/templar`).
+- Go to one of the example projects and start a templar server:
+  `cd examples/countryInfo; templar 5000`
+  Then point your browser at http://localhost:5000/.
+
+#### From Source
+
+The easiest way to do that is to use
 [Stack](https://haskellstack.org/):
 
 - Install stack
