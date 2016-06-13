@@ -31,8 +31,6 @@ function watch_serve() {
 function watch_hasktags() {
     for ((;;))
     do
-        templar "$2" &
-        PID="$!"
         inotifywait \
             -e modify \
             -e attrib \
