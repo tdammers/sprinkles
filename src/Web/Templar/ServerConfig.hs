@@ -122,7 +122,6 @@ firstNonNull xs _ = xs
 
 loadServerConfigFile :: FilePath -> IO ServerConfig
 loadServerConfigFile fn = do
-    hPutStrLn stderr $ "Loading: " <> fn
     YAML.decodeFileEither fn >>=
         either
             (fail . show)
@@ -130,7 +129,6 @@ loadServerConfigFile fn = do
 
 loadServerConfig :: FilePath -> IO ServerConfig
 loadServerConfig dir = do
-    hPutStrLn stderr $ "loadServerConfig " ++ dir
     homeDirMay <- lookupEnv "HOME"
     let systemGlobalFilename = "/etc/templar/server.yml"
         globalFilename = "/usr/local/etc/templar/server.yml"
@@ -145,5 +143,4 @@ loadServerConfig dir = do
             , Just serverConfigFilename
             ]
     filenames <- filterM doesFileExist filenames'
-    hPutStrLn stderr $ show filenames
     mconcat <$> forM filenames loadServerConfigFile

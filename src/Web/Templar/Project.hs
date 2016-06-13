@@ -25,6 +25,7 @@ import System.FilePath
 import Web.Templar.Rule
 import Web.Templar.ProjectConfig
 import Web.Templar.ServerConfig
+import Web.Templar.Logger
 import Web.Templar.Cache
 import Web.Templar.Cache.Filesystem (filesystemCache)
 import Web.Templar.Cache.Memory (memCache)
@@ -36,6 +37,7 @@ data Project =
         { projectConfig :: ProjectConfig
         , projectTemplates :: TemplateCache
         , projectBackendCache :: Cache ByteString ByteString
+        , projectLogger :: Logger
         }
 
 loadProject :: ServerConfig -> FilePath -> IO Project
@@ -44,7 +46,8 @@ loadProject sconfig dir = do
     templates <- preloadTemplates dir
     caches <- sequence $ fmap (createCache dir) (scBackendCache sconfig)
     let cache = mconcat caches
-    return $ Project pconfig templates cache
+    logger <- newBufferedLogger stderrLogger
+    return $ Project pconfig templates cache logger
 
 createCache :: FilePath -> BackendCacheConfig -> IO (Cache ByteString ByteString)
 createCache cwd (FilesystemCache dir) =

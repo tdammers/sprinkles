@@ -55,7 +55,6 @@ firstNonNull xs _ = xs
 
 loadProjectConfigFile :: FilePath -> IO ProjectConfig
 loadProjectConfigFile fn = do
-    hPutStrLn stderr $ "Loading: " <> fn
     YAML.decodeFileEither fn >>=
         either
             (fail . show)

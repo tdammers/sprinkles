@@ -43,13 +43,9 @@ parseArgs' (x:xs) = do
 
 main :: IO ()
 main = do
-    hPutStrLn stderr ("Loading server configuration..." :: Text)
     args <- getArgs
     sconfig' <- loadServerConfig "."
     sconfig <- parseArgs args
-    hPutStrLn stderr $ tshow sconfig
 
-    hPutStrLn stderr ("Loading project..." :: Text)
     project <- loadProject sconfig "."
-    hPutStrLn stderr ("OK" :: Text)
     serveProject sconfig project

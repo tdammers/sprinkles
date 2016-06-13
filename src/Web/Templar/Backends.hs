@@ -465,7 +465,8 @@ fetchBackendData' (BackendSpec (FileBackend filepath) fetchMode fetchOrder) =
         fetchOne candidate = do
             let mimeType = mimeLookup . pack $ candidate
             contents <- readFile candidate `catchIOError` \err -> do
-                hPutStrLn stderr $ show err
+                -- TODO: inject logger from outside so we can log properly here
+                -- hPutStrLn stderr $ show err
                 return ""
             status <- getFileStatus candidate
             let mtimeUnix = modificationTime status
