@@ -75,6 +75,10 @@ instance FromJSON ServerDriver where
             "fastcgi" -> return FastCGIDriver
             "scgi" -> return SCGIDriver
 
+data LoggingDestination = DiscardLog
+                        | LogToStderr
+                        | LogToFile FilePath
+
 data ServerConfig =
     ServerConfig
         { scBackendCache :: [BackendCacheConfig]

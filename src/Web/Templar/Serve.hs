@@ -48,7 +48,7 @@ import Web.Templar.Rule
 import Web.Templar.ProjectConfig
 import Web.Templar.ServerConfig
 import Web.Templar.Project
-import Web.Templar.Logger
+import Web.Templar.Logger as Logger
 
 serveProject :: ServerConfig -> Project -> IO ()
 serveProject config =
@@ -61,8 +61,8 @@ serveProject config =
 
 serveWarp :: Int -> Project -> IO ()
 serveWarp port project = do
-    writeLog (projectLogger project) $
-        "Running server on port " ++ tshow port ++ "..."
+    writeLog (projectLogger project) Notice $
+        "Running server on port " <> tshow port <> "..."
     Warp.run port (appFromProject project)
 
 serveCGI :: Project -> IO ()
@@ -96,7 +96,7 @@ appFromProject project request respond = do
     handleRequest project request respond `catch` handleException
     where
         handleException (e :: SomeException) = do
-            writeLog (projectLogger project) $ tshow e
+            writeLog (projectLogger project) Logger.Error $ tshow e
             respond $ Wai.responseLBS status500 [] "Something went pear-shaped."
 
 respondTemplateHtml :: ToGVal (Ginger.Run IO Html) a => Project -> Status -> Text -> HashMap Text a -> Wai.Application
@@ -237,7 +237,7 @@ handle500 :: Show e
           -> Project
           -> Wai.Application
 handle500 err project request respond = do
-    writeLog (projectLogger project) $ tshow err
+    writeLog (projectLogger project) Logger.Error $ tshow err
     let cache = projectBackendCache project
         backendPaths = pcContextData . projectConfig $ project
     backendData <- loadBackendDict cache backendPaths (setFromList [])
