@@ -78,6 +78,7 @@ executable templar
                , classy-prelude
                , data-default
                , safe
+               , parsec
   default-language: Haskell2010
 
 test-suite templar-test
