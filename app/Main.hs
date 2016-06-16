@@ -87,8 +87,9 @@ argSpecs =
 main :: IO ()
 main = do
     args <- getArgs
-    sconfig' <- loadServerConfig "."
-    sconfig <- parseArgs args
+    sconfigF <- loadServerConfig "."
+    sconfigA <- parseArgs args
+    let sconfig = sconfigF `mappend` sconfigA
 
-    project <- loadProject (sconfig' `mappend` sconfig) "."
+    project <- loadProject sconfig "."
     serveProject sconfig project
