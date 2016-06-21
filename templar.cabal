@@ -33,6 +33,9 @@ library
   build-depends: base >= 4.7 && < 5
                , Glob
                , HTTP
+               , HDBC
+               , HDBC-postgresql
+               , HDBC-sqlite3
                , aeson
                , array
                , bytestring
