@@ -506,8 +506,8 @@ fetchBackendData' (BackendSpec (HttpBackend uriText credentials) fetchMode fetch
     return [BackendSource meta body]
 
 -- | Extract raw integer value from a 'CTime'
-unCTime :: CTime -> Int64
-unCTime (CTime i) = i
+unCTime :: CTime -> Int
+unCTime (CTime i) = fromIntegral i
 
 -- | Get a HTTP header value by header name from a list of headers.
 lookupHeader :: HTTP.HeaderName -> [HTTP.Header] -> Maybe String
