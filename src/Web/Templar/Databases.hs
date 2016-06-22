@@ -22,6 +22,11 @@ import Data.Serialize (Serialize)
 data DSN = DSN { dsnDriver :: SqlDriver, dsnDetails :: Text }
     deriving (Show, Generic)
 
+type instance Element DSN = Text
+
+instance MonoFunctor DSN where
+    omap f (DSN driver details) = DSN driver (f details)
+
 data SqlDriver = SqliteDriver
                | PostgreSQLDriver
                deriving (Show, Generic)

@@ -114,7 +114,7 @@ type instance Element BackendType = Text
 instance MonoFunctor BackendType where
     omap f (HttpBackend t c) = HttpBackend (f t) c
     omap f (FileBackend t) = FileBackend (f t)
-    omap f (SqlBackend dsn query params) = SqlBackend dsn query (map f params)
+    omap f (SqlBackend dsn query params) = SqlBackend (omap f dsn) query (map f params)
 
 -- | A specification of a backend query.
 data BackendSpec =
@@ -490,7 +490,10 @@ fetchBackendData' writeLog (BackendSpec (SqlBackend dsn query params) fetchMode 
     where
         fetch = do
             rows <- DB.withConnection dsn $ \conn -> do
-                writeLog Debug $ "SQL: QUERY: " <> tshow query <> " ON " <> DB.dsnToText dsn
+                writeLog Debug $
+                    "SQL: QUERY: " <> tshow query <>
+                    " ON " <> DB.dsnToText dsn <>
+                    " WITH: " <> tshow params
                 stmt <- HDBC.prepare conn (unpack query)
                 HDBC.execute stmt (map HDBC.toSql params)
                 HDBC.fetchAllRowsMap stmt
@@ -498,10 +501,14 @@ fetchBackendData' writeLog (BackendSpec (SqlBackend dsn query params) fetchMode 
         mapRow :: Map String HDBC.SqlValue -> BackendSource
         mapRow row =
             let json = JSON.encode (fmap (HDBC.fromSql :: HDBC.SqlValue -> Text) row)
+                name = fromMaybe "SQL" . fmap HDBC.fromSql $
+                    (lookup "name" row) <|>
+                    (lookup "title" row) <|>
+                    (headMay . fmap snd . mapToList $ row)
                 meta = BackendMeta
                         { bmMimeType = "application/json"
                         , bmMTime = Nothing
-                        , bmName = "SQL"
+                        , bmName = name
                         , bmPath = "SQL"
                         , bmSize = (Just . fromIntegral $ length json)
                         }
