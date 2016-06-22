@@ -109,10 +109,12 @@ following protocols are supported:
 
 - `http://` / `https://`: fetch data over HTTP.
 - `file://`: load a local file.
+- `sql:` : open an SQL database connection and issue a query.
 
 Backend data is parsed according to its reported MIME type (which, for the
-`file://` protocol, is derived from the extension). The following types are
-currently supported:
+`file://` protocol, is derived from the extension; for the `sql:` protocol, the
+MIME type is alway `application/json`). The following types are currently
+supported:
 
 - JSON (`application/json`, `text/json`): parsed as JSON, and exposed as-is
 - YAML (`application/x-yaml`, `text/x-yaml`): parsed as YAML, into the same
