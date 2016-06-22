@@ -58,6 +58,7 @@ import Control.MaybeEitherMonad (eitherFailS)
 import qualified Web.Templar.Databases as DB
 import Web.Templar.Databases (DSN (..), sqlDriverFromID)
 import qualified Database.HDBC as HDBC
+import Web.Templar.Logger (LogLevel (..))
 
 -- | Our own extended MIME type dictionary. The default one lacks appropriate
 -- entries for some of the important types we use, so we add them here.
@@ -372,10 +373,10 @@ type RawBackendCache = Cache ByteString ByteString
 type BackendCache = Cache BackendSpec [BackendSource]
 
 -- | Execute a backend query, with caching.
-loadBackendData :: RawBackendCache -> BackendSpec -> IO (Items (BackendData m h))
-loadBackendData cache bspec =
+loadBackendData :: (LogLevel -> Text -> IO a) -> RawBackendCache -> BackendSpec -> IO (Items (BackendData m h))
+loadBackendData writeLog cache bspec =
     fmap (reduceItems (bsFetchMode bspec)) $
-        fetchBackendData cache bspec >>=
+        fetchBackendData writeLog cache bspec >>=
         mapM parseBackendData >>=
         sorter
     where
@@ -475,20 +476,21 @@ wrapBackendCache =
         (fmap Just . eitherFailS . Cereal.decode)
 
 -- | Fetch raw backend data from a backend source, with caching.
-fetchBackendData :: RawBackendCache -> BackendSpec -> IO [BackendSource]
-fetchBackendData rawCache =
-    cached cache fetchBackendData'
+fetchBackendData :: (LogLevel -> Text -> IO a) -> RawBackendCache -> BackendSpec -> IO [BackendSource]
+fetchBackendData writeLog rawCache =
+    cached cache (fetchBackendData' writeLog)
     where
         cache :: BackendCache
         cache = wrapBackendCache rawCache
 
 -- | Fetch raw backend data from a backend source, without caching.
-fetchBackendData' :: BackendSpec -> IO [BackendSource]
-fetchBackendData' (BackendSpec (SqlBackend dsn query params) fetchMode fetchOrder) =
+fetchBackendData' :: (LogLevel -> Text -> IO a) -> BackendSpec -> IO [BackendSource]
+fetchBackendData' writeLog (BackendSpec (SqlBackend dsn query params) fetchMode fetchOrder) =
     fetch
     where
         fetch = do
             rows <- DB.withConnection dsn $ \conn -> do
+                writeLog Debug $ "SQL: QUERY: " <> tshow query <> " ON " <> DB.dsnToText dsn
                 stmt <- HDBC.prepare conn (unpack query)
                 HDBC.execute stmt (map HDBC.toSql params)
                 HDBC.fetchAllRowsMap stmt
@@ -505,24 +507,26 @@ fetchBackendData' (BackendSpec (SqlBackend dsn query params) fetchMode fetchOrde
                         }
             in BackendSource meta json
 
-fetchBackendData' (BackendSpec (FileBackend filepath) fetchMode fetchOrder) =
+fetchBackendData' writeLog (BackendSpec (FileBackend filepath) fetchMode fetchOrder) =
     fetch `catchIOError` handle
     where
         filename = unpack filepath
         fetch = do
+            writeLog Debug $ "FILE: " <> filepath
             candidates <- if '*' `elem` filename
                 then glob filename
                 else return [filename]
             mapM fetchOne candidates
         handle err
-            | isDoesNotExistError err = return []
+            | isDoesNotExistError err = do
+                writeLog Notice $ "FILE: Not found: " <> filepath
+                return []
             | otherwise = ioError err
 
         fetchOne candidate = do
             let mimeType = mimeLookup . pack $ candidate
             contents <- readFile candidate `catchIOError` \err -> do
-                -- TODO: inject logger from outside so we can log properly here
-                -- hPutStrLn stderr $ show err
+                writeLog Notice $ tshow err
                 return ""
             status <- getFileStatus candidate
             let mtimeUnix = modificationTime status
@@ -534,7 +538,7 @@ fetchBackendData' (BackendSpec (FileBackend filepath) fetchMode fetchOrder) =
                         , bmSize = (Just . fromIntegral $ fileSize status :: Maybe Integer)
                         }
             return $ BackendSource meta contents
-fetchBackendData' (BackendSpec (HttpBackend uriText credentials) fetchMode fetchOrder) = do
+fetchBackendData' writeLog (BackendSpec (HttpBackend uriText credentials) fetchMode fetchOrder) = do
     backendURL <- maybe
         (fail $ "Invalid backend URL: " ++ show uriText)
         return

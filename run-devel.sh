@@ -41,7 +41,7 @@ function watch_hasktags() {
 }
 
 stack install # --test --haddock
-watch_serve examples/blogg 5000 &
-watch_serve examples/countryInfo 5001 &
+watch_serve examples/blogg 6000 &
+watch_serve examples/countryInfo 6001 &
 watch_hasktags &
 stack install --file-watch # --test --haddock
