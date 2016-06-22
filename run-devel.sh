@@ -23,6 +23,7 @@ function watch_serve() {
             "$(which templar)" \
             project.yml \
             templates/** \
+            $(find -name static) \
             "$BASEDIR"/run-devel.sh || exit 255
         kill "$!"
     done
@@ -39,8 +40,8 @@ function watch_hasktags() {
     done
 }
 
-stack install --test --haddock
+stack install # --test --haddock
 watch_serve examples/blogg 5000 &
 watch_serve examples/countryInfo 5001 &
 watch_hasktags &
-stack install --file-watch --test --haddock
+stack install --file-watch # --test --haddock

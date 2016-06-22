@@ -72,17 +72,22 @@ hr {
     padding: 0;
 }
 
-.header {
-    padding: 1rem;
-}
-
-.content {
+.header, .content, .stuff {
     padding: 1rem;
 }
 
 .content img {
     max-width: 400px;
     box-shadow: 4px 4px 12px rgba(0,0,0,0.5);
+}
+
+.stuff {
+    float: right;
+    height: 100%;
+    width: 18rem;
+    max-width: 90%;
+    margin: 1rem;
+    border: solid 1px silver;
 }
 
 menu>li {

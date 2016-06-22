@@ -3,4 +3,4 @@ driver: cgi
 #    port: 5000
 backend-cache:
   - 'mem'
-  - 'file:.cache'
+  # - 'file:.cache'

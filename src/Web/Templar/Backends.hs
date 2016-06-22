@@ -55,6 +55,9 @@ import Web.Templar.Cache
 import qualified Data.Serialize as Cereal
 import Data.Serialize (Serialize)
 import Control.MaybeEitherMonad (eitherFailS)
+import qualified Web.Templar.Databases as DB
+import Web.Templar.Databases (DSN (..), sqlDriverFromID)
+import qualified Database.HDBC as HDBC
 
 -- | Our own extended MIME type dictionary. The default one lacks appropriate
 -- entries for some of the important types we use, so we add them here.
@@ -79,6 +82,7 @@ mimeLookup = mimeByExt mimeMap defaultMimeType
 -- | A type of backend.
 data BackendType = HttpBackend Text Credentials -- ^ Fetch data over HTTP(S)
                  | FileBackend Text -- ^ Read local files
+                 | SqlBackend DSN Text [Text]
                  deriving (Show, Generic)
 
 instance Serialize BackendType where
@@ -89,10 +93,19 @@ instance Serialize BackendType where
     put (FileBackend path) = do
         Cereal.put 'f'
         Cereal.put (encodeUtf8 . unpack $ path)
+    put (SqlBackend dsn query params) = do
+        Cereal.put 's'
+        Cereal.put dsn
+        Cereal.put (encodeUtf8 . unpack $ query)
+        Cereal.put (map (encodeUtf8 . unpack) params)
     get = do
         Cereal.get >>= \case
             'h' -> HttpBackend <$> (pack . decodeUtf8 <$> Cereal.get) <*> Cereal.get
             'f' -> FileBackend <$> (pack . decodeUtf8 <$> Cereal.get)
+            's' -> SqlBackend <$>
+                    Cereal.get <*>
+                    (pack . decodeUtf8 <$> Cereal.get) <*>
+                    (map (pack . decodeUtf8) <$> Cereal.get)
             x -> fail $ "Invalid backend type identifier: " <> show x
 
 type instance Element BackendType = Text
@@ -100,6 +113,7 @@ type instance Element BackendType = Text
 instance MonoFunctor BackendType where
     omap f (HttpBackend t c) = HttpBackend (f t) c
     omap f (FileBackend t) = FileBackend (f t)
+    omap f (SqlBackend dsn query params) = SqlBackend dsn query (map f params)
 
 -- | A specification of a backend query.
 data BackendSpec =
@@ -127,6 +141,7 @@ instance MonoFunctor BackendSpec where
 --   // - "file" (load an individual file)
 --   // - "glob" (resolve a glob and load all matching files)
 --   // - "dir" (get a directory listing)
+--   // - "sql" (query an SQL database)
 --   "type": type,
 --
 --   // fetch mode. One of:
@@ -170,6 +185,7 @@ backendSpecFromJSON (Object obj) = do
             "file" -> parseFileBackendSpec FetchOne
             "glob" -> parseFileBackendSpec FetchAll
             "dir" -> parseDirBackendSpec
+            "sql" -> parseSqlBackendSpec
     fetchMode <- obj .:? "fetch" .!= defFetchMode
     fetchOrder <- obj .:? "order" .!= def
     return $ BackendSpec t fetchMode fetchOrder
@@ -183,6 +199,11 @@ backendSpecFromJSON (Object obj) = do
         parseDirBackendSpec = do
             path <- obj .: "path"
             return (FileBackend (pack $ path </> "*"), FetchAll)
+        parseSqlBackendSpec = do
+            dsn <- obj .: "dsn"
+            query <- obj .: "query"
+            params <- obj .:? "params" .!= []
+            return (SqlBackend dsn query params, FetchAll)
 backendSpecFromJSON x = fail $ "Invalid JSON value for BackendSpec: " <> show x <> ", expecting object or string"
 
 -- | Parse a 'Text' into a 'BackendSpec'.
@@ -206,7 +227,21 @@ parseBackendURI t = do
         "dir" -> return $ BackendSpec (FileBackend (pack $ unpack path </> "*")) FetchAll def
         "glob" -> return $ BackendSpec (FileBackend path) FetchAll def
         "file" -> return $ BackendSpec (FileBackend path) FetchOne def
+        "sql" -> do
+            be <- parseSqlBackendURI path
+            return $ BackendSpec be FetchAll def
         _ -> fail $ "Unknown protocol: " <> show protocol
+    where
+        parseSqlBackendURI path = do
+            let driverID = takeWhile (/= ':') path
+                remainder = drop (length driverID + 1) path
+                details = takeWhile (/= ':') remainder
+                query = drop (length details + 1) remainder
+            driver <- maybe
+                (fail $ "Invalid driver: " ++ show driverID)
+                return
+                (sqlDriverFromID driverID)
+            return $ SqlBackend (DSN driver details) query []
 
 -- | How many items to fetch, and in what shape.
 data FetchMode = FetchOne -- ^ Fetch only the first result
@@ -449,6 +484,27 @@ fetchBackendData rawCache =
 
 -- | Fetch raw backend data from a backend source, without caching.
 fetchBackendData' :: BackendSpec -> IO [BackendSource]
+fetchBackendData' (BackendSpec (SqlBackend dsn query params) fetchMode fetchOrder) =
+    fetch
+    where
+        fetch = do
+            rows <- DB.withConnection dsn $ \conn -> do
+                stmt <- HDBC.prepare conn (unpack query)
+                HDBC.execute stmt (map HDBC.toSql params)
+                HDBC.fetchAllRowsMap stmt
+            return $ map mapRow rows
+        mapRow :: Map String HDBC.SqlValue -> BackendSource
+        mapRow row =
+            let json = JSON.encode (fmap (HDBC.fromSql :: HDBC.SqlValue -> Text) row)
+                meta = BackendMeta
+                        { bmMimeType = "application/json"
+                        , bmMTime = Nothing
+                        , bmName = "SQL"
+                        , bmPath = "SQL"
+                        , bmSize = (Just . fromIntegral $ length json)
+                        }
+            in BackendSource meta json
+
 fetchBackendData' (BackendSpec (FileBackend filepath) fetchMode fetchOrder) =
     fetch `catchIOError` handle
     where

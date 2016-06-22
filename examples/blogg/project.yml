@@ -1,6 +1,12 @@
 # vim: ts=2 sw=2 expandtab
 data:
   menu: 'file://./data/menu.yml'
+  stuff:
+    type: 'sql'
+    dsn:
+      driver: 'sqlite'
+      dsn: './data/stuff.sqlite'
+    query: 'SELECT title, body FROM stuff ORDER BY title'
 rules:
 - pattern: '/'
   data:

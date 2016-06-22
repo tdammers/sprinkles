@@ -17,6 +17,7 @@ library
   hs-source-dirs: src
   exposed-modules: Web.Templar
                  , Web.Templar.Logger
+                 , Web.Templar.Databases
                  , Web.Templar.Cache
                  , Web.Templar.Cache.Filesystem
                  , Web.Templar.Cache.Memory

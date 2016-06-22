@@ -16,6 +16,15 @@
             {{ renderMenu({"sub":menu}) }}
             </section>
         </section>
+        <section class="stuff">
+            <h1>Some Stuff</h1>
+            {% for item in stuff %}
+                <section>
+                    <h1>{{ item.title }}</h1>
+                    <p>{{ item.body }}</p>
+                </section>
+            {% endfor %}
+        </section>
         <section class="content">
         {% block content %}
         {% endblock %}
