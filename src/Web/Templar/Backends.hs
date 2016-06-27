@@ -59,6 +59,7 @@ import qualified Web.Templar.Databases as DB
 import Web.Templar.Databases (DSN (..), sqlDriverFromID)
 import qualified Database.HDBC as HDBC
 import Web.Templar.Logger (LogLevel (..))
+import qualified System.Process as Process
 
 -- | Our own extended MIME type dictionary. The default one lacks appropriate
 -- entries for some of the important types we use, so we add them here.
@@ -83,7 +84,8 @@ mimeLookup = mimeByExt mimeMap defaultMimeType
 -- | A type of backend.
 data BackendType = HttpBackend Text Credentials -- ^ Fetch data over HTTP(S)
                  | FileBackend Text -- ^ Read local files
-                 | SqlBackend DSN Text [Text]
+                 | SqlBackend DSN Text [Text] -- ^ Query an SQL database
+                 | SubprocessBackend Text [Text] MimeType -- ^ Run a command in a subprocess
                  deriving (Show, Generic)
 
 instance Serialize BackendType where
@@ -99,6 +101,11 @@ instance Serialize BackendType where
         Cereal.put dsn
         Cereal.put (encodeUtf8 . unpack $ query)
         Cereal.put (map (encodeUtf8 . unpack) params)
+    put (SubprocessBackend cmd args t) = do
+        Cereal.put 'p'
+        Cereal.put (encodeUtf8 . unpack $ cmd)
+        Cereal.put (map (encodeUtf8 . unpack) args)
+        Cereal.put t
     get = do
         Cereal.get >>= \case
             'h' -> HttpBackend <$> (pack . decodeUtf8 <$> Cereal.get) <*> Cereal.get
@@ -107,6 +114,10 @@ instance Serialize BackendType where
                     Cereal.get <*>
                     (pack . decodeUtf8 <$> Cereal.get) <*>
                     (map (pack . decodeUtf8) <$> Cereal.get)
+            'p' -> SubprocessBackend <$>
+                    (pack . decodeUtf8 <$> Cereal.get) <*>
+                    (map (pack . decodeUtf8) <$> Cereal.get) <*>
+                    Cereal.get
             x -> fail $ "Invalid backend type identifier: " <> show x
 
 type instance Element BackendType = Text
@@ -115,6 +126,7 @@ instance MonoFunctor BackendType where
     omap f (HttpBackend t c) = HttpBackend (f t) c
     omap f (FileBackend t) = FileBackend (f t)
     omap f (SqlBackend dsn query params) = SqlBackend (omap f dsn) query (map f params)
+    omap f (SubprocessBackend cmd args t) = SubprocessBackend cmd (map f args) t
 
 -- | A specification of a backend query.
 data BackendSpec =
@@ -187,6 +199,7 @@ backendSpecFromJSON (Object obj) = do
             "glob" -> parseFileBackendSpec FetchAll
             "dir" -> parseDirBackendSpec
             "sql" -> parseSqlBackendSpec
+            "subprocess" -> parseSubprocessSpec
     fetchMode <- obj .:? "fetch" .!= defFetchMode
     fetchOrder <- obj .:? "order" .!= def
     return $ BackendSpec t fetchMode fetchOrder
@@ -205,6 +218,14 @@ backendSpecFromJSON (Object obj) = do
             query <- obj .: "query"
             params <- obj .:? "params" .!= []
             return (SqlBackend dsn query params, FetchAll)
+        parseSubprocessSpec = do
+            rawCmd <- obj .: "cmd"
+            t <- fromString <$> (obj .:? "mime-type" .!= "text/plain")
+            case rawCmd of
+                String cmd -> return (SubprocessBackend cmd [] t, FetchOne)
+                Array v -> parseJSON rawCmd >>= \case
+                    cmd:args -> return (SubprocessBackend cmd args t, FetchOne)
+                    [] -> fail "Expected a command and a list of arguments"
 backendSpecFromJSON x = fail $ "Invalid JSON value for BackendSpec: " <> show x <> ", expecting object or string"
 
 -- | Parse a 'Text' into a 'BackendSpec'.
@@ -572,6 +593,23 @@ fetchBackendData' writeLog (BackendSpec (HttpBackend uriText credentials) fetchM
                 }
     return [BackendSource meta body]
 
+fetchBackendData' writeLog (BackendSpec (SubprocessBackend cmd args mimeType) fetchMode fetchOrder) = do
+    (_, Just hOut, _, _) <-
+        Process.createProcess
+            (Process.proc (unpack cmd) (map unpack args)) { Process.std_out = Process.CreatePipe }
+    writeLog Debug $ tshow (cmd:args)
+    body <- hGetContents hOut
+    writeLog Debug $ tshow body
+    let contentLength = fromIntegral $ length body
+    let meta = BackendMeta
+                { bmMimeType = mimeType
+                , bmMTime = Nothing
+                , bmName = cmd
+                , bmPath = concat . intersperse " " $ cmd:args
+                , bmSize = Just contentLength
+                }
+    return [BackendSource meta body]
+
 -- | Extract raw integer value from a 'CTime'
 unCTime :: CTime -> Int
 unCTime (CTime i) = fromIntegral i
@@ -598,6 +636,9 @@ parsers :: Monad m => [([MimeType], (BackendSource -> m (BackendData n h)))]
 parsers =
     [ ( ["application/json", "text/json"]
       , parseJSONData
+      )
+    , ( ["text/plain"]
+      , parsePlainText
       )
     , ( ["application/x-yaml", "text/x-yaml", "application/yaml", "text/yaml"]
       , parseYamlData
@@ -630,6 +671,16 @@ parseRawData (BackendSource meta body) =
         , bdRaw = body
         }
 
+-- | Parser for plaintext documents.
+parsePlainText :: Monad m => BackendSource -> m (BackendData n h)
+parsePlainText (BackendSource meta body) = do
+    let textBody = toStrict $ decodeUtf8 body
+    return $ BackendData
+        { bdJSON = JSON.String textBody
+        , bdGVal = toGVal textBody
+        , bdMeta = meta
+        , bdRaw = body
+        }
 -- | Parser for JSON source data.
 parseJSONData :: Monad m => BackendSource -> m (BackendData n h)
 parseJSONData item@(BackendSource meta body) =

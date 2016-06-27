@@ -18,6 +18,15 @@ rules:
       fetch: 4
       order: random
   template: 'home.html'
+- pattern: '/echo/{{message:*}}'
+  data:
+    page:
+      type: 'subprocess'
+      cmd: ['echo', '{{message}}']
+      mime-type: 'text/plain'
+  required:
+    - page
+  template: 'page.html'
 - pattern: '/stuff/{{id:*}}'
   data:
     page:

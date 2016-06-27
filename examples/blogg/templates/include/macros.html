@@ -55,9 +55,9 @@
    unchanged.
  #}
 {%- set removePageHeading = (page) ->
-    page.body[0].type == 'h1'
+    (page.body[0].type == 'h1'
         ? page.body|slice(1)
-        : page.body
+        : page.body)|default(page|str)
 -%}
 
 {# Get a suitable title for the page. #}

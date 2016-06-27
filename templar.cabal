@@ -55,6 +55,7 @@ library
                , parsec
                , pandoc
                , pandoc-types
+               , process
                , random-shuffle
                , regex-base
                , regex-pcre
