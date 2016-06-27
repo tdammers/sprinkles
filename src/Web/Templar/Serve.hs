@@ -319,7 +319,7 @@ handleStaticTarget (backendPaths, required)
                 Just NotFound -> throwM NotFoundException
                 Just (SingleItem item) -> return item
                 Just (MultiItem []) -> throwM NotFoundException
-                Just (MultiItem (x:_)) -> return x
+                Just (MultiItem (x:xs)) -> return x
             respond $ Wai.responseLBS
                 status200
                 [("Content-type", bmMimeType . bdMeta $ backendItem)]
