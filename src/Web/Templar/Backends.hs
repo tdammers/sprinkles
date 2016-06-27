@@ -671,16 +671,12 @@ parseRawData (BackendSource meta body) =
         , bdRaw = body
         }
 
--- | Parser for plaintext documents.
+-- | Parser for (utf-8) plaintext documents.
 parsePlainText :: Monad m => BackendSource -> m (BackendData n h)
-parsePlainText (BackendSource meta body) = do
+parsePlainText item@(BackendSource meta body) = do
     let textBody = toStrict $ decodeUtf8 body
-    return $ BackendData
-        { bdJSON = JSON.String textBody
-        , bdGVal = toGVal textBody
-        , bdMeta = meta
-        , bdRaw = body
-        }
+    return $ toBackendData item textBody
+
 -- | Parser for JSON source data.
 parseJSONData :: Monad m => BackendSource -> m (BackendData n h)
 parseJSONData item@(BackendSource meta body) =
