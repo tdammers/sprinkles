@@ -1,11 +1,13 @@
 # vim: ts=2 sw=2 expandtab
+definitions:
+  - &main_db
+    driver: 'sqlite'
+    dsn: './data/stuff.sqlite'
 data:
   menu: 'file://./data/menu.yml'
   stuff:
     type: 'sql'
-    dsn:
-      driver: 'sqlite'
-      dsn: './data/stuff.sqlite'
+    dsn: *main_db
     query: 'SELECT title, body FROM stuff ORDER BY title'
 rules:
 - pattern: '/'
@@ -20,9 +22,7 @@ rules:
   data:
     page:
       type: 'sql'
-      dsn:
-        driver: 'sqlite'
-        dsn: './data/stuff.sqlite'
+      dsn: *main_db
       query: 'SELECT title, body FROM stuff WHERE id = ?'
       params: [ "{{id}}" ]
       fetch: 'one'
