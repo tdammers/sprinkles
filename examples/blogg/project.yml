@@ -7,7 +7,7 @@ data:
   menu: 'file://./data/menu.yml'
   stuff:
     type: 'sql'
-    dsn: *main_db
+    connection: *main_db
     query: 'SELECT title, body FROM stuff ORDER BY title'
 rules:
 - pattern: '/'
@@ -22,7 +22,7 @@ rules:
   data:
     page:
       type: 'sql'
-      dsn: *main_db
+      connection: *main_db
       query: 'SELECT title, body FROM stuff WHERE id = ?'
       params: [ "{{id}}" ]
       fetch: 'one'

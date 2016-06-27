@@ -201,7 +201,7 @@ backendSpecFromJSON (Object obj) = do
             path <- obj .: "path"
             return (FileBackend (pack $ path </> "*"), FetchAll)
         parseSqlBackendSpec = do
-            dsn <- obj .: "dsn"
+            dsn <- obj .: "connection"
             query <- obj .: "query"
             params <- obj .:? "params" .!= []
             return (SqlBackend dsn query params, FetchAll)
