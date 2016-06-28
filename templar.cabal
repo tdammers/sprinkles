@@ -24,6 +24,7 @@ library
                  , Web.Templar.Pattern
                  , Web.Templar.Replacement
                  , Web.Templar.Backends
+                 , Web.Templar.Backends.Spec
                  , Web.Templar.PandocGVal
                  , Web.Templar.Rule
                  , Web.Templar.ProjectConfig
