@@ -23,10 +23,10 @@ module Web.Templar.Backends
 where
 
 import ClassyPrelude
+import Data.Default (Default (..))
 import Data.Aeson as JSON
 import Data.Aeson.TH as JSON
 import Data.Yaml as YAML
-import qualified Network.HTTP as HTTP
 import Network.Mime
             ( MimeType
             , MimeMap
@@ -36,28 +36,18 @@ import Network.Mime
             , defaultMimeType
             , FileName
             )
-import Network.URI (parseURI, URI)
-import qualified Text.Pandoc as Pandoc
-import Text.Pandoc (Pandoc)
-import Text.Pandoc.Error (PandocError)
 import Text.Ginger (ToGVal (..), GVal, Run (..), dict, (~>))
 import Web.Templar.PandocGVal
 import System.FilePath (takeFileName, takeBaseName)
 import System.FilePath.Glob (glob)
-import System.PosixCompat.Files
 import Foreign.C.Types (CTime (..))
 import Data.Char (ord)
 import qualified Text.Ginger as Ginger
-import Data.Default (def)
 import System.Random.Shuffle (shuffleM)
-import Data.Default
 import Web.Templar.Cache
 import qualified Data.Serialize as Cereal
 import Data.Serialize (Serialize)
 import Control.MaybeEitherMonad (eitherFailS)
-import qualified Web.Templar.Databases as DB
-import Web.Templar.Databases (DSN (..), sqlDriverFromID)
-import qualified Database.HDBC as HDBC
 import Web.Templar.Logger (LogLevel (..))
 import qualified System.Process as Process
 
@@ -70,72 +60,17 @@ import Web.Templar.Backends.Spec
         , FetchOrderField (..)
         , parseBackendURI
         )
-
--- | Our own extended MIME type dictionary. The default one lacks appropriate
--- entries for some of the important types we use, so we add them here.
-mimeMap :: MimeMap
-mimeMap =
-    defaultMimeMap <>
-    mapFromList
-        [ ("yml", "application/x-yaml")
-        , ("yaml", "application/x-yaml")
-        , ("md", "application/x-markdown")
-        , ("rst", "text/x-rst")
-        , ("textile", "text/x-textile")
-        , ("markdown", "application/x-markdown")
-        , ("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-        ]
-
--- | Custom MIME lookup function that knows about the extra types declared in
--- 'mimeMap'.
-mimeLookup :: FileName -> MimeType
-mimeLookup = mimeByExt mimeMap defaultMimeType
-
--- | The shapes of data that can be returned from a backend query.
-data Items a = NotFound -- ^ Nothing was found
-             | SingleItem a -- ^ A single item was requested, and this is it
-             | MultiItem [a] -- ^ Multiple items were requested, here they are
-
--- | Transform a raw list of results into an 'Items' value. This allows us
--- later to distinguish between Nothing Found vs. Empty List, and between
--- Single Item Requested And Found vs. Many Items Requested, One Found. This
--- is needed such that when a single item is requested, it gets converted to
--- 'GVal' and JSON as a scalar, while when we request many items and receive
--- one, it becomes a singleton list.
-reduceItems :: FetchMode -> [a] -> Items a
-reduceItems FetchOne [] = NotFound
-reduceItems FetchOne (x:_) = SingleItem x
-reduceItems FetchAll xs = MultiItem xs
-reduceItems (FetchN n) xs = MultiItem $ take n xs
-
-instance ToGVal m a => ToGVal m (Items a) where
-    toGVal NotFound = def
-    toGVal (SingleItem x) = toGVal x
-    toGVal (MultiItem xs) = toGVal xs
-
-instance ToJSON a => ToJSON (Items a) where
-    toJSON NotFound = Null
-    toJSON (SingleItem x) = toJSON x
-    toJSON (MultiItem xs) = toJSON xs
-
--- | A parsed record from a query result.
-data BackendData m h =
-    BackendData
-        { bdJSON :: JSON.Value -- ^ Result body as JSON
-        , bdGVal :: GVal (Run m h) -- ^ Result body as GVal
-        , bdRaw :: LByteString -- ^ Raw result body source
-        , bdMeta :: BackendMeta -- ^ Meta-information
-        }
-
--- | A raw (unparsed) record from a query result.
-data BackendSource =
-    BackendSource
-        { bsMeta :: BackendMeta
-        , bsSource :: LByteString
-        }
-        deriving (Generic)
-
-instance Serialize BackendSource where
+import Web.Templar.Backends.Parsers
+        ( parseBackendData
+        )
+import Web.Templar.Backends.Data
+        ( BackendData (..)
+        , BackendMeta (..)
+        , BackendSource (..)
+        , Items (..)
+        , reduceItems
+        )
+import Web.Templar.Backends.Loader
 
 -- | Cache for raw backend data, stored as bytestrings.
 type RawBackendCache = Cache ByteString ByteString
@@ -144,7 +79,7 @@ type RawBackendCache = Cache ByteString ByteString
 type BackendCache = Cache BackendSpec [BackendSource]
 
 -- | Execute a backend query, with caching.
-loadBackendData :: (LogLevel -> Text -> IO a) -> RawBackendCache -> BackendSpec -> IO (Items (BackendData m h))
+loadBackendData :: (LogLevel -> Text -> IO ()) -> RawBackendCache -> BackendSpec -> IO (Items (BackendData m h))
 loadBackendData writeLog cache bspec =
     fmap (reduceItems (bsFetchMode bspec)) $
         fetchBackendData writeLog cache bspec >>=
@@ -164,79 +99,6 @@ loadBackendData writeLog cache bspec =
             OrderByName -> return . sortOn (bmName . bdMeta)
             OrderByMTime -> return . sortOn (bmMTime . bdMeta)
 
--- | Wrap a parsed backend value in a 'BackendData' structure. The original
--- raw 'BackendSource' value is needed alongside the parsed value, because the
--- resulting structure contains both the 'BackendMeta' and the raw (unparsed)
--- data from it.
-toBackendData :: (ToJSON a, ToGVal (Run m h) a) => BackendSource -> a -> BackendData m h
-toBackendData src val =
-    BackendData
-        { bdJSON = toJSON val
-        , bdGVal = toGVal val
-        , bdRaw = bsSource src
-        , bdMeta = bsMeta src
-        }
-
-instance ToJSON (BackendData m h) where
-    toJSON = bdJSON
-
-instance ToGVal (Run m h) (BackendData m h) where
-    toGVal bd =
-        let baseVal = bdGVal bd
-            baseLookup = fromMaybe (const def) $ Ginger.asLookup baseVal
-            baseDictItems = Ginger.asDictItems baseVal
-        in baseVal
-            { Ginger.asLookup = Just $ \case
-                "props" -> return . toGVal . bdMeta $ bd
-                k -> baseLookup k
-            , Ginger.asDictItems =
-                (("props" ~> bdMeta bd):) <$> baseDictItems
-            }
-
--- | Metadata for a backend query result.
-data BackendMeta =
-    BackendMeta
-        { bmMimeType :: MimeType
-        , bmMTime :: Maybe CTime -- ^ Last modification time, if available
-        , bmName :: Text -- ^ Human-friendly name
-        , bmPath :: Text -- ^ Path, according to the semantics of the backend (file path or URI)
-        , bmSize :: Maybe Integer -- ^ Size of the raw source, in bytes, if available
-        }
-        deriving (Show, Generic)
-
-instance Serialize BackendMeta where
-    put bm = do
-        Cereal.put $ bmMimeType bm
-        Cereal.put . fmap fromEnum $ bmMTime bm
-        Cereal.put . encodeUtf8 $ bmName bm
-        Cereal.put . encodeUtf8 $ bmPath bm
-        Cereal.put $ bmSize bm
-    get =
-        BackendMeta <$> Cereal.get
-                    <*> (fmap toEnum <$> Cereal.get)
-                    <*> (decodeUtf8 <$> Cereal.get)
-                    <*> (decodeUtf8 <$> Cereal.get)
-                    <*> Cereal.get
-
-instance ToJSON BackendMeta where
-    toJSON bm =
-        JSON.object
-            [ "mimeType" .= decodeUtf8 (bmMimeType bm)
-            , "mtime" .= (fromIntegral . unCTime <$> bmMTime bm :: Maybe Integer)
-            , "name" .= bmName bm
-            , "path" .= bmPath bm
-            , "size" .= bmSize bm
-            ]
-
-instance Ginger.ToGVal m BackendMeta where
-    toGVal bm = Ginger.dict
-        [ "type" ~> decodeUtf8 (bmMimeType bm)
-        , "mtime" ~> (fromIntegral . unCTime <$> bmMTime bm :: Maybe Integer)
-        , "name" ~> bmName bm
-        , "path" ~> bmPath bm
-        , "size" ~> bmSize bm
-        ]
-
 -- | What the type says: expose a raw backend cache (bytestrings) as a
 -- well-typed backend cache.
 wrapBackendCache :: RawBackendCache -> BackendCache
@@ -247,7 +109,7 @@ wrapBackendCache =
         (fmap Just . eitherFailS . Cereal.decode)
 
 -- | Fetch raw backend data from a backend source, with caching.
-fetchBackendData :: (LogLevel -> Text -> IO a) -> RawBackendCache -> BackendSpec -> IO [BackendSource]
+fetchBackendData :: (LogLevel -> Text -> IO ()) -> RawBackendCache -> BackendSpec -> IO [BackendSource]
 fetchBackendData writeLog rawCache =
     cached cache (fetchBackendData' writeLog)
     where
@@ -255,206 +117,6 @@ fetchBackendData writeLog rawCache =
         cache = wrapBackendCache rawCache
 
 -- | Fetch raw backend data from a backend source, without caching.
-fetchBackendData' :: (LogLevel -> Text -> IO a) -> BackendSpec -> IO [BackendSource]
-fetchBackendData' writeLog (BackendSpec (SqlBackend dsn query params) fetchMode fetchOrder) =
-    fetch
-    where
-        fetch = do
-            rows <- DB.withConnection dsn $ \conn -> do
-                writeLog Debug $
-                    "SQL: QUERY: " <> tshow query <>
-                    " ON " <> DB.dsnToText dsn <>
-                    " WITH: " <> tshow params
-                stmt <- HDBC.prepare conn (unpack query)
-                HDBC.execute stmt (map HDBC.toSql params)
-                HDBC.fetchAllRowsMap stmt
-            return $ map mapRow rows
-        mapRow :: Map String HDBC.SqlValue -> BackendSource
-        mapRow row =
-            let json = JSON.encode (fmap (HDBC.fromSql :: HDBC.SqlValue -> Text) row)
-                name = fromMaybe "SQL" . fmap HDBC.fromSql $
-                    (lookup "name" row) <|>
-                    (lookup "title" row) <|>
-                    (headMay . fmap snd . mapToList $ row)
-                meta = BackendMeta
-                        { bmMimeType = "application/json"
-                        , bmMTime = Nothing
-                        , bmName = name
-                        , bmPath = "SQL"
-                        , bmSize = (Just . fromIntegral $ length json)
-                        }
-            in BackendSource meta json
-
-fetchBackendData' writeLog (BackendSpec (FileBackend filepath) fetchMode fetchOrder) =
-    fetch `catchIOError` handle
-    where
-        filename = unpack filepath
-        fetch = do
-            writeLog Debug $ "FILE: " <> filepath
-            candidates <- if '*' `elem` filename
-                then glob filename
-                else return [filename]
-            mapM fetchOne candidates
-        handle err
-            | isDoesNotExistError err = do
-                writeLog Notice $ "FILE: Not found: " <> filepath
-                return []
-            | otherwise = ioError err
-
-        fetchOne candidate = do
-            let mimeType = mimeLookup . pack $ candidate
-            contents <- readFile candidate `catchIOError` \err -> do
-                writeLog Notice $ tshow err
-                return ""
-            status <- getFileStatus candidate
-            let mtimeUnix = modificationTime status
-                meta = BackendMeta
-                        { bmMimeType = mimeType
-                        , bmMTime = Just mtimeUnix
-                        , bmName = pack $ takeBaseName candidate
-                        , bmPath = pack candidate
-                        , bmSize = (Just . fromIntegral $ fileSize status :: Maybe Integer)
-                        }
-            return $ BackendSource meta contents
-fetchBackendData' writeLog (BackendSpec (HttpBackend uriText credentials) fetchMode fetchOrder) = do
-    backendURL <- maybe
-        (fail $ "Invalid backend URL: " ++ show uriText)
-        return
-        (parseURI $ unpack uriText)
-    let backendRequest =
-            HTTP.Request
-                backendURL
-                HTTP.GET
-                []
-                ""
-    response <- HTTP.simpleHTTP backendRequest
-    body <- HTTP.getResponseBody response
-    headers <- case response of
-                    Left err -> fail (show err)
-                    Right resp -> return $ HTTP.getHeaders resp
-    let mimeType = encodeUtf8 . pack . fromMaybe "text/plain" . lookupHeader HTTP.HdrContentType $ headers
-        contentLength = lookupHeader HTTP.HdrContentLength headers >>= readMay
-        meta = BackendMeta
-                { bmMimeType = mimeType
-                , bmMTime = Nothing
-                , bmName = pack . takeBaseName . unpack $ uriText
-                , bmPath = uriText
-                , bmSize = contentLength
-                }
-    return [BackendSource meta body]
-
-fetchBackendData' writeLog (BackendSpec (SubprocessBackend cmd args mimeType) fetchMode fetchOrder) = do
-    (_, Just hOut, _, _) <-
-        Process.createProcess
-            (Process.proc (unpack cmd) (map unpack args)) { Process.std_out = Process.CreatePipe }
-    writeLog Debug $ tshow (cmd:args)
-    body <- hGetContents hOut
-    writeLog Debug $ tshow body
-    let contentLength = fromIntegral $ length body
-    let meta = BackendMeta
-                { bmMimeType = mimeType
-                , bmMTime = Nothing
-                , bmName = cmd
-                , bmPath = concat . intersperse " " $ cmd:args
-                , bmSize = Just contentLength
-                }
-    return [BackendSource meta body]
-
--- | Extract raw integer value from a 'CTime'
-unCTime :: CTime -> Int
-unCTime (CTime i) = fromIntegral i
-
--- | Get a HTTP header value by header name from a list of headers.
-lookupHeader :: HTTP.HeaderName -> [HTTP.Header] -> Maybe String
-lookupHeader name headers =
-    headMay [ v | HTTP.Header n v <- headers, n == name ]
-
--- | Parse raw backend data source into a structured backend data record.
-parseBackendData :: Monad m => BackendSource -> m (BackendData n h)
-parseBackendData item@(BackendSource meta body) = do
-    let t = takeWhile (/= fromIntegral (ord ';')) (bmMimeType meta)
-        parse = fromMaybe parseRawData $ lookup t parsersTable
-    parse item
-
--- | Lookup table of mime types to parsers.
-parsersTable :: Monad m => HashMap MimeType (BackendSource -> m (BackendData n h))
-parsersTable = mapFromList . mconcat $
-    [ zip mimeTypes (repeat parser) | (mimeTypes, parser) <- parsers ]
-
--- | The parsers we know, by mime types.
-parsers :: Monad m => [([MimeType], (BackendSource -> m (BackendData n h)))]
-parsers =
-    [ ( ["application/json", "text/json"]
-      , parseJSONData
-      )
-    , ( ["text/plain"]
-      , parsePlainText
-      )
-    , ( ["application/x-yaml", "text/x-yaml", "application/yaml", "text/yaml"]
-      , parseYamlData
-      )
-    , ( ["application/x-markdown", "text/x-markdown"]
-      , parsePandocDataString (Pandoc.readMarkdown Pandoc.def)
-      )
-    , ( ["application/x-textile", "text/x-textile"]
-      , parsePandocDataString (Pandoc.readTextile Pandoc.def)
-      )
-    , ( ["application/x-rst", "text/x-rst"]
-      , parsePandocDataString (Pandoc.readRST Pandoc.def)
-      )
-    , ( ["application/html", "text/html"]
-      , parsePandocDataString (Pandoc.readHtml Pandoc.def)
-      )
-    , ( ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
-      , parsePandocDataLBS (fmap fst . Pandoc.readDocx Pandoc.def)
-      )
-    ]
-
--- | Parser for raw data (used for static files); this is also the default
--- fallback for otherwise unsupported file types.
-parseRawData :: Monad m => BackendSource -> m (BackendData n h)
-parseRawData (BackendSource meta body) =
-    return $ BackendData
-        { bdJSON = JSON.Null
-        , bdGVal = toGVal JSON.Null
-        , bdMeta = meta
-        , bdRaw = body
-        }
-
--- | Parser for (utf-8) plaintext documents.
-parsePlainText :: Monad m => BackendSource -> m (BackendData n h)
-parsePlainText item@(BackendSource meta body) = do
-    let textBody = toStrict $ decodeUtf8 body
-    return $ toBackendData item textBody
-
--- | Parser for JSON source data.
-parseJSONData :: Monad m => BackendSource -> m (BackendData n h)
-parseJSONData item@(BackendSource meta body) =
-    case JSON.eitherDecode body of
-        Left err -> fail $ err ++ "\n" ++ show body
-        Right json -> return . toBackendData item $ (json :: JSON.Value)
-
--- | Parser for YAML source data.
-parseYamlData :: Monad m => BackendSource -> m (BackendData n h)
-parseYamlData item@(BackendSource meta body) =
-    case YAML.decodeEither (toStrict body) of
-        Left err -> fail $ err ++ "\n" ++ show body
-        Right json -> return . toBackendData item $ (json :: JSON.Value)
-
--- | Parser for Pandoc-supported formats that are read from 'LByteString's.
-parsePandocDataLBS :: Monad m
-                   => (LByteString -> Either PandocError Pandoc)
-                   -> BackendSource
-                   -> m (BackendData n h)
-parsePandocDataLBS reader input@(BackendSource meta body) = do
-    case reader body of
-        Left err -> fail . show $ err
-        Right pandoc -> return $ toBackendData input pandoc
-
--- | Parser for Pandoc-supported formats that are read from 'String's.
-parsePandocDataString :: Monad m
-                   => (String -> Either PandocError Pandoc)
-                   -> BackendSource
-                   -> m (BackendData n h)
-parsePandocDataString reader =
-    parsePandocDataLBS (reader . unpack . decodeUtf8)
+fetchBackendData' :: (LogLevel -> Text -> IO ()) -> BackendSpec -> IO [BackendSource]
+fetchBackendData' writeLog (BackendSpec backendType fetchMode fetchOrder) =
+    loader backendType writeLog fetchMode fetchOrder

@@ -18,47 +18,22 @@ module Web.Templar.Backends.Spec
 , AscDesc (..)
 , FetchOrder (..)
 , parseBackendURI
+, Credentials (..)
 )
 where
 
 import ClassyPrelude
+import Network.Mime (MimeType)
 import Data.Aeson as JSON
 import Data.Aeson.TH as JSON
 import Data.Yaml as YAML
-import qualified Network.HTTP as HTTP
-import Network.Mime
-            ( MimeType
-            , MimeMap
-            , defaultMimeLookup
-            , defaultMimeMap
-            , mimeByExt
-            , defaultMimeType
-            , FileName
-            )
-import Network.URI (parseURI, URI)
-import qualified Text.Pandoc as Pandoc
-import Text.Pandoc (Pandoc)
-import Text.Pandoc.Error (PandocError)
-import Text.Ginger (ToGVal (..), GVal, Run (..), dict, (~>))
-import Web.Templar.PandocGVal
-import System.FilePath (takeFileName, takeBaseName)
-import System.FilePath.Glob (glob)
 import System.PosixCompat.Files
-import Foreign.C.Types (CTime (..))
-import Data.Char (ord)
-import qualified Text.Ginger as Ginger
-import Data.Default (def)
-import System.Random.Shuffle (shuffleM)
-import Data.Default
+import Data.Default (Default (..))
 import Web.Templar.Cache
 import qualified Data.Serialize as Cereal
 import Data.Serialize (Serialize)
-import Control.MaybeEitherMonad (eitherFailS)
-import qualified Web.Templar.Databases as DB
 import Web.Templar.Databases (DSN (..), sqlDriverFromID)
-import qualified Database.HDBC as HDBC
 import Web.Templar.Logger (LogLevel (..))
-import qualified System.Process as Process
 
 -- | A type of backend.
 data BackendType = HttpBackend Text Credentials -- ^ Fetch data over HTTP(S)

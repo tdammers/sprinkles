@@ -24,7 +24,15 @@ library
                  , Web.Templar.Pattern
                  , Web.Templar.Replacement
                  , Web.Templar.Backends
+                 , Web.Templar.Backends.Loader
                  , Web.Templar.Backends.Spec
+                 , Web.Templar.Backends.Data
+                 , Web.Templar.Backends.Parsers
+                 , Web.Templar.Backends.Loader.SqlLoader
+                 , Web.Templar.Backends.Loader.FileLoader
+                 , Web.Templar.Backends.Loader.Type
+                 , Web.Templar.Backends.Loader.HttpLoader
+                 , Web.Templar.Backends.Loader.SubprocessLoader
                  , Web.Templar.PandocGVal
                  , Web.Templar.Rule
                  , Web.Templar.ProjectConfig
