@@ -138,6 +138,7 @@ mkContextLookup request project contextMap key = do
                 [ "request" ~> request
                 , ("load", Ginger.fromFunction (gfnLoadBackendData (writeLog logger) cache))
                 , ("ellipse", Ginger.fromFunction gfnEllipse)
+                , ("json", Ginger.fromFunction gfnJSON)
                 ]
     return . fromMaybe def $ lookup key contextMap'
 
@@ -175,6 +176,10 @@ gfnEllipse xs = do
     let str = fromMaybe def $ lookup (Just "str") xs
     gfnEllipse $ (Nothing, str):xs
 
+gfnJSON :: Ginger.Function (Ginger.Run IO h)
+gfnJSON [] = return def
+gfnJSON ((_, x):xs) = do
+    return . toGVal . LUTF8.toString . JSON.encode $ x
 
 data NotFoundException = NotFoundException
     deriving (Show)

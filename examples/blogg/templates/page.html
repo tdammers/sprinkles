@@ -7,4 +7,6 @@
 {%- block content %}
     <h1>{{ pageTitle(page) }}</h1>
     {{ removePageHeading(page) }}
+    <hr>
+    <pre>{{ page|json }}</pre>
 {% endblock -%}
