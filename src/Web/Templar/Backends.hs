@@ -7,7 +7,7 @@
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE DeriveGeneric #-}
 
--- | Backend type and implementations.
+-- | Main Backend module.
 module Web.Templar.Backends
 (
 -- * Defining backends
@@ -23,33 +23,11 @@ module Web.Templar.Backends
 where
 
 import ClassyPrelude
-import Data.Default (Default (..))
-import Data.Aeson as JSON
-import Data.Aeson.TH as JSON
-import Data.Yaml as YAML
-import Network.Mime
-            ( MimeType
-            , MimeMap
-            , defaultMimeLookup
-            , defaultMimeMap
-            , mimeByExt
-            , defaultMimeType
-            , FileName
-            )
-import Text.Ginger (ToGVal (..), GVal, Run (..), dict, (~>))
-import Web.Templar.PandocGVal
-import System.FilePath (takeFileName, takeBaseName)
-import System.FilePath.Glob (glob)
-import Foreign.C.Types (CTime (..))
-import Data.Char (ord)
-import qualified Text.Ginger as Ginger
 import System.Random.Shuffle (shuffleM)
 import Web.Templar.Cache
 import qualified Data.Serialize as Cereal
-import Data.Serialize (Serialize)
 import Control.MaybeEitherMonad (eitherFailS)
 import Web.Templar.Logger (LogLevel (..))
-import qualified System.Process as Process
 
 import Web.Templar.Backends.Spec
         ( BackendSpec (..)

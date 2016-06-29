@@ -24,9 +24,7 @@ where
 
 import ClassyPrelude
 import Network.Mime (MimeType)
-import Data.Aeson as JSON
-import Data.Aeson.TH as JSON
-import Data.Yaml as YAML
+import Data.Aeson (FromJSON (..), Value (..), (.=), (.!=), (.:?), (.:))
 import System.PosixCompat.Files
 import Data.Default (Default (..))
 import Web.Templar.Cache
