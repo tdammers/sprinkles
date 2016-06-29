@@ -83,6 +83,7 @@ wrapBackendCache :: RawBackendCache -> BackendCache
 wrapBackendCache =
     transformCache
         Cereal.encode
+        (eitherFailS . Cereal.decode)
         (return . Just . Cereal.encode)
         (fmap Just . eitherFailS . Cereal.decode)
 

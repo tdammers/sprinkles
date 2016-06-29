@@ -17,6 +17,7 @@ data Cache k v =
         { cacheGet :: k -> IO (Maybe (v, POSIXTime)) -- ^ Get 'Just' the cached value or 'Nothing'
         , cachePut :: k -> v -> IO () -- ^ Insert an entry into the cache
         , cacheDelete :: k -> IO () -- ^ Delete an entry from the cache
+        , cacheKeys :: IO [(k, POSIXTime)] -- ^ List all the keys in the cache with timestamp
         }
 
 instance Monoid (Cache k v) where
@@ -47,6 +48,7 @@ nullCache =
         { cacheGet = const $ return Nothing
         , cachePut = const . const $ return ()
         , cacheDelete = const $ return ()
+        , cacheKeys = return []
         }
 
 appendCache :: Cache k v -> Cache k v -> Cache k v
@@ -70,6 +72,7 @@ appendCache first second =
         , cacheDelete = \key -> do
             cacheDelete first key
             cacheDelete second key
+        , cacheKeys = (++) <$> cacheKeys first <*> cacheKeys second
         }
 
 -- | Wrap a cache such that the new cache uses different types for the keys
@@ -77,11 +80,13 @@ appendCache first second =
 -- application for this is to serialize data structures into a more palatable
 -- format for caching while exposing a more useful kind of data structure
 transformCache :: (k -> j)
+               -> (j -> Maybe k)
                -> (v -> IO (Maybe u))
                -> (u -> IO (Maybe v))
                -> Cache j u
                -> Cache k v
 transformCache transK
+               untransK
                transV
                untransV
                innerCache =
@@ -93,4 +98,17 @@ transformCache transK
         , cachePut = \key value ->
             transV value >>= optionally (cachePut innerCache (transK key))
         , cacheDelete = \key -> cacheDelete innerCache (transK key)
+        , cacheKeys = cacheKeys innerCache >>= (mapM $ \(k, ts) -> do
+                k' <- maybeFail $ untransK k
+                return (k', ts)
+            )
         }
+
+-- | Delete all entries from the cache that are older than the specified
+-- threshold timestamp.
+vacuumCache :: POSIXTime -> Cache k v -> IO Int
+vacuumCache thresholdTS cache = do
+    allKeys <- cacheKeys cache
+    let staleKeys = [ k | (k, ts) <- allKeys, ts < thresholdTS ]
+    forM staleKeys $ cacheDelete cache
+    return $ length staleKeys

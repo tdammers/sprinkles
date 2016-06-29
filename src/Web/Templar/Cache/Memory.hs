@@ -19,4 +19,7 @@ memCache = do
                 modifyMVar_ cacheVar $ return . insertMap key (val, ts)
             , cacheDelete = \key ->
                 modifyMVar_ cacheVar $ return . deleteMap key
+            , cacheKeys = do
+                pairs <- mapToList <$> readMVar cacheVar
+                return [ (k, ts) | (k, (_, ts)) <- pairs ]
             }

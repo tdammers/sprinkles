@@ -53,6 +53,7 @@ createCache :: FilePath -> BackendCacheConfig -> IO (Cache ByteString ByteString
 createCache cwd (FilesystemCache dir) =
     return $ filesystemCache
         (unpack . decodeUtf8) -- "serialize" key
+        (encodeUtf8 . pack) -- "unserialize" key
         hPut -- write value
         hGetContents -- read value
         (cwd </> dir)

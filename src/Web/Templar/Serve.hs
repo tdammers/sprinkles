@@ -42,22 +42,35 @@ import Data.ByteString.Builder (stringUtf8)
 import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.ByteString.Lazy.UTF8 as LUTF8
 import qualified Data.CaseInsensitive as CI
+import Control.Concurrent (forkIO, threadDelay)
+import Data.Time.Clock.POSIX (getPOSIXTime)
 
 import Web.Templar.Backends
 import Web.Templar.Rule
 import Web.Templar.ProjectConfig
+import Web.Templar.Cache
 import Web.Templar.ServerConfig
 import Web.Templar.Project
 import Web.Templar.Logger as Logger
 
 serveProject :: ServerConfig -> Project -> IO ()
-serveProject config =
-    case scDriver config of
-        DefaultDriver -> serveWarp 5000
-        WarpDriver port -> serveWarp port
-        CGIDriver -> serveCGI
-        SCGIDriver -> serveSCGI
-        FastCGIDriver -> serveFastCGI
+serveProject config project = do
+    forkIO vacuum
+    serve project
+    where
+        serve = case scDriver config of
+            DefaultDriver -> serveWarp 5000
+            WarpDriver port -> serveWarp port
+            CGIDriver -> serveCGI
+            SCGIDriver -> serveSCGI
+            FastCGIDriver -> serveFastCGI
+        vacuum = forever $ do
+            now <- getPOSIXTime
+            let thresholdTS = now - 60
+            itemsCleared <- vacuumCache thresholdTS (projectBackendCache project)
+            writeLog (projectLogger project) Notice $
+                "Cache items deleted: " <> tshow itemsCleared
+            threadDelay 30000000
 
 serveWarp :: Int -> Project -> IO ()
 serveWarp port project = do
