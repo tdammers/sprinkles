@@ -2,17 +2,19 @@
 {-#LANGUAGE OverloadedStrings #-}
 {-#LANGUAGE OverloadedLists #-}
 {-#LANGUAGE LambdaCase #-}
+{-#LANGUAGE TupleSections #-}
 module Web.Templar.Cache
 where
 
 import ClassyPrelude
 import Control.MaybeEitherMonad
+import Data.Time.Clock.POSIX
 
 -- | Common interface for cache backends.
 -- In @Cache k v@, @k@ is the key type and @v@ the value type.
 data Cache k v =
     Cache
-        { cacheGet :: k -> IO (Maybe v) -- ^ Get 'Just' the cached value or 'Nothing'
+        { cacheGet :: k -> IO (Maybe (v, POSIXTime)) -- ^ Get 'Just' the cached value or 'Nothing'
         , cachePut :: k -> v -> IO () -- ^ Insert an entry into the cache
         , cacheDelete :: k -> IO () -- ^ Delete an entry from the cache
         }
@@ -26,9 +28,9 @@ instance Monoid (Cache k v) where
 -- and adding it to the cache.
 cacheFetch :: (k -> IO v) -> Cache k v -> k -> IO v
 cacheFetch load cache key = do
-    valueMay <- cacheGet cache key
-    case valueMay of
-        Just value ->
+    entryMay <- cacheGet cache key
+    case entryMay of
+        Just (value, ts) ->
             return value
         Nothing -> do
             value <- load key
@@ -56,9 +58,9 @@ appendCache first second =
                     cacheGet second key >>=
                         maybe
                             (return Nothing)
-                            (\value -> do
+                            (\(value, ts) -> do
                                 cachePut first key value
-                                return $ Just value
+                                return $ Just (value, ts)
                             )
                 Just value ->
                     return $ Just value
@@ -87,7 +89,7 @@ transformCache transK
         { cacheGet = \key -> do
             cacheGet innerCache (transK key) >>= \case
                 Nothing -> return Nothing
-                Just tval -> untransV tval
+                Just (tval, ts) -> fmap (,ts) <$> untransV tval
         , cachePut = \key value ->
             transV value >>= optionally (cachePut innerCache (transK key))
         , cacheDelete = \key -> cacheDelete innerCache (transK key)

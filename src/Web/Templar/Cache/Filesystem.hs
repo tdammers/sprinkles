@@ -8,6 +8,8 @@ import Data.Char (isAlphaNum, ord)
 import Web.Templar.Cache
 import System.IO (IOMode (..), withFile)
 import System.Directory (removeFile)
+import System.PosixCompat.Files (getFileStatus, modificationTime)
+import Data.Time.Clock.POSIX
 
 filesystemCache :: (k -> String) -- ^ Key serializer
                 -> (Handle -> v -> IO ()) -- ^ Value serializer
@@ -19,7 +21,12 @@ filesystemCache serializeKey writeValue readValue cacheDir =
         { cacheGet = \key -> do
             let filename = keyToFilename key
             catchIOError
-                (Just <$> withFile filename ReadMode readValue)
+                (do
+                    status <- getFileStatus filename
+                    let ts = realToFrac $ modificationTime status
+                    body <- withFile filename ReadMode readValue
+                    return $ Just (body, ts :: POSIXTime)
+                )
                 (\err -> if isDoesNotExistError err
                     then return Nothing
                     else ioError err)
