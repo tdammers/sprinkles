@@ -6,9 +6,10 @@ where
 import ClassyPrelude
 import Web.Templar.Cache
 import Data.Time.Clock.POSIX
+import qualified Data.HashMap.Strict as HashMap
 
-memCache :: forall k v. (Hashable k, Eq k) => IO (Cache k v)
-memCache = do
+memCache :: forall k v. (Hashable k, Eq k) => POSIXTime -> IO (Cache k v)
+memCache maxAge = do
     cacheVar <- newMVar (mapFromList [] :: HashMap k (v, POSIXTime))
     return
         Cache
@@ -19,7 +20,13 @@ memCache = do
                 modifyMVar_ cacheVar $ return . insertMap key (val, ts)
             , cacheDelete = \key ->
                 modifyMVar_ cacheVar $ return . deleteMap key
-            , cacheKeys = do
-                pairs <- mapToList <$> readMVar cacheVar
-                return [ (k, ts) | (k, (_, ts)) <- pairs ]
+            , cacheVacuum = do
+                now <- getPOSIXTime
+                let threshold = now - maxAge
+                itemsDeleted <- modifyMVar cacheVar $ \m -> do
+                    let m' = HashMap.filter (\(_, ts) -> ts > threshold) m
+                        sizeBefore = HashMap.size m
+                        sizeAfter = HashMap.size m'
+                    return (m', (sizeBefore - sizeAfter))
+                return itemsDeleted
             }

@@ -65,12 +65,11 @@ serveProject config project = do
             SCGIDriver -> serveSCGI
             FastCGIDriver -> serveFastCGI
         vacuum = forever $ do
-            now <- getPOSIXTime
-            let thresholdTS = now - 60
-            itemsCleared <- vacuumCache thresholdTS (projectBackendCache project)
-            writeLog (projectLogger project) Notice $
-                "Cache items deleted: " <> tshow itemsCleared
-            threadDelay 30000000
+            itemsCleared <- cacheVacuum (projectBackendCache project)
+            when (itemsCleared > 0) $ do
+                writeLog (projectLogger project) Notice $
+                    "Cache items deleted: " <> tshow itemsCleared
+            threadDelay 5000000 -- check every 5 seconds
 
 serveWarp :: Int -> Project -> IO ()
 serveWarp port project = do

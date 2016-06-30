@@ -4,6 +4,7 @@
 {-#LANGUAGE TemplateHaskell #-}
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE ScopedTypeVariables #-}
+{-#LANGUAGE TypeSynonymInstances #-}
 module Web.Templar.ServerConfig
 where
 
@@ -18,27 +19,35 @@ import System.FilePath.Glob (glob)
 import System.Environment (getEnv, lookupEnv)
 import Control.MaybeEitherMonad (maybeFail)
 import System.Directory (doesFileExist)
+import Data.Scientific (Scientific)
+import Data.Time.Clock.POSIX (POSIXTime)
+
+instance FromJSON POSIXTime where
+    parseJSON v = (realToFrac :: Scientific -> POSIXTime) <$> parseJSON v
 
 data BackendCacheConfig =
-    FilesystemCache FilePath |
-    MemCache
+    FilesystemCache FilePath POSIXTime |
+    MemCache POSIXTime
     deriving (Show)
 
 instance FromJSON BackendCacheConfig where
     parseJSON (String str) = maybeFail $ backendCacheConfigFromString str
     parseJSON (Object obj) = do
         (obj .: "type") >>= \case
-            "file" -> FilesystemCache <$> (obj .:? "dir" .!= ".cache")
-            "mem" -> return MemCache
+            "file" -> FilesystemCache <$>
+                        (obj .:? "dir" .!= ".cache") <*>
+                        (obj .:? "max-age" .!= 300)
+            "mem" -> MemCache <$>
+                        (obj .:? "max-age" .!= 60)
             x -> fail $ "Invalid backend cache type: '" <> x
     parseJSON x = fail $ "Invalid backend cache specification: " <> show x
 
 backendCacheConfigFromString :: Text -> Maybe BackendCacheConfig
 backendCacheConfigFromString str = do
     case splitSeq ":" str of
-        ["file", dir] -> return $ FilesystemCache (unpack dir)
-        ["file"] -> return $ FilesystemCache ".cache"
-        ["mem"] -> return MemCache
+        ["file", dir] -> return $ FilesystemCache (unpack dir) 300
+        ["file"] -> return $ FilesystemCache ".cache" 300
+        ["mem"] -> return $ MemCache 60
         xs -> Nothing
 
 data ServerDriver = WarpDriver Int

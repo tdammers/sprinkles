@@ -1,5 +1,6 @@
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE ScopedTypeVariables #-}
+{-#LANGUAGE OverloadedStrings #-}
 module Web.Templar.Cache.Filesystem
 where
 
@@ -13,13 +14,23 @@ import System.FilePath (takeFileName)
 import System.PosixCompat.Files (getFileStatus, modificationTime)
 import Data.Time.Clock.POSIX
 
+ignoreNonexisting :: a -> IOError -> IO a
+ignoreNonexisting r err =
+    if isDoesNotExistError err
+        then return r
+        else ioError err
+
+ignoreNonexisting_ :: IOError -> IO ()
+ignoreNonexisting_ = ignoreNonexisting ()
+
 filesystemCache :: (k -> String) -- ^ Key serializer
                 -> (String -> k) -- ^ Key deserializer
                 -> (Handle -> v -> IO ()) -- ^ Value serializer
                 -> (Handle -> IO v) -- ^ Value deserializer
                 -> FilePath -- ^ Base directory
+                -> POSIXTime -- ^ Expiration, in seconds
                 -> Cache k v -- ^ Resulting cache
-filesystemCache serializeKey deserializeKey writeValue readValue cacheDir =
+filesystemCache serializeKey deserializeKey writeValue readValue cacheDir maxAge =
     Cache
         { cacheGet = \key -> do
             let filename = keyToFilename key
@@ -30,27 +41,25 @@ filesystemCache serializeKey deserializeKey writeValue readValue cacheDir =
                     body <- withFile filename ReadMode readValue
                     return $ Just (body, ts :: POSIXTime)
                 )
-                (\err -> if isDoesNotExistError err
-                    then return Nothing
-                    else ioError err)
+                (ignoreNonexisting Nothing)
         , cachePut = \key val -> do
             let filename = keyToFilename key
             withFile filename WriteMode (\h -> writeValue h val)
         , cacheDelete = \key -> do
             let filename = keyToFilename key
-            catchIOError
-                (removeFile filename)
-                (\err -> if isDoesNotExistError err
-                    then return ()
-                    else ioError err
-                )
-        , cacheKeys = do
-            filenames <- filter (".cache" `isSuffixOf`) <$> getDirectoryContents cacheDir
-            forM filenames $ \filename -> do
-                let key = keyFromFilename filename
-                status <- getFileStatus (cacheDir </> filename)
+            removeFile filename `catchIOError` ignoreNonexisting_
+        , cacheVacuum = do
+            filenames <- map (cacheDir </>) . filter (".cache" `isSuffixOf`) <$> getDirectoryContents cacheDir
+            timestamped <- forM filenames $ \filename -> do
+                status <- getFileStatus filename
                 let ts = realToFrac $ modificationTime status
-                return (key, ts)
+                return (filename, ts)
+            now <- getPOSIXTime
+            let expirationTS = now - maxAge
+                expired = map fst . filter (\(_, ts) -> ts < expirationTS) $ timestamped
+            forM_ expired $ \filename -> do
+                removeFile filename `catchIOError` ignoreNonexisting_
+            return $ length expired
         }
     where
         keyToFilename key = cacheDir </> encodeFilename (serializeKey key) <> ".cache"

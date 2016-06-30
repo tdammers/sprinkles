@@ -21,6 +21,7 @@ import qualified Text.Ginger as Ginger
 import System.Directory (makeAbsolute)
 import System.FilePath.Glob (glob)
 import System.FilePath
+import Data.Time.Clock.POSIX (POSIXTime)
 
 import Web.Templar.Rule
 import Web.Templar.ProjectConfig
@@ -50,14 +51,15 @@ loadProject sconfig dir = do
     return $ Project pconfig templates cache logger
 
 createCache :: FilePath -> BackendCacheConfig -> IO (Cache ByteString ByteString)
-createCache cwd (FilesystemCache dir) =
+createCache cwd (FilesystemCache dir expiration) =
     return $ filesystemCache
         (unpack . decodeUtf8) -- "serialize" key
         (encodeUtf8 . pack) -- "unserialize" key
         hPut -- write value
         hGetContents -- read value
         (cwd </> dir)
-createCache _ MemCache = memCache
+        expiration
+createCache _ (MemCache expiration) = memCache expiration
 
 preloadTemplates :: FilePath -> IO TemplateCache
 preloadTemplates dir = do
