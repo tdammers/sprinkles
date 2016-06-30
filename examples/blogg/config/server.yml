@@ -1,4 +1,5 @@
-driver: cgi
+driver:
+    type: cgi
 #    type: warp
 #    port: 5000
 backend-cache:
