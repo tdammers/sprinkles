@@ -28,6 +28,7 @@ import Text.Ginger.Html (Html, htmlSource)
 import qualified Text.Ginger as Ginger
 import Data.Aeson as JSON
 import Data.Aeson.TH as JSON
+import Data.Aeson.Encode.Pretty as JSON
 import Data.Yaml as YAML
 import Data.Text (Text)
 import qualified Data.Text as Text
@@ -151,6 +152,7 @@ mkContextLookup request project contextMap key = do
                 , ("load", Ginger.fromFunction (gfnLoadBackendData (writeLog logger) cache))
                 , ("ellipse", Ginger.fromFunction gfnEllipse)
                 , ("json", Ginger.fromFunction gfnJSON)
+                , ("yaml", Ginger.fromFunction gfnYAML)
                 ]
     return . fromMaybe def $ lookup key contextMap'
 
@@ -191,7 +193,12 @@ gfnEllipse xs = do
 gfnJSON :: Ginger.Function (Ginger.Run IO h)
 gfnJSON [] = return def
 gfnJSON ((_, x):xs) = do
-    return . toGVal . LUTF8.toString . JSON.encode $ x
+    return . toGVal . LUTF8.toString . JSON.encodePretty $ x
+
+gfnYAML :: Ginger.Function (Ginger.Run IO h)
+gfnYAML [] = return def
+gfnYAML ((_, x):xs) = do
+    return . toGVal . UTF8.toString . YAML.encode $ x
 
 data NotFoundException = NotFoundException
     deriving (Show)

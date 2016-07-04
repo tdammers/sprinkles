@@ -5,6 +5,6 @@ driver:
 backend-cache:
 - type: 'mem'
   max-age: 60 # in seconds
-- type: 'file'
-  dir: '.cache'
-  max-age: 3600 # in seconds
+# - type: 'file'
+#   dir: '.cache'
+#   max-age: 3600 # in seconds
