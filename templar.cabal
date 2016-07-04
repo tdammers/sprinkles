@@ -47,6 +47,7 @@ library
                , HDBC-postgresql
                , HDBC-sqlite3
                , aeson
+               , aeson-pretty
                , array
                , bytestring
                , case-insensitive

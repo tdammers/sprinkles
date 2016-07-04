@@ -141,3 +141,14 @@ menu menu {
 .tiny {
     font-size: 75%;
 }
+
+.code {
+    background-color: black;
+    color: silver;
+    width: 80em;
+    height: 25em;
+    overflow: auto;
+    font-size: 8px;
+    padding: 2px;
+    border: solid 1px silver;
+}
