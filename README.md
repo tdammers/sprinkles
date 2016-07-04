@@ -23,6 +23,7 @@ installing templar.
 - Install the system dependencies; at the time of writing, those are:
     - `libfcgi` (for FCGI support)
     - `libgmp` (for Haskell's bignum type)
+    - `libcurl` (for HTTP backends)
 - Get the binary release tarball from
   https://github.com/tdammers/templar/releases/latest (both zip file and
   tarball are available, both contain the same files)
