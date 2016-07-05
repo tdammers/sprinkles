@@ -18,8 +18,7 @@ import Text.Ginger
         )
 import Text.Ginger.Html (Html, htmlSource)
 import qualified Text.Ginger as Ginger
-import System.Directory (makeAbsolute)
-import System.FilePath.Glob (glob)
+import System.Directory (makeAbsolute, doesDirectoryExist, doesFileExist, getDirectoryContents)
 import System.FilePath
 import Data.Time.Clock.POSIX (POSIXTime)
 
@@ -61,11 +60,40 @@ createCache cwd (FilesystemCache dir expiration) =
         expiration
 createCache _ (MemCache expiration) = memCache expiration
 
+enumerateFiles :: FilePath -> IO [FilePath]
+enumerateFiles dir = map (dir </>) <$> getDirectoryContents dir
+
+findFiles :: (FilePath -> IO Bool) -> FilePath -> IO [FilePath]
+findFiles p dir = enumerateFiles dir >>= filterM p
+
+findFilesR :: (FilePath -> IO Bool) -> FilePath -> IO [FilePath]
+findFilesR p dir = do
+    localFiles <- findFiles p dir
+    subdirs <- findFiles isInterestingSubdir dir
+    childFiles <- concat <$> mapM (findFilesR p) subdirs
+    return $ localFiles ++ childFiles
+    where
+        isInterestingSubdir :: FilePath -> IO Bool
+        isInterestingSubdir dirname = do
+            isDir <- doesDirectoryExist dirname
+            return $ isDir && not (isHiddenFile dirname)
+
+isHiddenFile :: FilePath -> Bool
+isHiddenFile = ("." `isPrefixOf`) . takeFileName
+
+isTemplateFile :: FilePath -> IO Bool
+isTemplateFile fp = do
+    let extensionMatches = takeExtension fp == ".html"
+    isFile <- doesFileExist fp
+    return $ extensionMatches && isFile
+
 preloadTemplates :: FilePath -> IO TemplateCache
 preloadTemplates dir = do
     prefix <- makeAbsolute $ dir </> "templates"
-    allFilenames <- glob $ prefix </> "**" </> "*.html"
-    filenames <- glob $ prefix </> "*.html"
+    allFilenames <- findFilesR isTemplateFile prefix
+    print allFilenames
+    filenames <- findFiles isTemplateFile prefix
+    print filenames
     templateSources <- forM allFilenames readFile
     let templateSourceMap :: HashMap String String
         templateSourceMap =
