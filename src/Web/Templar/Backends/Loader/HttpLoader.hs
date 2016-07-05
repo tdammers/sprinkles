@@ -32,6 +32,7 @@ import Network.URI (parseURI, URI)
 import System.FilePath (takeFileName, takeBaseName)
 import Network.Curl (CurlOption (..))
 import qualified Network.Curl as Curl
+import Data.Char (isSpace)
 
 httpLoader :: Text -> Credentials -> Loader
 httpLoader uriText credentials writeLog fetchMode fetchOrder = do
@@ -59,8 +60,6 @@ httpLoader uriText credentials writeLog fetchMode fetchOrder = do
                 , bmPath = uriText
                 , bmSize = contentLength
                 }
-    print body
-    print meta
     return [BackendSource meta body]
 
 curlLoader :: Text -> Credentials -> Loader
@@ -68,12 +67,12 @@ curlLoader uriText credentials writeLog fetchMode fetchOrder = do
     Curl.initialize >>= \curl -> do
         response <- Curl.curlGetResponse_
             (unpack uriText)
-            [Curl.CurlVerbose True]
+            [Curl.CurlFollowLocation True]
         let body = Curl.respBody response
             headersL = Curl.respHeaders response
             headers :: HashMap Text Text
             headers = mapFromList
-                [(pack . toLower $ k, pack v) | (k, v) <- headersL ]
+                [(pack . toLower $ k, dropWhile isSpace . pack $ v) | (k, v) <- headersL ]
             getHeader :: Text -> Maybe Text
             getHeader hname = lookup hname headers
             getHeaderDef def = fromMaybe def . getHeader
@@ -86,8 +85,6 @@ curlLoader uriText credentials writeLog fetchMode fetchOrder = do
                     , bmPath = uriText
                     , bmSize = contentLength
                     }
-        print body
-        print meta
         return [BackendSource meta body]
 
 -- | Get a HTTP header value by header name from a list of headers.

@@ -24,7 +24,7 @@ import Web.Templar.Backends.Spec
 loader :: BackendType -> Loader
 loader (SqlBackend dsn query params) = sqlLoader dsn query params
 loader (FileBackend filepath) = fileLoader filepath
-loader (HttpBackend uriText credentials) = httpLoader uriText credentials
+-- loader (HttpBackend uriText credentials) = httpLoader uriText credentials
 -- CURL loader should work, in theory, but for some reason doesn't.
--- loader (HttpBackend uriText credentials) = curlLoader uriText credentials
+loader (HttpBackend uriText credentials) = curlLoader uriText credentials
 loader (SubprocessBackend cmd args mimeType) = subprocessLoader cmd args mimeType
