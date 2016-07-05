@@ -24,6 +24,7 @@ installing templar.
     - `libfcgi` (for FCGI support)
     - `libgmp` (for Haskell's bignum type)
     - `libcurl` (for HTTP backends)
+    - `libpcre` (for PCRE regex support)
 - Get the binary release tarball from
   https://github.com/tdammers/templar/releases/latest (both zip file and
   tarball are available, both contain the same files)
@@ -45,6 +46,8 @@ The easiest way to do that is to use
   writing, those are:
     - `libfcgi` (for FCGI support)
     - `libgmp` (for Haskell's bignum type)
+    - `libcurl` (for HTTP backends)
+    - `libpcre` (for PCRE regex support)
 - Install stack
 - Clone the Templar repository:
   `git clone https://bitbucket.org/tdammers/templar.git`
@@ -90,31 +93,153 @@ A pattern is a HTTP request path, i.e., the part of the URL after the domain
 name. In their simplest form, patterns match exactly, e.g.: `'/pages/home'`
 will match `http://mywebsite.com/pages/home`, and nothing else.
 
-On top of that, you can add variable parts, and capture them in variables:
-`'/pages/{{page:*}}'` will capture *one* path segment (up to the next `/`, `?`,
-`&`, or end of URL) and remember it in the variable `page` (which you can later
-use in backend paths).  So in this example, a request to
-`http://mywebsite.com/pages/home` will match, and store `"home"` in the
-variable `page`.
+Apart from literally matching exact paths, the following are possible:
 
-At the end of a path, a variable can also capture the entire rest of the URL,
-like so: `/pages/{{path:**}}`, i.e., double asterisks. The `path` variable,
-here, will contain the rest of the URL after `/pages/`, including slashes and
-anything else.
+- **Matching any path item**: `/pages/{*}` matches any direct child of
+  `/pages`, e.g. `/pages/pizza`, `/pages/hello`, `/pages/1`, etc.
+- **Matching many path items**: `/pages/{**}` matches any descendant of
+  `/pages`, e.g. `/pages/pizza`, `/pages/pizza/pepperoni`,
+  `/pages/1/5/things-to-see-and-do`, as well as `/pages` itself.
+- **Matching a regular expression**: `/pages/{/[0-9]+/}` matches anything under
+  `/pages/` that matches the regular expression `/[0-9]+/`, e.g. `/pages/1`,
+  `/pages/2378728`, etc. The regular expression dialect used here is PCRE
+  (i.e., the one used in Perl).
+- **Named matches**: these can take the same form as the above, but come with a
+  name. That name is used as a variable under which the matched path part is
+  captured, and that captured variable can then be used to parametrize backend
+  definitions (see below). The syntax is
+  `{`(variable-name)`:`(match-specifier)`}`, where variable-name is the name
+  for the capture, and match-specifier is one of the above matchers. For
+  example, the following matches exactly one path item and captures it under
+  the name `"slug"`: `{slug:*}`. Another example; `{id:/[1-9][0-9]*/}` matches
+  a positive integer and captures it under the name `"id"`.
 
-### Backend Definitions
+### Backends
 
-Backend definitions are mini-templates where you can interpolate the variables
-captured in the route pattern to build URLs for fetching data. Currently, the
-following protocols are supported:
+Backends are the things that pull data into your website. Such data can come
+from diverse sources, and in various content formats. Templar makes a best
+effort at normalizing things into a consistent model, such that your templates
+don't need to know whether the data they're handling was originally a local
+.docx file, a JSON document fetched from a RESTful API, or a result set from an
+SQL query.
 
-- `http://` / `https://`: fetch data over HTTP.
-- `file://`: load a local file.
-- `sql:` : open an SQL database connection and issue a query.
+All backends can be defined in long-hand object form or in short-hand string
+form; the string form is more convenient, but doesn't offer all the options.
+Both forms support interpolating captured variables from route patterns in
+order to parametrize backend queries (i.e., fetch different data items based on
+the variable parts of the matched route).
 
-Backend data is parsed according to its reported MIME type (which, for the
-`file://` protocol, is derived from the extension; for the `sql:` protocol, the
-MIME type is alway `application/json`). The following types are currently
+#### Supported Backend Types
+
+All backend specifications support at least the `type`, `fetch`, and `ordering`
+keys in long-hand mode. `type` determines the backend type, `fetch` is one of
+`one`, `all`, or an integer for a fixed maximum number of items. `all` and
+numbered return a list of records, `one` returns just one record. For
+`ordering`, the following are allowed:
+
+- "arbitrary": do not reorder, use whatever the backend produces
+- "random": random-shuffle results
+- "shuffle": same as "random"
+- "name": order by name
+- "mtime": order by modification time
+
+##### The `file` Backend
+
+Fetches data from local files.
+
+Longhand:
+
+    type: 'file'
+    path: '{filename}' # The filename, absolute or relative, to load
+
+Shorthand:
+
+    'file://{filename}'
+
+Two variations exist: using `glob` for the type instead of `file` will
+interpret the filename as a glob expression and return zero or more files
+instead of exactly one; using `dir` will treat the filename as a directory and
+return all direct descendants of the directory rather than the directory
+itself.
+
+Example:
+
+    type: file
+    path: '/var/www/example.org/static/{staticfile}'
+
+##### The `http` Backend
+
+Issues HTTP GET request to a remote server.
+
+Longhand:
+
+    type: 'http'
+    uri: '{remote-uri}'
+
+Shorthand:
+
+    'http://{remote-uri}' # remote URI (without the `http://` prefix)
+
+Using `https` instead of `http` will fetch data over an HTTPS connection.
+
+##### The `sql` Backend
+
+Fetches data from an SQL database. Currently supports SQLite3 and PostgreSQL.
+
+Longhand:
+
+      type: 'sql'
+      connection:
+        driver: {driver} # one of 'sqlite', 'postgres'
+        dsn: {driver-specific data source name}
+      query: {SQL query} # parametrized using ? for placeholders
+      params: [ "{{param1}}", "{{param2}}", ... ] # parameters to put in placeholder
+
+Shorthand:
+
+      'sql://{driver}:{dsn}:{query}'
+
+Note that for security reasons, the SQL query string itself does not support
+variable substitution; captured variables can only be interpolated into the
+`params` array. This is to prevent SQL Injection: captured variables are
+user-supplied and thus potentially tainted, so we only accept them into
+parameters, not into the raw query. Since the shorthand form doesn't cater for
+parameters, it follows that the shorthand doesn't support injecting captured
+variables.
+
+Because SQL result sets do not come in any particular file format by
+themselves, templar pretends they're JSON, and exposes them with a content type
+of `text/json`, as a document containing a list of rows, each modelled as an
+object of column names to values.
+
+##### The `subprocess` Backend
+
+Run a program locally, and return its output (read from stdout).
+
+Longhand:
+
+    type: 'subprocess'
+    cmd: ['{program}', '{arg1}', '{arg2}', ... ]
+    mime-type: '{mime-type}'
+
+Shorthand: n/a
+
+Particular points of interest:
+
+- Processes do not provide any information about the format of their output;
+  because of this, you have to specify it explicitly in the configuration. If
+  no MIME type is defined, `text/plain` is assumed.
+- To prevent shell injection vulnerabilities, the command and arguments need to
+  be provided as a list; the command is run directly, without a shell. This
+  means, among other things, that shell magic such as globbing, environment
+  variable substitution, or shorthands like `~` won't work.
+
+#### Supported Content Types
+
+Templar detects the content type (file format) for backend data automatically
+in most cases, depending on the backend type (see above). All the supported
+MIME types are marshalled into the same format, but due to the diverse nature
+of the data, details may still differ. The following types are currently
 supported:
 
 - JSON (`application/json`, `text/json`): parsed as JSON, and exposed as-is
@@ -136,6 +261,18 @@ supported:
     - When used as a dictionary, two keys are exposed: `meta`, which gives access
       to meta properties defined in the input document, and `body`, which points
       at the input document contents.
+- Textile (`application/x-textile`, `text/x-textile`): parsed as Textile using
+  Pandoc. The resulting value behaves like Markdown.
+- ReStructuredText (`application/x-rst`, `text/x-rst`): parsed as RST using
+  Pandoc. The resulting value behaves like Markdown.
+- HTML (`application/html`, `text/html`): parsed as HTML using Pandoc. This
+  means that while basic semantic formatting (`<p>`, `<h1>`, `<b>`, `<em>`,
+  ...) is preserved, most HTML-specific features (class names, IDs, script
+  tags, ...) will be stripped out. Note that no attempt is made to translate
+  relative URLs referenced in the HTML, so such links are likely to not work.
+- DOCX (`application/vnd.openxmlformats-officedocument.wordprocessingml.document`):
+  OpenXML-style Word documents. Support is rudimentary: text content is
+  preserved without problems, but most formatting will be stripped out.
 - Any other content type will not be parsed, but can be served as-is using the
   `static` directive. Using such data in templates or trying to serve them as
   JSON will produce empty values / `null`.
