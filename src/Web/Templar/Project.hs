@@ -91,9 +91,7 @@ preloadTemplates :: FilePath -> IO TemplateCache
 preloadTemplates dir = do
     prefix <- makeAbsolute $ dir </> "templates"
     allFilenames <- findFilesR isTemplateFile prefix
-    print allFilenames
     filenames <- findFiles isTemplateFile prefix
-    print filenames
     templateSources <- forM allFilenames readFile
     let templateSourceMap :: HashMap String String
         templateSourceMap =
