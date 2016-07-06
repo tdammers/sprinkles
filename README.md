@@ -276,3 +276,29 @@ supported:
 - Any other content type will not be parsed, but can be served as-is using the
   `static` directive. Using such data in templates or trying to serve them as
   JSON will produce empty values / `null`.
+
+### Templates
+
+Templates for templar are written in
+[Ginger](https://bitbucket.org/tdammers/ginger), a flavor of the
+[Jinja2](http://jinja.pocoo.org/) template language. Templates go into the
+`/templates` directory in your project and must have an extension of `.html`;
+subdirectories are OK for included templates, but all entry points (i.e.,
+templates referenced from your project configuration) must be in the
+`/templates` directory itself.
+
+Inside a template, the following variables are available by default:
+
+- `request`: an object describing various properties of the current HTTP
+  request.
+- All the variables defined in the backend configuration for the current route
+  (`rules -> {rule-number} -> data -> {variable-name}`)
+- All the variables defined in the global backend configuration (`data ->
+  `{variable-name}`)
+- A few convenience functions: `ellipse(str, length)` shortens `str` to
+  `length`, adding an ellipsis if the string was shortened; `json(value)`,
+  producing a pretty-printed JSON string representation of the argument,
+  `yaml(value)`, the same for YAML, and `load(backend-spec)`, which allows you
+  to load additional backend data from within a template. *(Note: currently,
+  `load()` only supports the short-hand format for backend specifications)*
+- Everything Ginger provides out-of-the-box.
