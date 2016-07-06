@@ -114,17 +114,6 @@ preloadTemplates dir = do
             Right t -> return t
     return . TemplateCache . mapFromList $ zip (map pack relativeFilenames) templates
 
-resolveTemplateName :: Project -> [Text] -> IO Text
-resolveTemplateName project path = do
-    let TemplateCache tm = projectTemplates project
-    -- return . concat . intersperse "/" $ path
-    return "default.html"
-
-resolveTemplate :: Project -> [Text] -> IO Template
-resolveTemplate project path = do
-    templateName <- resolveTemplateName project path
-    getTemplate project templateName
-
 getTemplate :: Project -> Text -> IO Template
 getTemplate project templateName = do
     let TemplateCache tm = projectTemplates project
