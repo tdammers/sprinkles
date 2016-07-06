@@ -95,12 +95,12 @@ will match `http://mywebsite.com/pages/home`, and nothing else.
 
 Apart from literally matching exact paths, the following are possible:
 
-- **Matching any path item**: `/pages/{*}` matches any direct child of
+- **Matching any path item**: `/pages/{{*}}` matches any direct child of
   `/pages`, e.g. `/pages/pizza`, `/pages/hello`, `/pages/1`, etc.
-- **Matching many path items**: `/pages/{**}` matches any descendant of
+- **Matching many path items**: `/pages/{{**}}` matches any descendant of
   `/pages`, e.g. `/pages/pizza`, `/pages/pizza/pepperoni`,
   `/pages/1/5/things-to-see-and-do`, as well as `/pages` itself.
-- **Matching a regular expression**: `/pages/{/[0-9]+/}` matches anything under
+- **Matching a regular expression**: `/pages/{{/[0-9]+/}}` matches anything under
   `/pages/` that matches the regular expression `/[0-9]+/`, e.g. `/pages/1`,
   `/pages/2378728`, etc. The regular expression dialect used here is PCRE
   (i.e., the one used in Perl).
@@ -108,11 +108,11 @@ Apart from literally matching exact paths, the following are possible:
   name. That name is used as a variable under which the matched path part is
   captured, and that captured variable can then be used to parametrize backend
   definitions (see below). The syntax is
-  `{`(variable-name)`:`(match-specifier)`}`, where variable-name is the name
+  `{{`(variable-name)`:`(match-specifier)`}}`, where variable-name is the name
   for the capture, and match-specifier is one of the above matchers. For
   example, the following matches exactly one path item and captures it under
-  the name `"slug"`: `{slug:*}`. Another example; `{id:/[1-9][0-9]*/}` matches
-  a positive integer and captures it under the name `"id"`.
+  the name `"slug"`: `{{slug:*}}`. Another example; `{{id:/[1-9][0-9]*/}}`
+  matches a positive integer and captures it under the name `"id"`.
 
 ### Backends
 
@@ -127,7 +127,11 @@ All backends can be defined in long-hand object form or in short-hand string
 form; the string form is more convenient, but doesn't offer all the options.
 Both forms support interpolating captured variables from route patterns in
 order to parametrize backend queries (i.e., fetch different data items based on
-the variable parts of the matched route).
+the variable parts of the matched route). In fact, the interpolation is
+implemented using Ginger (see below, under "Templates"), and the string parts
+of each backend specification is actually a tiny Ginger template - this means
+that you can do a lot more than just putting captured variables into backend
+specs as-is; the full Ginger language is at your disposal here.
 
 #### Supported Backend Types
 
