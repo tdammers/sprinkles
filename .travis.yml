@@ -3,7 +3,7 @@ branches:
   only:
   - master
   - /^\d+(\.\d+)+(-(alpha|beta|rc)\d*)$/
-sudo: false
+sudo: required
 cache:
   directories:
   - "$HOME/.stack/"
