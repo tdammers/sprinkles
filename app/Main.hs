@@ -1,23 +1,29 @@
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
+{-#LANGUAGE TemplateHaskell #-}
+{-#LANGUAGE ScopedTypeVariables #-}
 
 -- | CLI program that drives a Templar instance.
 module Main where
 
-import ClassyPrelude
+import ClassyPrelude hiding ( (<|>), try )
 import Web.Templar
 import Text.Read (read, readMaybe)
 import Data.Default (def)
 import Text.Parsec
+import Data.EmbedVersion
 
-parseArgs :: [Text] -> IO ServerConfig
+data CliOptions =
+    ServeProject ServerConfig |
+    DumpVersion
+
+parseArgs :: [Text] -> IO CliOptions
 parseArgs argv = do
     let result = runParser argsP () "command line arguments" argv
-    fns <- either
+    either
         (fail . show)
         return
         result
-    return $ foldr ($) def fns
 
 type ArgsP = Parsec [Text] ()
 
@@ -26,8 +32,19 @@ data ArgSpec a = Flag Text a
                | Required Text (Text -> Maybe a)
                | Bare (Text -> Maybe a)
 
-argsP :: ArgsP [ServerConfig -> ServerConfig]
-argsP = Text.Parsec.many $ choice (map (Text.Parsec.try . argP) argSpecs)
+argsP :: ArgsP CliOptions
+argsP = versionP <|> serveArgsP
+
+versionP :: ArgsP CliOptions
+versionP =
+    (try (tExactly "-version") <|>
+     try (tExactly "--version") <|>
+     try (tExactly "-v")) >> return DumpVersion
+
+serveArgsP :: ArgsP CliOptions
+serveArgsP = do
+    pipeline <- Text.Parsec.many $ choice (map (Text.Parsec.try . argP) argSpecs)
+    return . ServeProject $ foldr ($) def pipeline
 
 tSatisfy :: (Show t, Stream s m t) => (t -> Bool) -> ParsecT s u m t
 tSatisfy cond = do
@@ -84,12 +101,18 @@ argSpecs =
     , Flag "fcgi" (\config -> config { scDriver = FastCGIDriver })
     ]
 
+templarVersion = $(embedPackageVersionStr "templar.cabal")
+
 main :: IO ()
 main = do
     args <- getArgs
-    sconfigF <- loadServerConfig "."
-    sconfigA <- parseArgs args
-    let sconfig = sconfigF `mappend` sconfigA
+    opts <- parseArgs args
+    case opts of
+        ServeProject sconfigA -> do
+            sconfigF <- loadServerConfig "."
+            let sconfig = sconfigF `mappend` sconfigA
 
-    project <- loadProject sconfig "."
-    serveProject sconfig project
+            project <- loadProject sconfig "."
+            serveProject sconfig project
+        DumpVersion -> do
+            putStrLn templarVersion

@@ -40,7 +40,9 @@ library
                  , Web.Templar.Project
                  , Web.Templar.Serve
                  , Control.MaybeEitherMonad
+                 , Data.EmbedVersion
   build-depends: base >= 4.7 && < 5
+               , Cabal
                , Glob
                , HTTP
                , HDBC
@@ -72,6 +74,7 @@ library
                , regex-pcre
                , safe
                , scientific
+               , template-haskell
                , text
                , time
                , transformers
