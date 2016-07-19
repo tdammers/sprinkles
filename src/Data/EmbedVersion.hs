@@ -52,6 +52,12 @@ getGitVersionStr = do
             (tagRef:_) -> GitTag (Text.unpack $ Text.drop 5 tagRef) commitHash
             [] -> GitCommit commitHash
 
+haveGitModifications :: IO Bool
+haveGitModifications = do
+    output <- runGit ["status", "--porcelain"]
+    let outLines = filter (not . null) . lines $ output
+    return . not . null $ outLines
+
 formatPackageVersion :: Version -> String
 formatPackageVersion v =
     intercalate "." . map show . versionBranch $ v
@@ -68,4 +74,9 @@ embedPackageVersionStr fp = do
                     then t
                     else cabalVersion ++ " (" ++ t ++ ")"
             Unversioned -> cabalVersion
-    stringE version
+    modificationsStr <- runIO $ do
+        modifications <- haveGitModifications `catch` \(err :: IOError) -> return False
+        if modifications
+            then return "+modifications"
+            else return ""
+    stringE $ version ++ modificationsStr
