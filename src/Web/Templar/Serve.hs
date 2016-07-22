@@ -45,6 +45,7 @@ import qualified Data.ByteString.Lazy.UTF8 as LUTF8
 import qualified Data.CaseInsensitive as CI
 import Control.Concurrent (forkIO, threadDelay)
 import Data.Time.Clock.POSIX (getPOSIXTime)
+import qualified Text.Pandoc as Pandoc
 
 import Web.Templar.Backends
 import Web.Templar.Rule
@@ -153,6 +154,7 @@ mkContextLookup request project contextMap key = do
                 , ("ellipse", Ginger.fromFunction gfnEllipse)
                 , ("json", Ginger.fromFunction gfnJSON)
                 , ("yaml", Ginger.fromFunction gfnYAML)
+                , ("pandoc", Ginger.fromFunction gfnPandoc)
                 ]
     return . fromMaybe def $ lookup key contextMap'
 
@@ -170,6 +172,24 @@ gfnLoadBackendData writeLog cache args =
                 ( fromMaybe (tshow index) keyMay
                 , toGVal backendData
                 )
+
+gfnPandoc :: forall h. Ginger.Function (Ginger.Run IO h)
+gfnPandoc [(Nothing, src), (Nothing, readerName)] = liftIO $
+    (toGVal <$> pandoc (unpack $ Ginger.asText readerName) (Ginger.asText src))
+    `catch` (\(_ :: SomeException) -> return . toGVal $ False)
+
+pandoc :: String -> Text -> IO Pandoc.Pandoc
+pandoc readerName src = do
+    reader <- either
+        (\err -> fail $ "Invalid reader: " ++ show err)
+        return
+        (Pandoc.getReader $ readerName)
+    let read = case reader of
+            Pandoc.StringReader r -> r Pandoc.def . unpack
+            Pandoc.ByteStringReader r -> fmap (fmap fst) . r Pandoc.def . encodeUtf8
+    read (fromStrict src) >>= either
+        (\err -> fail $ "Reading " ++ show readerName ++ " failed: " ++ show err)
+        return
 
 gfnEllipse :: Ginger.Function (Ginger.Run IO h)
 gfnEllipse [] = return def
