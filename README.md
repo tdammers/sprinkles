@@ -299,10 +299,16 @@ Inside a template, the following variables are available by default:
   (`rules -> {rule-number} -> data -> {variable-name}`)
 - All the variables defined in the global backend configuration (`data ->
   `{variable-name}`)
-- A few convenience functions: `ellipse(str, length)` shortens `str` to
-  `length`, adding an ellipsis if the string was shortened; `json(value)`,
-  producing a pretty-printed JSON string representation of the argument,
-  `yaml(value)`, the same for YAML, and `load(backend-spec)`, which allows you
-  to load additional backend data from within a template. *(Note: currently,
-  `load()` only supports the short-hand format for backend specifications)*
+- A few convenience functions:
+  - `ellipse(str, length)` shortens `str` to `length`, adding an ellipsis if
+    the string was shortened
+  - `json(value)`, producing a pretty-printed JSON string representation of the
+    argument
+  - `yaml(value)`, the same for YAML
+  - `load(backend-spec)`, which allows you to load additional backend data from
+    within a template. *(Note: currently `load()` only supports the short-hand
+    format for backend specifications)*
+  - `pandoc(str, format)`, runs the input `str` through a Pandoc parser
+    indicated by `format`. Pandoc supports a wide range of input formats,
+    including `html`, `markdown`, `textile`, `rst`, `mediawiki`, `docx`, etc.
 - Everything Ginger provides out-of-the-box.
