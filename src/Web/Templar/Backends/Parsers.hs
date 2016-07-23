@@ -23,6 +23,7 @@ import Web.Templar.Backends.Data
         )
 import qualified Text.Pandoc as Pandoc
 import Text.Pandoc (Pandoc)
+import qualified Text.Pandoc.Readers.Creole as Pandoc
 import Text.Pandoc.Error (PandocError)
 import Network.Mime (MimeType)
 import Text.Ginger (ToGVal (..), GVal, Run (..), dict, (~>))
@@ -58,6 +59,9 @@ parsers =
       )
     , ( ["application/x-markdown", "text/x-markdown"]
       , parsePandocDataString (Pandoc.readMarkdown Pandoc.def)
+      )
+    , ( ["application/x-creole", "text/x-creole"]
+      , parsePandocDataString (Pandoc.readCreole Pandoc.def)
       )
     , ( ["application/x-textile", "text/x-textile"]
       , parsePandocDataString (Pandoc.readTextile Pandoc.def)

@@ -9,7 +9,10 @@ packages:
 - '.'
 - location:
     git: https://git@bitbucket.org/tdammers/ginger
-    commit: '0.2.5.0'
+    commit: '0.2.6.0'
+- location:
+    git: file:///home/tobias/devel/pandoc-creole
+    commit: 'master'
   extra-dep: true
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)

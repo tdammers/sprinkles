@@ -46,6 +46,7 @@ import qualified Data.CaseInsensitive as CI
 import Control.Concurrent (forkIO, threadDelay)
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import qualified Text.Pandoc as Pandoc
+import qualified Text.Pandoc.Readers.Creole as Pandoc
 
 import Web.Templar.Backends
 import Web.Templar.Rule
@@ -183,13 +184,16 @@ pandoc readerName src = do
     reader <- either
         (\err -> fail $ "Invalid reader: " ++ show err)
         return
-        (Pandoc.getReader $ readerName)
+        (getReader readerName)
     let read = case reader of
             Pandoc.StringReader r -> r Pandoc.def . unpack
             Pandoc.ByteStringReader r -> fmap (fmap fst) . r Pandoc.def . encodeUtf8
     read (fromStrict src) >>= either
         (\err -> fail $ "Reading " ++ show readerName ++ " failed: " ++ show err)
         return
+    where
+        getReader "creole" = Right $ Pandoc.mkStringReader Pandoc.readCreole
+        getReader readerName = Pandoc.getReader readerName
 
 gfnEllipse :: Ginger.Function (Ginger.Run IO h)
 gfnEllipse [] = return def

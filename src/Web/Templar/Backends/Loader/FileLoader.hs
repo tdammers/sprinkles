@@ -80,6 +80,7 @@ mimeMap =
         , ("md", "application/x-markdown")
         , ("rst", "text/x-rst")
         , ("textile", "text/x-textile")
+        , ("creole", "text/x-creole")
         , ("markdown", "application/x-markdown")
         , ("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         ]

@@ -67,6 +67,7 @@ library
                , network-uri
                , parsec
                , pandoc
+               , pandoc-creole
                , pandoc-types
                , process
                , random-shuffle
