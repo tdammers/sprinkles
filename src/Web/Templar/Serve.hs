@@ -155,7 +155,7 @@ mkContextLookup request project contextMap key = do
                 , ("ellipse", Ginger.fromFunction gfnEllipse)
                 , ("json", Ginger.fromFunction gfnJSON)
                 , ("yaml", Ginger.fromFunction gfnYAML)
-                , ("pandoc", Ginger.fromFunction gfnPandoc)
+                , ("pandoc", Ginger.fromFunction (gfnPandoc (writeLog logger)))
                 ]
     return . fromMaybe def $ lookup key contextMap'
 
@@ -174,10 +174,13 @@ gfnLoadBackendData writeLog cache args =
                 , toGVal backendData
                 )
 
-gfnPandoc :: forall h. Ginger.Function (Ginger.Run IO h)
-gfnPandoc [(Nothing, src), (Nothing, readerName)] = liftIO $
+gfnPandoc :: forall h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run IO h)
+gfnPandoc writeLog [(Nothing, src), (Nothing, readerName)] = liftIO $
     (toGVal <$> pandoc (unpack $ Ginger.asText readerName) (Ginger.asText src))
-    `catch` (\(_ :: SomeException) -> return . toGVal $ False)
+    `catch` (\(e :: SomeException) -> do
+        writeLog Logger.Error . tshow $ e
+        return . toGVal $ False
+    )
 
 pandoc :: String -> Text -> IO Pandoc.Pandoc
 pandoc readerName src = do
