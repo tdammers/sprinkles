@@ -11,7 +11,7 @@ packages:
     git: https://git@bitbucket.org/tdammers/ginger
     commit: 'bec8b38d32d3b0f1aa942e0471ae5db958e7539a'
 - location:
-    git: 'git@github.com:tdammers/pandoc-creole.git'
+    git: 'https://git@github.com/tdammers/pandoc-creole.git'
     commit: '0.1.0.0'
   extra-dep: true
 
