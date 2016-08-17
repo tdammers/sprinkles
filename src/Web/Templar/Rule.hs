@@ -51,7 +51,6 @@ expandRuleTarget varMap (RedirectTarget p) = RedirectTarget $ expandReplacement 
 
 applyRule :: Rule -> [Text] -> QueryText -> Maybe (HashMap Text BackendSpec, Set Text, RuleTarget Text)
 applyRule rule path query = do
-    traceShowM $ rule
     varMap <- matchPattern (ruleRoutePattern rule) path query
     let f :: Replacement -> Text
         f pathPattern = expandReplacement varMap pathPattern
