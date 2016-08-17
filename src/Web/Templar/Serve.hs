@@ -34,6 +34,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import qualified Network.Wai as Wai
 import Network.HTTP.Types (Status, status200, status302, status400, status404, status500)
+import Network.HTTP.Types.URI (queryToQueryText)
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.Wai.Handler.CGI as CGI
 import qualified Network.Wai.Handler.SCGI as SCGI
@@ -238,11 +239,10 @@ handleRequest project request respond = do
     where
         cache = projectBackendCache project
         go = do
-            let queryPath =
-                    (pack . UTF8.toString $ Wai.rawPathInfo request) <>
-                    (pack . UTF8.toString $ Wai.rawQueryString request)
+            let path = Wai.pathInfo request
+                query = queryToQueryText . Wai.queryString $ request
             let globalBackendPaths = pcContextData . projectConfig $ project
-            case applyRules (pcRules . projectConfig $ project) queryPath of
+            case applyRules (pcRules . projectConfig $ project) path query of
                 Nothing ->
                     handle404
                         (globalBackendPaths, setFromList [])

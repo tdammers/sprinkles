@@ -22,6 +22,7 @@ data ProjectConfig =
         { pcContextData :: HashMap Text BackendSpec
         , pcRules :: [Rule]
         }
+        deriving (Show)
 
 instance Default ProjectConfig where
     def = ProjectConfig

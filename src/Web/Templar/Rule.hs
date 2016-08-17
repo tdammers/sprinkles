@@ -10,6 +10,7 @@ import Web.Templar.Replacement
 import Web.Templar.Backends
 import Data.Aeson as JSON
 import Control.MaybeEitherMonad
+import Network.HTTP.Types.URI (QueryText)
 
 data RuleTarget p =
     TemplateTarget p |
@@ -48,9 +49,10 @@ expandRuleTarget _ StaticTarget = StaticTarget
 expandRuleTarget varMap (TemplateTarget p) = TemplateTarget $ expandReplacement varMap p
 expandRuleTarget varMap (RedirectTarget p) = RedirectTarget $ expandReplacement varMap p
 
-applyRule :: Rule -> Text -> Maybe (HashMap Text BackendSpec, Set Text, RuleTarget Text)
-applyRule rule query = do
-    varMap <- matchPattern (ruleRoutePattern rule) query
+applyRule :: Rule -> [Text] -> QueryText -> Maybe (HashMap Text BackendSpec, Set Text, RuleTarget Text)
+applyRule rule path query = do
+    traceShowM $ rule
+    varMap <- matchPattern (ruleRoutePattern rule) path query
     let f :: Replacement -> Text
         f pathPattern = expandReplacement varMap pathPattern
         expandReplacementBackend :: BackendSpec -> BackendSpec
@@ -62,9 +64,7 @@ applyRule rule query = do
         , expandRuleTarget varMap (ruleTarget rule)
         )
 
-applyRules :: [Rule] -> Text -> Maybe (HashMap Text BackendSpec, Set Text, RuleTarget Text)
-applyRules [] _ = Nothing
-applyRules (rule:rules) query =
-    applyRule rule query <|> applyRules rules query
-
-
+applyRules :: [Rule] -> [Text] -> QueryText -> Maybe (HashMap Text BackendSpec, Set Text, RuleTarget Text)
+applyRules [] _ _ = Nothing
+applyRules (rule:rules) path query =
+    applyRule rule path query <|> applyRules rules path query
