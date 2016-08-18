@@ -1,3 +1,4 @@
+{-#LANGUAGE DeriveGeneric #-}
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
 {-#LANGUAGE OverloadedLists #-}
@@ -107,6 +108,15 @@ instance ToGVal m Wai.Request where
             , "query" ~> Wai.rawQueryString rq
             ]
 
+data GingerFunctionCallException =
+    GingerInvalidFunctionArgs
+        { invalidFunctionName :: Text
+        , invalidFunctionExpectedArgs :: Text
+        }
+    deriving (Show, Eq, Generic)
+
+instance Exception GingerFunctionCallException
+
 appFromProject :: Project -> Wai.Application
 appFromProject project request respond = do
     handleRequest project request respond `catch` handleException
@@ -157,6 +167,10 @@ mkContextLookup request project contextMap key = do
                 , ("json", Ginger.fromFunction gfnJSON)
                 , ("yaml", Ginger.fromFunction gfnYAML)
                 , ("pandoc", Ginger.fromFunction (gfnPandoc (writeLog logger)))
+                , ("markdown", Ginger.fromFunction (gfnPandocAlias "markdown" (writeLog logger)))
+                , ("textile", Ginger.fromFunction (gfnPandocAlias "textile" (writeLog logger)))
+                , ("rst", Ginger.fromFunction (gfnPandocAlias "rst" (writeLog logger)))
+                , ("creole", Ginger.fromFunction (gfnPandocAlias "creole" (writeLog logger)))
                 ]
     return . fromMaybe def $ lookup key contextMap'
 
@@ -175,20 +189,34 @@ gfnLoadBackendData writeLog cache args =
                 , toGVal backendData
                 )
 
-gfnPandoc :: forall h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run IO h)
-gfnPandoc writeLog [(Nothing, src), (Nothing, readerName)] = liftIO $
-    (toGVal <$> pandoc (unpack $ Ginger.asText readerName) (Ginger.asText src))
-    `catch` (\(e :: SomeException) -> do
-        writeLog Logger.Error . tshow $ e
-        return . toGVal $ False
-    )
+catchToGinger :: forall h. (LogLevel -> Text -> IO ())
+              -> IO _
+              -> IO _
+catchToGinger writeLog action =
+    action
+        `catch` (\(e :: SomeException) -> do
+            writeLog Logger.Error . tshow $ e
+            return . toGVal $ False
+        )
 
-pandoc :: String -> Text -> IO Pandoc.Pandoc
+gfnPandoc :: forall h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run IO h)
+gfnPandoc writeLog args = liftIO . catchToGinger writeLog $
+    case Ginger.extractArgsDefL [("src", ""), ("reader", "markdown")] args of
+        Right [src, readerName] -> toGVal <$> pandoc (Ginger.asText readerName) (Ginger.asText src)
+        _ -> throwM $ GingerInvalidFunctionArgs "pandoc" "string src, string reader"
+
+gfnPandocAlias :: forall h. Text -> (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run IO h)
+gfnPandocAlias readerName writeLog args = liftIO . catchToGinger writeLog $
+    case Ginger.extractArgsDefL [("src", "")] args of
+        Right [src] -> toGVal <$> pandoc readerName (Ginger.asText src)
+        _ -> throwM $ GingerInvalidFunctionArgs "pandoc" "string src, string reader"
+
+pandoc :: Text -> Text -> IO Pandoc.Pandoc
 pandoc readerName src = do
     reader <- either
         (\err -> fail $ "Invalid reader: " ++ show err)
         return
-        (getReader readerName)
+        (getReader $ unpack readerName)
     let read = case reader of
             Pandoc.StringReader r -> r Pandoc.def . unpack
             Pandoc.ByteStringReader r -> fmap (fmap fst) . r Pandoc.def . encodeUtf8
