@@ -1,3 +1,4 @@
+{-#LANGUAGE DeriveGeneric #-}
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
 {-#LANGUAGE OverloadedLists #-}
@@ -31,6 +32,11 @@ import Web.Templar.Cache.Filesystem (filesystemCache)
 import Web.Templar.Cache.Memory (memCache)
 
 newtype TemplateCache = TemplateCache (HashMap Text Template)
+
+data TemplateNotFoundException = TemplateNotFoundException Text
+    deriving (Show, Eq, Generic)
+
+instance Exception TemplateNotFoundException
 
 data Project =
     Project
@@ -118,7 +124,7 @@ getTemplate :: Project -> Text -> IO Template
 getTemplate project templateName = do
     let TemplateCache tm = projectTemplates project
     maybe
-        (fail $ "Template not found: " <> unpack templateName)
+        (throwM $ TemplateNotFoundException templateName)
         return
         (lookup templateName tm)
 

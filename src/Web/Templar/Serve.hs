@@ -120,7 +120,7 @@ respondTemplateHtml project status templateName contextMap request respond = do
     let contextLookup = mkContextLookup request project contextMap
         headers = [("Content-type", "text/html;charset=utf8")]
     template <- getTemplate project templateName
-    respond . Wai.responseStream status200 headers $ \write flush -> do
+    respond . Wai.responseStream status headers $ \write flush -> do
         let writeHtml = write . stringUtf8 . unpack . htmlSource
             context :: GingerContext IO Html
             context = Ginger.makeContextHtmlM contextLookup writeHtml
@@ -132,7 +132,7 @@ respondTemplateText project status templateName contextMap request respond = do
     let contextLookup = mkContextLookup request project contextMap
         headers = [("Content-type", "text/plain;charset=utf8")]
     template <- getTemplate project templateName
-    respond . Wai.responseStream status200 headers $ \write flush -> do
+    respond . Wai.responseStream status headers $ \write flush -> do
         let writeText = write . stringUtf8 . unpack
             context :: GingerContext IO Text
             context = Ginger.makeContextTextM contextLookup writeText
@@ -274,34 +274,50 @@ handle404 :: (HashMap Text BackendSpec, Set Text)
           -> Project
           -> Wai.Application
 handle404 (backendPaths, required) project request respond = do
-    let cache = projectBackendCache project
+    respondNormally `catch` handleTemplateNotFound
+    where
+        cache = projectBackendCache project
         logger = projectLogger project
-    backendData <- loadBackendDict (writeLog logger) cache backendPaths required
-    respondTemplateHtml
-        project
-        status404
-        "404.html"
-        backendData
-        request
-        respond
+        respondNormally = do
+            backendData <- loadBackendDict (writeLog logger) cache backendPaths required
+            respondTemplateHtml
+                project
+                status404
+                "404.html"
+                backendData
+                request
+                respond
+        handleTemplateNotFound :: TemplateNotFoundException -> _
+        handleTemplateNotFound e = do
+            writeLog logger Logger.Warning $ "Template 404.html not found, using built-in fallback"
+            let headers = [("Content-type", "text/plain;charset=utf8")]
+            respond . Wai.responseLBS status404 headers $ "Not Found"
 
 handle500 :: Show e
           => e
           -> Project
           -> Wai.Application
 handle500 err project request respond = do
-    writeLog (projectLogger project) Logger.Error $ tshow err
-    let cache = projectBackendCache project
+    writeLog logger Logger.Error $ tshow err
+    respondNormally `catch` handleTemplateNotFound
+    where
+        cache = projectBackendCache project
         backendPaths = pcContextData . projectConfig $ project
         logger = projectLogger project
-    backendData <- loadBackendDict (writeLog logger) cache backendPaths (setFromList [])
-    respondTemplateHtml
-        project
-        status500
-        "500.html"
-        backendData
-        request
-        respond
+        respondNormally = do
+            backendData <- loadBackendDict (writeLog logger) cache backendPaths (setFromList [])
+            respondTemplateHtml
+                project
+                status500
+                "500.html"
+                backendData
+                request
+                respond
+        handleTemplateNotFound :: TemplateNotFoundException -> _
+        handleTemplateNotFound e = do
+            writeLog logger Logger.Warning $ "Template 500.html not found, using built-in fallback"
+            let headers = [("Content-type", "text/plain;charset=utf8")]
+            respond . Wai.responseLBS status500 headers $ "Something went pear-shaped. The problem seems to be on our side."
 
 handleRedirectTarget :: Text
                      -> (HashMap Text BackendSpec, Set Text)
