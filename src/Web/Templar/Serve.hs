@@ -49,6 +49,7 @@ import Control.Concurrent (forkIO, threadDelay)
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import qualified Text.Pandoc as Pandoc
 import qualified Text.Pandoc.Readers.Creole as Pandoc
+import qualified Data.CaseInsensitive as CI
 
 import Web.Templar.Backends
 import Web.Templar.Rule
@@ -99,14 +100,24 @@ instance ToGVal m (CI.CI ByteString) where
 
 instance ToGVal m Wai.Request where
     toGVal rq =
-        Ginger.dict
-            [ "method" ~> show (Wai.requestMethod rq)
-            , "httpVersion" ~> show (Wai.httpVersion rq)
-            , "headers" ~> Wai.requestHeaders rq
+        Ginger.orderedDict
+            [ "httpVersion" ~> tshow (Wai.httpVersion rq)
+            , "method" ~> decodeUtf8 (Wai.requestMethod rq)
+            , "path" ~> decodeUtf8 (Wai.rawPathInfo rq)
+            , "query" ~> decodeUtf8 (Wai.rawQueryString rq)
             , "pathInfo" ~> Wai.pathInfo rq
-            , "path" ~> Wai.rawPathInfo rq
-            , "query" ~> Wai.rawQueryString rq
+            , "queryInfo" ~> queryToQueryText (Wai.queryString rq)
+            , ( "headers"
+              , Ginger.orderedDict
+                    [ (decodeCI n, toGVal $ decodeUtf8 v)
+                    | (n, v)
+                    <- Wai.requestHeaders rq
+                    ]
+              )
             ]
+
+decodeCI :: CI.CI ByteString -> Text
+decodeCI = decodeUtf8 . CI.original
 
 data GingerFunctionCallException =
     GingerInvalidFunctionArgs
