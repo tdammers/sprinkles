@@ -23,6 +23,7 @@ import Web.Templar.Backends.Data
         )
 import System.FilePath (takeFileName, takeBaseName)
 import System.FilePath.Glob (glob)
+import System.Directory (doesDirectoryExist, getDirectoryContents)
 import Web.Templar.Logger (LogLevel (..))
 import Web.Templar.Backends.Loader.Type
 import Network.Mime
@@ -54,10 +55,33 @@ fileLoader filepath writeLog fetchMode fetchOrder =
             | otherwise = ioError err
 
         fetchOne candidate = do
+            isDir <- doesDirectoryExist candidate
+            if isDir
+                then fetchAsDir candidate
+                else fetchAsFile candidate
+        fetchAsDir candidate = do
+            let mimeType = "application/x-directory"
+            contents <- (encodeUtf8 . unlines . fmap pack <$> getDirectoryContents candidate)
+                `catchIOError` \err -> do
+                    writeLog Notice $ tshow err
+                    return ""
+            status <- getFileStatus candidate
+            let mtimeUnix = modificationTime status
+                meta = BackendMeta
+                        { bmMimeType = mimeType
+                        , bmMTime = Just mtimeUnix
+                        , bmName = pack $ takeBaseName candidate
+                        , bmPath = pack candidate
+                        , bmSize = (Just . fromIntegral $ fileSize status :: Maybe Integer)
+                        }
+            return $ BackendSource meta contents
+
+        fetchAsFile candidate = do
             let mimeType = mimeLookup . pack $ candidate
-            contents <- readFile candidate `catchIOError` \err -> do
-                writeLog Notice $ tshow err
-                return ""
+            contents <- (readFile candidate)
+                `catchIOError` \err -> do
+                    writeLog Notice $ tshow err
+                    return ""
             status <- getFileStatus candidate
             let mtimeUnix = modificationTime status
                 meta = BackendMeta
