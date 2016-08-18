@@ -53,7 +53,7 @@ loadProject sconfig dir = do
     templates <- preloadTemplates dir
     caches <- sequence $ fmap (createCache dir) (scBackendCache sconfig)
     let cache = mconcat caches
-    logger <- newBufferedLogger stderrLogger
+    logger <- newBufferedLogger (stderrLogger Debug)
     return $ Project pconfig templates cache logger
 
 createCache :: FilePath -> BackendCacheConfig -> IO (Cache ByteString ByteString)

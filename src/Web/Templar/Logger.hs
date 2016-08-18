@@ -13,6 +13,7 @@ where
 import ClassyPrelude
 import Control.Concurrent (forkIO)
 import Data.Aeson (FromJSON (..), Value (..), (.:))
+import qualified System.Posix.Syslog as Syslog
 
 data LogLevel = Debug
               | Notice
@@ -20,6 +21,13 @@ data LogLevel = Debug
               | Error
               | Critical
               deriving (Show, Eq, Ord, Enum, Bounded, Generic)
+
+logLevelToSyslogPrio :: LogLevel -> Syslog.Priority
+logLevelToSyslogPrio Debug = Syslog.Debug
+logLevelToSyslogPrio Notice = Syslog.Notice
+logLevelToSyslogPrio Warning = Syslog.Warning
+logLevelToSyslogPrio Error = Syslog.Error
+logLevelToSyslogPrio Critical = Syslog.Critical
 
 instance FromJSON LogLevel where
     parseJSON (String "debug") = return Debug
@@ -31,9 +39,9 @@ instance FromJSON LogLevel where
 
 data LogMessage =
     LogMessage
-        { lmTimestamp :: UTCTime
-        , lmLevel :: LogLevel
-        , lmMessage :: Text
+        { lmTimestamp :: !UTCTime
+        , lmLevel :: !LogLevel
+        , lmMessage :: !Text
         }
         deriving (Show, Eq)
 
@@ -42,14 +50,6 @@ instance FromJSON LogMessage where
         LogMessage <$> o .: "timestamp"
                    <*> o .: "level"
                    <*> o .: "message"
-
-writeLogMessage :: Logger -> LogMessage -> IO ()
-writeLogMessage logger message = do
-    let messageLevel = Just $ lmLevel message
-        loggingLevel = logLevel logger
-    when
-        (messageLevel >= loggingLevel)
-        (writeLogRaw logger . formatMessage $ message)
 
 writeLog :: Logger -> LogLevel -> Text -> IO ()
 writeLog logger level message = do
@@ -67,18 +67,33 @@ formatMessage msg =
 
 data Logger =
     Logger
-        { writeLogRaw :: Text -> IO ()
-        , logLevel :: Maybe LogLevel
+        { writeLogMessage :: LogMessage -> IO ()
         }
 
 -- | A plain logger that logs directly to stdout. Since there is no buffer,
 -- having multiple threads write to this logger can cause unexpected behavior.
-stderrLogger :: Logger
-stderrLogger = Logger (hPutStrLn stdout) Nothing
+stderrLogger :: LogLevel -> Logger
+stderrLogger level =
+    Logger go
+    where
+        go msg =
+            when
+                (lmLevel msg >= level)
+                (hPutStrLn stderr $ formatMessage msg)
 
--- | Wraps a logger to report a different logging level
-levelFilteredLogger :: Maybe LogLevel -> Logger -> Logger
-levelFilteredLogger f inner = inner { logLevel = f }
+-- | A plain logger that logs to syslog.
+syslogLogger :: LogLevel -> Logger
+syslogLogger level = Logger go
+    where
+        go msg =
+            Syslog.withSyslog
+                "templar"
+                []
+                Syslog.USER
+                (Syslog.logUpTo $ logLevelToSyslogPrio level) $ do
+                    Syslog.syslog
+                        (logLevelToSyslogPrio . lmLevel $ msg)
+                        (unpack . lmMessage $ msg)
 
 -- | A logger that wraps another logger and adds line buffering.
 newBufferedLogger :: Logger -> IO Logger
@@ -90,5 +105,5 @@ newBufferedLogger inner = do
         -- TODO: This thread will currently keep running until the main
         -- program exits. OK for now, but it would be cleaner to provide a
         -- cleanup function that can be used in a bracket.
-        readChan channel >>= writeLogRaw inner
-    return $ Logger { writeLogRaw = writeFn, logLevel = logLevel inner }
+        readChan channel >>= writeLogMessage inner
+    return $ Logger writeFn

@@ -63,6 +63,7 @@ library
                , filepath
                , ginger
                , hashable
+               , hsyslog
                , http-types
                , memcached-binary
                , mime-types
