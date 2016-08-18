@@ -89,13 +89,13 @@ wrapBackendCache =
 
 -- | Fetch raw backend data from a backend source, with caching.
 fetchBackendData :: (LogLevel -> Text -> IO ()) -> RawBackendCache -> BackendSpec -> IO [BackendSource]
-fetchBackendData writeLog rawCache =
-    cached cache (fetchBackendData' writeLog)
+fetchBackendData writeLog rawCache spec = do
+    cached cache (fetchBackendData' writeLog) spec
     where
         cache :: BackendCache
         cache = wrapBackendCache rawCache
 
 -- | Fetch raw backend data from a backend source, without caching.
 fetchBackendData' :: (LogLevel -> Text -> IO ()) -> BackendSpec -> IO [BackendSource]
-fetchBackendData' writeLog (BackendSpec backendType fetchMode fetchOrder) =
+fetchBackendData' writeLog (BackendSpec backendType fetchMode fetchOrder) = do
     loader backendType writeLog fetchMode fetchOrder

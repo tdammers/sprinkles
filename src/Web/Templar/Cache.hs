@@ -14,7 +14,7 @@ import Data.Time.Clock.POSIX
 -- In @Cache k v@, @k@ is the key type and @v@ the value type.
 data Cache k v =
     Cache
-        { cacheGet :: k -> IO (Maybe (v, POSIXTime)) -- ^ Get 'Just' the cached value or 'Nothing'
+        { cacheGet :: k -> IO (Maybe v) -- ^ Get 'Just' the cached value or 'Nothing'
         , cachePut :: k -> v -> IO () -- ^ Insert an entry into the cache
         , cacheDelete :: k -> IO () -- ^ Delete an entry from the cache
         , cacheVacuum :: IO Int -- ^ Delete all stale keys, return number of keys deleted
@@ -31,7 +31,7 @@ cacheFetch :: (k -> IO v) -> Cache k v -> k -> IO v
 cacheFetch load cache key = do
     entryMay <- cacheGet cache key
     case entryMay of
-        Just (value, ts) ->
+        Just value ->
             return value
         Nothing -> do
             value <- load key
@@ -60,9 +60,9 @@ appendCache first second =
                     cacheGet second key >>=
                         maybe
                             (return Nothing)
-                            (\(value, ts) -> do
+                            (\value -> do
                                 cachePut first key value
-                                return $ Just (value, ts)
+                                return $ Just value
                             )
                 Just value ->
                     return $ Just value
@@ -94,7 +94,7 @@ transformCache transK
         { cacheGet = \key -> do
             cacheGet innerCache (transK key) >>= \case
                 Nothing -> return Nothing
-                Just (tval, ts) -> fmap (,ts) <$> untransV tval
+                Just tval -> untransV tval
         , cachePut = \key value ->
             transV value >>= optionally (cachePut innerCache (transK key))
         , cacheDelete = \key -> cacheDelete innerCache (transK key)

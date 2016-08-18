@@ -37,9 +37,8 @@ filesystemCache serializeKey deserializeKey writeValue readValue cacheDir maxAge
             catchIOError
                 (do
                     status <- getFileStatus filename
-                    let ts = realToFrac $ modificationTime status
                     body <- withFile filename ReadMode readValue
-                    return $ Just (body, ts :: POSIXTime)
+                    return $ Just body
                 )
                 (ignoreNonexisting Nothing)
         , cachePut = \key val -> do

@@ -45,7 +45,7 @@ import Data.ByteString.Builder (stringUtf8)
 import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.ByteString.Lazy.UTF8 as LUTF8
 import qualified Data.CaseInsensitive as CI
-import Control.Concurrent (forkIO, threadDelay)
+import Control.Concurrent (forkIO)
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import qualified Text.Pandoc as Pandoc
 import qualified Text.Pandoc.Readers.Creole as Pandoc

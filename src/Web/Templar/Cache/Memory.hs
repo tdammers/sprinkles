@@ -14,7 +14,7 @@ memCache maxAge = do
     return
         Cache
             { cacheGet = \key ->
-                lookup key <$> readMVar cacheVar
+                fmap fst . lookup key <$> readMVar cacheVar
             , cachePut = \key val -> do
                 ts <- getPOSIXTime
                 modifyMVar_ cacheVar $ return . insertMap key (val, ts)

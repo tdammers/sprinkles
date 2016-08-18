@@ -21,6 +21,7 @@ library
                  , Web.Templar.Cache
                  , Web.Templar.Cache.Filesystem
                  , Web.Templar.Cache.Memory
+                 , Web.Templar.Cache.Memcached
                  , Web.Templar.Pattern
                  , Web.Templar.Replacement
                  , Web.Templar.Backends
@@ -63,6 +64,7 @@ library
                , ginger
                , hashable
                , http-types
+               , memcached-binary
                , mime-types
                , network-uri
                , pandoc

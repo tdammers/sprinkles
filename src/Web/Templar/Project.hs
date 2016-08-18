@@ -30,6 +30,7 @@ import Web.Templar.Logger
 import Web.Templar.Cache
 import Web.Templar.Cache.Filesystem (filesystemCache)
 import Web.Templar.Cache.Memory (memCache)
+import Web.Templar.Cache.Memcached (memcachedCache)
 
 newtype TemplateCache = TemplateCache (HashMap Text Template)
 
@@ -65,6 +66,7 @@ createCache cwd (FilesystemCache dir expiration) =
         (cwd </> dir)
         expiration
 createCache _ (MemCache expiration) = memCache expiration
+createCache _ MemcachedCache = memcachedCache
 
 enumerateFiles :: FilePath -> IO [FilePath]
 enumerateFiles dir = map (dir </>) <$> getDirectoryContents dir

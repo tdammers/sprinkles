@@ -22,12 +22,10 @@ import System.Directory (doesFileExist)
 import Data.Scientific (Scientific)
 import Data.Time.Clock.POSIX (POSIXTime)
 
-instance FromJSON POSIXTime where
-    parseJSON v = (realToFrac :: Scientific -> POSIXTime) <$> parseJSON v
-
 data BackendCacheConfig =
     FilesystemCache FilePath POSIXTime |
-    MemCache POSIXTime
+    MemCache POSIXTime |
+    MemcachedCache
     deriving (Show)
 
 instance FromJSON BackendCacheConfig where
@@ -39,6 +37,7 @@ instance FromJSON BackendCacheConfig where
                         (obj .:? "max-age" .!= 300)
             "mem" -> MemCache <$>
                         (obj .:? "max-age" .!= 60)
+            "memcached" -> return MemcachedCache
             x -> fail $ "Invalid backend cache type: '" <> x
     parseJSON x = fail $ "Invalid backend cache specification: " <> show x
 
@@ -48,6 +47,7 @@ backendCacheConfigFromString str = do
         ["file", dir] -> return $ FilesystemCache (unpack dir) 300
         ["file"] -> return $ FilesystemCache ".cache" 300
         ["mem"] -> return $ MemCache 60
+        ["memcached"] -> return MemcachedCache
         xs -> Nothing
 
 data ServerDriver = WarpDriver Int
