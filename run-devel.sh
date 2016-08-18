@@ -15,17 +15,21 @@ function watch_serve() {
     cd "$1"
     for ((;;))
     do
+        sleep 1
+        pgrep -l templar
         templar "$2" &
         PID="$!"
+        echo "$PID: $1 :$2"
+        pgrep -l templar
         inotifywait \
-            -e modify \
             -e attrib \
             "$(which templar)" \
             project.yml \
             templates/** \
             $(find -name static) \
-            "$BASEDIR"/run-devel.sh || exit 255
-        kill "$!"
+            "$BASEDIR"/run-devel.sh
+        sleep 1
+        kill "$PID"
     done
 }
 
@@ -34,7 +38,6 @@ function watch_hasktags() {
     do
         inotifywait \
             -e modify \
-            -e attrib \
             src/**/*.hs app/*.hs test
         hasktags . -c
     done
