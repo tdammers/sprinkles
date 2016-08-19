@@ -63,7 +63,7 @@ createLogger DiscardLog =
 createLogger (Syslog level) =
     return $ syslogLogger level
 createLogger (StdioLog level) =
-    newBufferedLogger (stderrLogger Debug)
+    newBufferedLogger (stderrLogger level)
 
 createCache :: FilePath -> BackendCacheConfig -> IO (Cache ByteString ByteString)
 createCache cwd (FilesystemCache dir expiration) =
