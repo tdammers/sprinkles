@@ -9,7 +9,7 @@ packages:
 - '.'
 - location:
     git: https://git@bitbucket.org/tdammers/ginger
-    commit: '0.2.7.0'
+    commit: '0.2.8.0'
 - location:
     git: 'https://git@github.com/tdammers/pandoc-creole.git'
     commit: '0.1.0.0'
