@@ -21,6 +21,7 @@ import Control.MaybeEitherMonad (maybeFail)
 import System.Directory (doesFileExist)
 import Data.Scientific (Scientific)
 import Data.Time.Clock.POSIX (POSIXTime)
+import Web.Templar.Logger (LogLevel (..))
 
 data BackendCacheConfig =
     FilesystemCache FilePath POSIXTime |
@@ -84,14 +85,31 @@ instance FromJSON ServerDriver where
             "fastcgi" -> return FastCGIDriver
             "scgi" -> return SCGIDriver
 
-data LoggingDestination = DiscardLog
-                        | LogToStderr
-                        | LogToFile FilePath
+data LoggerConfig =
+    DiscardLog |
+    Syslog LogLevel |
+    StdioLog LogLevel
+    deriving (Show)
+
+instance FromJSON LoggerConfig where
+    parseJSON (Object obj) = do
+        dest <- obj .:? "destination"
+        case dest :: Maybe Text of
+            Nothing -> return DiscardLog
+            Just "discard" -> return DiscardLog
+            Just "null" -> return DiscardLog
+            Just "stdio" ->
+                StdioLog . fromMaybe Warning <$> obj .:? "level"
+            Just "syslog" ->
+                Syslog . fromMaybe Warning <$> obj .:? "level"
+
+    parseJSON _ = fail "Invalid logger config"
 
 data ServerConfig =
     ServerConfig
         { scBackendCache :: [BackendCacheConfig]
         , scDriver :: ServerDriver
+        , scLogger :: Maybe LoggerConfig
         }
         deriving (Show)
 
@@ -99,6 +117,7 @@ instance Default ServerConfig where
     def = ServerConfig
             { scBackendCache = def
             , scDriver = def
+            , scLogger = Nothing
             }
 
 instance Monoid ServerConfig where
@@ -113,16 +132,20 @@ instance FromJSON ServerConfig where
                         )
         driver <- fromMaybe def
                     <$> ( obj .:? "driver" )
+        logger <- obj .:? "log"
         return $ ServerConfig
             { scBackendCache = caches
             , scDriver = driver
+            , scLogger = logger
             }
+    parseJSON _ = fail "Invalid server config"
 
 scAppend :: ServerConfig -> ServerConfig -> ServerConfig
 scAppend a b =
     ServerConfig
         { scBackendCache =
             firstNonNull (scBackendCache b) (scBackendCache a)
+        , scLogger = scLogger b <|> scLogger a
         , scDriver =
             if scDriver b == DefaultDriver
                 then scDriver a

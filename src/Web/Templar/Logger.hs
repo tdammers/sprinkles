@@ -4,6 +4,8 @@
 module Web.Templar.Logger
 ( stderrLogger
 , newBufferedLogger
+, syslogLogger
+, nullLogger
 , Logger (..)
 , LogLevel (..)
 , writeLog
@@ -69,6 +71,9 @@ data Logger =
     Logger
         { writeLogMessage :: LogMessage -> IO ()
         }
+
+nullLogger :: Logger
+nullLogger = Logger . const . return $ ()
 
 -- | A plain logger that logs directly to stdout. Since there is no buffer,
 -- having multiple threads write to this logger can cause unexpected behavior.

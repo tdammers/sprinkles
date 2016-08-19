@@ -53,8 +53,17 @@ loadProject sconfig dir = do
     templates <- preloadTemplates dir
     caches <- sequence $ fmap (createCache dir) (scBackendCache sconfig)
     let cache = mconcat caches
-    logger <- newBufferedLogger (stderrLogger Debug)
+    logger <- createLogger $ fromMaybe (StdioLog Warning) (scLogger sconfig)
     return $ Project pconfig templates cache logger
+
+
+createLogger :: LoggerConfig -> IO Logger
+createLogger DiscardLog =
+    return nullLogger
+createLogger (Syslog level) =
+    return $ syslogLogger level
+createLogger (StdioLog level) =
+    newBufferedLogger (stderrLogger Debug)
 
 createCache :: FilePath -> BackendCacheConfig -> IO (Cache ByteString ByteString)
 createCache cwd (FilesystemCache dir expiration) =
