@@ -29,7 +29,7 @@ matchPatternTests = testGroup "matchPattern"
 matchPatternSingleExactlyTest =
     testCase "single Exactly" $ do
         let pattern = Pattern
-                [PatternPathItem Nothing (Exactly "/hello") MatchOne]
+                [PatternPathItem Nothing (Exactly "hello") MatchOne]
                 []
             path = ["hello"]
             query = []
@@ -69,20 +69,20 @@ matchPatternCombinedExactlyAnyTest =
                             , PatternPathItem Nothing (Exactly "world") MatchOne
                             ]
                             []
-            path = ["", "hello", "who", "world"]
+            path = ["hello", "who", "world"]
             query = []
             actual = matchPattern pattern path query
-            expected = Just $ mapFromList [("who", "hello")]
+            expected = Just $ mapFromList [("who", "who")]
         assertEqual "" expected actual
 
 matchFailExcessiveTest =
-    testCase "combined Exactly Any" $ do
+    testCase "fail excessive" $ do
         let pattern = Pattern
                             [ PatternPathItem Nothing (Exactly "hello") MatchOne
                             , PatternPathItem (Just "who") Any MatchOne
                             ]
                             []
-            path = ["hello", ""]
+            path = ["hello", "world", "me"]
             query = []
             actual = matchPattern pattern path query
             expected = Nothing
@@ -93,7 +93,7 @@ matchRealWorldExampleTest1 =
         let pattern = Pattern
                             [ PatternPathItem Nothing (Exactly "country") MatchOne
                             ]
-                            [ PatternQueryItem (Just "query") "query" Any True
+                            [ PatternQueryItem (Just "lang") "lang" Any True
                             ]
             path = ["country"]
             query =
@@ -103,7 +103,7 @@ matchRealWorldExampleTest1 =
                 , ("style", Just "full")
                 ]
             actual = matchPattern pattern path query
-            expected = Just $ mapFromList [("query", "lang=de&country=DE&username=demo&style=full")]
+            expected = Just $ mapFromList [("lang", "de")]
         assertEqual "" expected actual
 
 -- * Testing parsePattern
