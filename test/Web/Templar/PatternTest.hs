@@ -19,72 +19,90 @@ patternTests =
 
 matchPatternTests = testGroup "matchPattern"
     [ matchPatternSingleExactlyTest
-    , matchPatternSingleAnyOneTest
+    , matchPatternSingleAnyTest
     , matchPatternSingleRegexTest
-    , matchPatternCombinedExactlyAnyOneTest
+    , matchPatternCombinedExactlyAnyTest
     , matchFailExcessiveTest
     , matchRealWorldExampleTest1
     ]
 
 matchPatternSingleExactlyTest =
     testCase "single Exactly" $ do
-        let pattern = Pattern [PatternItem Nothing (Exactly "/hello")]
-            query = "/hello"
-            actual = matchPattern pattern query
+        let pattern = Pattern
+                [PatternPathItem Nothing (Exactly "/hello") MatchOne]
+                []
+            path = ["hello"]
+            query = []
+            actual = matchPattern pattern path query
             expected = Just $ mapFromList []
         assertEqual "" expected actual
 
-matchPatternSingleAnyOneTest =
-    testCase "single AnyOne" $ do
-        let pattern = Pattern [PatternItem (Just "who") AnyOne]
-            query = "hello"
-            actual = matchPattern pattern query
+matchPatternSingleAnyTest =
+    testCase "single Any" $ do
+        let pattern = Pattern [PatternPathItem (Just "who") Any MatchOne] []
+            path = ["hello"]
+            query = []
+            actual = matchPattern pattern path query
             expected = Just $ mapFromList [("who", "hello")]
         assertEqual "" expected actual
 
 matchPatternSingleRegexTest =
     testCase "single Regex" $ do
         let pattern = Pattern
-                        [ PatternItem
+                        [ PatternPathItem
                             (Just "who")
                             (Regex "hello, [a-z]*" RE.compBlank)
+                            MatchOne
                         ]
-            query = "hello, world"
-            actual = matchPattern pattern query
+                        []
+            path = ["hello, world"]
+            query = []
+            actual = matchPattern pattern path query
             expected = Just $ mapFromList [("who", "hello, world")]
         assertEqual "" expected actual
 
-matchPatternCombinedExactlyAnyOneTest =
-    testCase "combined Exactly AnyOne" $ do
+matchPatternCombinedExactlyAnyTest =
+    testCase "combined Exactly Any" $ do
         let pattern = Pattern
-                            [ PatternItem Nothing (Exactly "/")
-                            , PatternItem (Just "who") AnyOne
-                            , PatternItem Nothing (Exactly "/world")
+                            [ PatternPathItem Nothing (Exactly "hello") MatchOne
+                            , PatternPathItem (Just "who") Any MatchOne
+                            , PatternPathItem Nothing (Exactly "world") MatchOne
                             ]
-            query = "/hello/world"
-            actual = matchPattern pattern query
+                            []
+            path = ["", "hello", "who", "world"]
+            query = []
+            actual = matchPattern pattern path query
             expected = Just $ mapFromList [("who", "hello")]
         assertEqual "" expected actual
 
 matchFailExcessiveTest =
-    testCase "combined Exactly AnyOne" $ do
+    testCase "combined Exactly Any" $ do
         let pattern = Pattern
-                            [ PatternItem Nothing (Exactly "/")
-                            , PatternItem (Just "who") AnyOne
+                            [ PatternPathItem Nothing (Exactly "hello") MatchOne
+                            , PatternPathItem (Just "who") Any MatchOne
                             ]
-            query = "/hello/"
-            actual = matchPattern pattern query
+                            []
+            path = ["hello", ""]
+            query = []
+            actual = matchPattern pattern path query
             expected = Nothing
         assertEqual "" expected actual
 
 matchRealWorldExampleTest1 =
     testCase "real world example 1" $ do
         let pattern = Pattern
-                            [ PatternItem Nothing (Exactly "/country?")
-                            , PatternItem (Just "query") Any
+                            [ PatternPathItem Nothing (Exactly "country") MatchOne
                             ]
-            query = "/country?lang=de&country=DE&username=demo&style=full"
-            actual = matchPattern pattern query
+                            [ PatternQueryItem (Just "query") "query" Any True
+                            ]
+            path = ["country"]
+            query =
+                [ ("lang", Just "de")
+                , ("country", Just "DE")
+                , ("username", Just "demo")
+                , ("style", Just "full")
+                ]
+            actual = matchPattern pattern path query
             expected = Just $ mapFromList [("query", "lang=de&country=DE&username=demo&style=full")]
         assertEqual "" expected actual
 
@@ -94,103 +112,113 @@ parsePatternTests =
     testGroup "parsePattern"
         [ parseSimpleExactlyTest
         , parseNamedExactlyTest
-        , parseSimpleAnyOneTest
-        , parseNamedAnyOneTest
-        , parseNamedRegexTest
-        , parseShorthandAnyOneTest
         , parseSimpleAnyTest
         , parseNamedAnyTest
+        , parseNamedRegexTest
         , parseShorthandAnyTest
+        , parseSimpleAnyMultiTest
+        , parseNamedAnyMultiTest
+        , parseShorthandAnyMultiTest
         , parseRealWorldExampleTest1
         ]
 
 parseSimpleExactlyTest =
     testCase "parse simple Exactly" $ do
         let src = "/hello"
-            expected = Just $ Pattern
-                        [ PatternItem Nothing (Exactly "/hello")
+            expected = Right $ Pattern
+                        [ PatternPathItem Nothing (Exactly "hello") MatchOne
                         ]
+                        []
             actual = parsePattern src
         assertEqual "" expected actual
 
 parseNamedExactlyTest =
     testCase "parse named Exactly" $ do
-        let src = "{{who:hello}}"
-            expected = Just $ Pattern
-                        [ PatternItem (Just "who") (Exactly "hello")
+        let src = "/{{who:hello}}"
+            expected = Right $ Pattern
+                        [ PatternPathItem (Just "who") (Exactly "hello") MatchOne
                         ]
-            actual = parsePattern src
-        assertEqual "" expected actual
-
-parseSimpleAnyOneTest =
-    testCase "parse simple AnyOne" $ do
-        let src = "{{*}}"
-            expected = Just $ Pattern
-                        [ PatternItem Nothing AnyOne
-                        ]
-            actual = parsePattern src
-        assertEqual "" expected actual
-
-parseShorthandAnyOneTest =
-    testCase "parse shorthand AnyOne" $ do
-        let src = "*"
-            expected = Just $ Pattern
-                        [ PatternItem Nothing AnyOne
-                        ]
-            actual = parsePattern src
-        assertEqual "" expected actual
-
-parseNamedAnyOneTest =
-    testCase "parse named AnyOne" $ do
-        let src = "{{who:*}}"
-            expected = Just $ Pattern
-                        [ PatternItem (Just "who") AnyOne
-                        ]
-            actual = parsePattern src
-        assertEqual "" expected actual
-
-parseNamedRegexTest =
-    testCase "parse named Regex" $ do
-        let src = "{{who:/foo/}}"
-            expected = Just $ Pattern
-                        [ PatternItem (Just "who") (Regex "foo" RE.compBlank)
-                        ]
+                        []
             actual = parsePattern src
         assertEqual "" expected actual
 
 parseSimpleAnyTest =
     testCase "parse simple Any" $ do
-        let src = "{{**}}"
-            expected = Just $ Pattern
-                        [ PatternItem Nothing Any
+        let src = "/{{*}}"
+            expected = Right $ Pattern
+                        [ PatternPathItem Nothing Any MatchOne
                         ]
+                        []
             actual = parsePattern src
         assertEqual "" expected actual
 
 parseShorthandAnyTest =
     testCase "parse shorthand Any" $ do
-        let src = "**"
-            expected = Just $ Pattern
-                        [ PatternItem Nothing Any
+        let src = "/*"
+            expected = Right $ Pattern
+                        [ PatternPathItem Nothing Any MatchOne
                         ]
+                        []
             actual = parsePattern src
         assertEqual "" expected actual
 
 parseNamedAnyTest =
     testCase "parse named Any" $ do
-        let src = "{{who:**}}"
-            expected = Just $ Pattern
-                        [ PatternItem (Just "who") Any
+        let src = "/{{who:*}}"
+            expected = Right $ Pattern
+                        [ PatternPathItem (Just "who") Any MatchOne
                         ]
+                        []
+            actual = parsePattern src
+        assertEqual "" expected actual
+
+parseNamedRegexTest =
+    testCase "parse named Regex" $ do
+        let src = "/{{who:/foo/}}"
+            expected = Right $ Pattern
+                        [ PatternPathItem (Just "who") (Regex "foo" RE.compBlank) MatchOne
+                        ]
+                        []
+            actual = parsePattern src
+        assertEqual "" expected actual
+
+parseSimpleAnyMultiTest =
+    testCase "parse simple Any" $ do
+        let src = "/{{**}}"
+            expected = Right $ Pattern
+                        [ PatternPathItem Nothing Any MatchMany
+                        ]
+                        []
+            actual = parsePattern src
+        assertEqual "" expected actual
+
+parseShorthandAnyMultiTest =
+    testCase "parse shorthand Any" $ do
+        let src = "/**"
+            expected = Right $ Pattern
+                        [ PatternPathItem Nothing Any MatchMany
+                        ]
+                        []
+            actual = parsePattern src
+        assertEqual "" expected actual
+
+parseNamedAnyMultiTest =
+    testCase "parse named Any" $ do
+        let src = "/{{who:**}}"
+            expected = Right $ Pattern
+                        [ PatternPathItem (Just "who") Any MatchMany
+                        ]
+                        []
             actual = parsePattern src
         assertEqual "" expected actual
 
 parseRealWorldExampleTest1 =
     testCase "parse real world example 1" $ do
-        let src = "/country?{{query:*}}"
-            expected = Just $ Pattern
-                        [ PatternItem Nothing (Exactly "/country?")
-                        , PatternItem (Just "query") AnyOne
+        let src = "/country?query={{query:*}}"
+            expected = Right $ Pattern
+                        [ PatternPathItem Nothing (Exactly "country") MatchOne
+                        ]
+                        [ PatternQueryItem (Just "query") "query" Any True
                         ]
             actual = parsePattern src
         assertEqual "" expected actual
