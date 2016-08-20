@@ -88,14 +88,14 @@ argSpecs =
     [ Optional
         "warp"
         (maybe
-            (Just $ \config -> config { scDriver = WarpDriver 5000 })
+            (Just $ \config -> config { scDriver = WarpDriver Nothing })
             (\str -> do
                 port <- readMaybe . unpack $ str
-                return $ \config -> config { scDriver = WarpDriver port })
+                return $ \config -> config { scDriver = WarpDriver (Just port) })
         )
     , Bare (\str -> do
                 port <- readMaybe . unpack $ str
-                return $ \config -> config { scDriver = WarpDriver port })
+                return $ \config -> config { scDriver = WarpDriver (Just port) })
     , Flag "cgi" (\config -> config { scDriver = CGIDriver })
     , Flag "scgi" (\config -> config { scDriver = SCGIDriver })
     , Flag "fcgi" (\config -> config { scDriver = FastCGIDriver })

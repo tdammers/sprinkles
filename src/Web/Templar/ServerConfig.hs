@@ -51,7 +51,7 @@ backendCacheConfigFromString str = do
         ["memcached"] -> return MemcachedCache
         xs -> Nothing
 
-data ServerDriver = WarpDriver Int
+data ServerDriver = WarpDriver (Maybe Int)
                   | CGIDriver
                   | SCGIDriver
                   | FastCGIDriver
@@ -63,7 +63,7 @@ instance Default ServerDriver where
 
 instance FromJSON ServerDriver where
     parseJSON (String "warp") =
-        return $ WarpDriver 5000
+        return $ WarpDriver Nothing
     parseJSON (String "cgi") =
         return $ CGIDriver
     parseJSON (String "fastcgi") =
@@ -77,9 +77,7 @@ instance FromJSON ServerDriver where
     parseJSON (Object o) = do
         st :: Text <- o .: "type"
         case st of
-            "warp" -> do
-                port <- fromMaybe 5000 <$> o .:? "port"
-                return $ WarpDriver port
+            "warp" -> WarpDriver <$> o .:? "port"
             "cgi" -> return CGIDriver
             "fcgi" -> return FastCGIDriver
             "fastcgi" -> return FastCGIDriver

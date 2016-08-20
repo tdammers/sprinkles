@@ -50,6 +50,7 @@ import Data.Time.Clock.POSIX (getPOSIXTime)
 import qualified Text.Pandoc as Pandoc
 import qualified Text.Pandoc.Readers.Creole as Pandoc
 import qualified Data.CaseInsensitive as CI
+import System.Environment (lookupEnv)
 
 import Web.Templar.Backends
 import Web.Templar.Rule
@@ -65,7 +66,7 @@ serveProject config project = do
     serve project
     where
         serve = case scDriver config of
-            DefaultDriver -> serveWarp 5000
+            DefaultDriver -> serveWarp Nothing
             WarpDriver port -> serveWarp port
             CGIDriver -> serveCGI
             SCGIDriver -> serveSCGI
@@ -77,8 +78,16 @@ serveProject config project = do
                     "Cache items deleted: " <> tshow itemsCleared
             threadDelay 5000000 -- check every 5 seconds
 
-serveWarp :: Int -> Project -> IO ()
-serveWarp port project = do
+serveWarp :: Maybe Int -> Project -> IO ()
+serveWarp portMay project = do
+    writeLog (projectLogger project) Notice $
+        "Finding port for Warp: " <> tshow portMay
+    port <- case portMay of
+        Just p -> return p
+        Nothing -> do
+            portEnvStr <- lookupEnv "PORT"
+            let portEnv = fromMaybe 5000 $ portEnvStr >>= readMay
+            return portEnv
     writeLog (projectLogger project) Notice $
         "Running server on port " <> tshow port <> "..."
     Warp.run port (appFromProject project)
