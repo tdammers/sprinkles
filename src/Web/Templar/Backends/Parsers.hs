@@ -48,31 +48,53 @@ parsersTable = mapFromList . mconcat $
 -- | The parsers we know, by mime types.
 parsers :: Monad m => [([MimeType], (BackendSource -> m (BackendData n h)))]
 parsers =
-    [ ( ["application/json", "text/json"]
+    [  ( [ "application/json", "text/json" ]
       , json
       )
-    , ( ["text/plain"]
+    , ( [ "text/plain" ]
       , plainText
       )
-    , ( ["application/x-yaml", "text/x-yaml", "application/yaml", "text/yaml"]
+    , ( [ "application/x-yaml"
+        , "text/x-yaml"
+        , "application/yaml"
+        , "text/yaml"
+        ]
       , yaml
       )
-    , ( ["application/x-markdown", "text/x-markdown"]
+    , ( [ "application/x-markdown"
+        , "text/x-markdown"
+        ]
       , pandoc (Pandoc.readMarkdown Pandoc.def)
       )
-    , ( ["application/x-creole", "text/x-creole"]
+    , ( [ "application/x-creole"
+        , "text/x-creole"
+        ]
       , pandoc (Pandoc.readCreole Pandoc.def)
       )
-    , ( ["application/x-textile", "text/x-textile"]
+    , ( [ "application/x-textile"
+        , "text/x-textile"
+        ]
       , pandoc (Pandoc.readTextile Pandoc.def)
       )
-    , ( ["application/x-rst", "text/x-rst"]
+    , ( [ "application/x-rst"
+        , "text/x-rst"
+        ]
       , pandoc (Pandoc.readRST Pandoc.def)
       )
-    , ( ["application/html", "text/html"]
+    , ( [ "application/x-latex"
+        , "text/x-latex"
+        , "application/x-tex"
+        , "text/x-tex"
+        ]
+      , pandoc (Pandoc.readLaTeX Pandoc.def)
+      )
+    , ( [ "application/html"
+        , "text/html"
+        ]
       , pandoc (Pandoc.readHtml Pandoc.def)
       )
-    , ( ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
+    , ( [ "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ]
       , pandocBS (fmap fst . Pandoc.readDocx Pandoc.def)
       )
     ]

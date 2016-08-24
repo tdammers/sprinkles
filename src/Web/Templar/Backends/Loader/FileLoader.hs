@@ -97,7 +97,6 @@ fileLoader filepath writeLog fetchMode fetchOrder =
 -- entries for some of the important types we use, so we add them here.
 mimeMap :: MimeMap
 mimeMap =
-    defaultMimeMap <>
     mapFromList
         [ ("yml", "application/x-yaml")
         , ("yaml", "application/x-yaml")
@@ -108,6 +107,7 @@ mimeMap =
         , ("markdown", "application/x-markdown")
         , ("docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         ]
+    <> defaultMimeMap
 
 -- | Custom MIME lookup function that knows about the extra types declared in
 -- 'mimeMap'.
