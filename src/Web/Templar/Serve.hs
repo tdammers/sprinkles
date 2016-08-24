@@ -250,7 +250,6 @@ pandoc readerName src = do
 
 gfnGetLocale :: forall h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run IO h)
 gfnGetLocale writeLog args = liftIO . catchToGinger writeLog $ do
-    print args
     case Ginger.extractArgsDefL [("category", "LC_TIME"), ("locale", "")] args of
         Right [gCat, gName] ->
             case (Ginger.asText gCat, Text.unpack . Ginger.asText $ gName) of
