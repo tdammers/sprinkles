@@ -27,9 +27,9 @@ import qualified Text.Pandoc.Readers.Creole as Pandoc
 import Text.Pandoc.Error (PandocError)
 import Network.Mime (MimeType)
 import Text.Ginger (ToGVal (..), GVal, Run (..), dict, (~>))
-import Data.Aeson as JSON
-import Data.Aeson.TH as JSON
-import Data.Yaml as YAML
+import qualified Data.Aeson as JSON
+import qualified Data.Aeson.TH as JSON
+import qualified Data.Yaml as YAML
 import Data.Char (ord)
 import Web.Templar.PandocGVal
 
@@ -49,31 +49,31 @@ parsersTable = mapFromList . mconcat $
 parsers :: Monad m => [([MimeType], (BackendSource -> m (BackendData n h)))]
 parsers =
     [ ( ["application/json", "text/json"]
-      , parseJSONData
+      , json
       )
     , ( ["text/plain"]
-      , parsePlainText
+      , plainText
       )
     , ( ["application/x-yaml", "text/x-yaml", "application/yaml", "text/yaml"]
-      , parseYamlData
+      , yaml
       )
     , ( ["application/x-markdown", "text/x-markdown"]
-      , parsePandocDataString (Pandoc.readMarkdown Pandoc.def)
+      , pandoc (Pandoc.readMarkdown Pandoc.def)
       )
     , ( ["application/x-creole", "text/x-creole"]
-      , parsePandocDataString (Pandoc.readCreole Pandoc.def)
+      , pandoc (Pandoc.readCreole Pandoc.def)
       )
     , ( ["application/x-textile", "text/x-textile"]
-      , parsePandocDataString (Pandoc.readTextile Pandoc.def)
+      , pandoc (Pandoc.readTextile Pandoc.def)
       )
     , ( ["application/x-rst", "text/x-rst"]
-      , parsePandocDataString (Pandoc.readRST Pandoc.def)
+      , pandoc (Pandoc.readRST Pandoc.def)
       )
     , ( ["application/html", "text/html"]
-      , parsePandocDataString (Pandoc.readHtml Pandoc.def)
+      , pandoc (Pandoc.readHtml Pandoc.def)
       )
     , ( ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]
-      , parsePandocDataLBS (fmap fst . Pandoc.readDocx Pandoc.def)
+      , pandocBS (fmap fst . Pandoc.readDocx Pandoc.def)
       )
     ]
 
@@ -89,40 +89,40 @@ parseRawData (BackendSource meta body) =
         }
 
 -- | Parser for (utf-8) plaintext documents.
-parsePlainText :: Monad m => BackendSource -> m (BackendData n h)
-parsePlainText item@(BackendSource meta body) = do
+plainText :: Monad m => BackendSource -> m (BackendData n h)
+plainText item@(BackendSource meta body) = do
     let textBody = toStrict $ decodeUtf8 body
     return $ toBackendData item textBody
 
 -- | Parser for JSON source data.
-parseJSONData :: Monad m => BackendSource -> m (BackendData n h)
-parseJSONData item@(BackendSource meta body) =
+json :: Monad m => BackendSource -> m (BackendData n h)
+json item@(BackendSource meta body) =
     case JSON.eitherDecode body of
         Left err -> fail $ err ++ "\n" ++ show body
         Right json -> return . toBackendData item $ (json :: JSON.Value)
 
 -- | Parser for YAML source data.
-parseYamlData :: Monad m => BackendSource -> m (BackendData n h)
-parseYamlData item@(BackendSource meta body) =
+yaml :: Monad m => BackendSource -> m (BackendData n h)
+yaml item@(BackendSource meta body) =
     case YAML.decodeEither (toStrict body) of
         Left err -> fail $ err ++ "\n" ++ show body
         Right json -> return . toBackendData item $ (json :: JSON.Value)
 
 -- | Parser for Pandoc-supported formats that are read from 'LByteString's.
-parsePandocDataLBS :: Monad m
-                   => (LByteString -> Either PandocError Pandoc)
-                   -> BackendSource
-                   -> m (BackendData n h)
-parsePandocDataLBS reader input@(BackendSource meta body) = do
+pandocBS :: Monad m
+         => (LByteString -> Either PandocError Pandoc)
+         -> BackendSource
+         -> m (BackendData n h)
+pandocBS reader input@(BackendSource meta body) = do
     case reader body of
         Left err -> fail . show $ err
         Right pandoc -> return $ toBackendData input pandoc
 
 -- | Parser for Pandoc-supported formats that are read from 'String's.
-parsePandocDataString :: Monad m
-                   => (String -> Either PandocError Pandoc)
-                   -> BackendSource
-                   -> m (BackendData n h)
-parsePandocDataString reader =
-    parsePandocDataLBS (reader . unpack . decodeUtf8)
+pandoc :: Monad m
+       => (String -> Either PandocError Pandoc)
+       -> BackendSource
+       -> m (BackendData n h)
+pandoc reader =
+    pandocBS (reader . unpack . decodeUtf8)
 
