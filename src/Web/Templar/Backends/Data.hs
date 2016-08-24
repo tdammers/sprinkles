@@ -29,6 +29,9 @@ import Data.Serialize (Serialize)
 import Foreign.C.Types (CTime (..))
 import Network.Mime (MimeType)
 import Data.Default (Default (..))
+import Data.Time.Clock.POSIX (POSIXTime, posixSecondsToUTCTime)
+import Data.Time (UTCTime, LocalTime, utc, utcToLocalTime)
+import Data.Scientific (Scientific)
 
 import Web.Templar.Backends.Spec
 
@@ -115,7 +118,7 @@ instance ToGVal (Run m h) (BackendData m h) where
 data BackendMeta =
     BackendMeta
         { bmMimeType :: MimeType
-        , bmMTime :: Maybe CTime -- ^ Last modification time, if available
+        , bmMTime :: Maybe POSIXTime -- ^ Last modification time, if available
         , bmName :: Text -- ^ Human-friendly name
         , bmPath :: Text -- ^ Path, according to the semantics of the backend (file path or URI)
         , bmSize :: Maybe Integer -- ^ Size of the raw source, in bytes, if available
@@ -138,21 +141,30 @@ instance Serialize BackendMeta where
 
 instance ToJSON BackendMeta where
     toJSON bm =
-        JSON.object
+        let mtime = bmMTime bm
+            mtimeSci = realToFrac <$> mtime :: Maybe Scientific
+            mtimeUTC = utcToLocalTime utc . posixSecondsToUTCTime <$> mtime
+        in JSON.object
             [ "mimeType" .= decodeUtf8 (bmMimeType bm)
-            , "mtime" .= (fromIntegral . unCTime <$> bmMTime bm :: Maybe Integer)
+            , "mtime" .= mtimeSci
+            , "mtimeUTC" .= mtimeUTC
             , "name" .= bmName bm
             , "path" .= bmPath bm
             , "size" .= bmSize bm
             ]
 
 instance ToGVal m BackendMeta where
-    toGVal bm = Ginger.dict
-        [ "type" ~> decodeUtf8 (bmMimeType bm)
-        , "mtime" ~> (fromIntegral . unCTime <$> bmMTime bm :: Maybe Integer)
-        , "name" ~> bmName bm
-        , "path" ~> bmPath bm
-        , "size" ~> bmSize bm
-        ]
+    toGVal bm =
+        let mtime = bmMTime bm
+            mtimeSci = realToFrac <$> mtime :: Maybe Scientific
+            mtimeUTC = utcToLocalTime utc . posixSecondsToUTCTime <$> mtime
+        in Ginger.dict
+            [ "type" ~> decodeUtf8 (bmMimeType bm)
+            , "mtime" ~> mtimeSci
+            , "mtimeUTC" ~> mtimeUTC
+            , "name" ~> bmName bm
+            , "path" ~> bmPath bm
+            , "size" ~> bmSize bm
+            ]
 
 
