@@ -9,7 +9,7 @@ packages:
 - '.'
 - location:
     git: https://git@bitbucket.org/tdammers/ginger
-    commit: '0.2.8.0'
+    commit: '0.3.1.0'
 - location:
     git: 'https://git@github.com/tdammers/pandoc-creole.git'
     commit: '0.1.0.0'
@@ -18,6 +18,8 @@ packages:
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:
   - wai-handler-fastcgi-3.0.0.2
+  - system-locale-0.1.0.0
+  - megaparsec-5.0.1
 
 # Override default flag values for local packages and extra-deps
 flags: {}

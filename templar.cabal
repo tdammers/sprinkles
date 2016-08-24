@@ -78,6 +78,7 @@ library
                , regex-pcre
                , safe
                , scientific
+               , system-locale
                , template-haskell
                , text
                , time

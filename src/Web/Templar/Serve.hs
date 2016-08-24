@@ -51,7 +51,7 @@ import qualified Text.Pandoc as Pandoc
 import qualified Text.Pandoc.Readers.Creole as Pandoc
 import qualified Data.CaseInsensitive as CI
 import System.Environment (lookupEnv)
-
+import System.Locale.Read (getLocale)
 import Web.Templar.Backends
 import Web.Templar.Rule
 import Web.Templar.ProjectConfig
@@ -186,6 +186,7 @@ mkContextLookup request project contextMap key = do
                 , ("ellipse", Ginger.fromFunction gfnEllipse)
                 , ("json", Ginger.fromFunction gfnJSON)
                 , ("yaml", Ginger.fromFunction gfnYAML)
+                , ("getlocale", Ginger.fromFunction (gfnGetLocale (writeLog logger)))
                 , ("pandoc", Ginger.fromFunction (gfnPandoc (writeLog logger)))
                 , ("markdown", Ginger.fromFunction (gfnPandocAlias "markdown" (writeLog logger)))
                 , ("textile", Ginger.fromFunction (gfnPandocAlias "textile" (writeLog logger)))
@@ -246,6 +247,17 @@ pandoc readerName src = do
     where
         getReader "creole" = Right $ Pandoc.mkStringReader Pandoc.readCreole
         getReader readerName = Pandoc.getReader readerName
+
+gfnGetLocale :: forall h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run IO h)
+gfnGetLocale writeLog args = liftIO . catchToGinger writeLog $ do
+    print args
+    case Ginger.extractArgsDefL [("category", "LC_TIME"), ("locale", "")] args of
+        Right [gCat, gName] ->
+            case (Ginger.asText gCat, Text.unpack . Ginger.asText $ gName) of
+                ("LC_TIME", "") -> toGVal <$> getLocale Nothing
+                ("LC_TIME", localeName) -> toGVal <$> getLocale (Just localeName)
+                (cat, localeName) -> return def -- valid call, but category not implemented
+        _ -> throwM $ GingerInvalidFunctionArgs "getlocale" "string category, string name"
 
 gfnEllipse :: Ginger.Function (Ginger.Run IO h)
 gfnEllipse [] = return def
@@ -461,4 +473,3 @@ loadBackendDict writeLog cache backendPaths required = do
                     else return $ (key, NotFound)
             _ -> return (key, bd)
     return $ mapFromList pairs
-
