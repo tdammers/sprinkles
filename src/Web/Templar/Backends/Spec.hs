@@ -86,6 +86,8 @@ data BackendSpec =
         { bsType :: BackendType -- ^ Defines the data source
         , bsFetchMode :: FetchMode -- ^ How many items to fetch, and in what shape
         , bsOrder :: FetchOrder -- ^ How to order items
+        -- | If set, ignore reported MIME type and use this one instead.
+        , bsMimeTypeOverride :: Maybe MimeType
         }
         deriving (Show, Generic)
 
@@ -94,7 +96,7 @@ instance Serialize BackendSpec
 type instance Element BackendSpec = Text
 
 instance MonoFunctor BackendSpec where
-    omap f (BackendSpec t m o) = BackendSpec (omap f t) m o
+    omap f (BackendSpec t m o mto) = BackendSpec (omap f t) m o mto
 
 -- | The JSON shape of a backend spec is:
 --
@@ -154,7 +156,8 @@ backendSpecFromJSON (Object obj) = do
             "subprocess" -> parseSubprocessSpec
     fetchMode <- obj .:? "fetch" .!= defFetchMode
     fetchOrder <- obj .:? "order" .!= def
-    return $ BackendSpec t fetchMode fetchOrder
+    mimeOverride <- fmap encodeUtf8 <$> obj .:? "force-mime-type"
+    return $ BackendSpec t fetchMode fetchOrder mimeOverride
     where
         parseHttpBackendSpec = do
             t <- obj .: "uri"
@@ -192,18 +195,20 @@ parseBackendURI t = do
                     (HttpBackend t AnonymousCredentials)
                     FetchOne
                     def
+                    Nothing
         "https" ->
             return $
                 BackendSpec
                     (HttpBackend t AnonymousCredentials)
                     FetchOne
                     def
-        "dir" -> return $ BackendSpec (FileBackend (pack $ unpack path </> "*")) FetchAll def
-        "glob" -> return $ BackendSpec (FileBackend path) FetchAll def
-        "file" -> return $ BackendSpec (FileBackend path) FetchOne def
+                    Nothing
+        "dir" -> return $ BackendSpec (FileBackend (pack $ unpack path </> "*")) FetchAll def Nothing
+        "glob" -> return $ BackendSpec (FileBackend path) FetchAll def Nothing
+        "file" -> return $ BackendSpec (FileBackend path) FetchOne def Nothing
         "sql" -> do
             be <- parseSqlBackendURI path
-            return $ BackendSpec be FetchAll def
+            return $ BackendSpec be FetchAll def Nothing
         _ -> fail $ "Unknown protocol: " <> show protocol
     where
         parseSqlBackendURI path = do

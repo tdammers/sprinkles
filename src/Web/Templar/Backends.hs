@@ -28,6 +28,7 @@ import Web.Templar.Cache
 import qualified Data.Serialize as Cereal
 import Control.MaybeEitherMonad (eitherFailS)
 import Web.Templar.Logger (LogLevel (..))
+import Network.Mime (MimeType)
 
 import Web.Templar.Backends.Spec
         ( BackendSpec (..)
@@ -97,5 +98,10 @@ fetchBackendData writeLog rawCache spec = do
 
 -- | Fetch raw backend data from a backend source, without caching.
 fetchBackendData' :: (LogLevel -> Text -> IO ()) -> BackendSpec -> IO [BackendSource]
-fetchBackendData' writeLog (BackendSpec backendType fetchMode fetchOrder) = do
-    loader backendType writeLog fetchMode fetchOrder
+fetchBackendData' writeLog (BackendSpec backendType fetchMode fetchOrder mimeOverride) = do
+    map (overrideMime mimeOverride) <$> loader backendType writeLog fetchMode fetchOrder
+
+overrideMime :: Maybe MimeType -> BackendSource -> BackendSource
+overrideMime Nothing s = s
+overrideMime (Just m) s =
+    s { bsMeta = (bsMeta s) { bmMimeType = m } }
