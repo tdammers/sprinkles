@@ -19,11 +19,14 @@ module Web.Templar.Backends.Spec
 , FetchOrder (..)
 , parseBackendURI
 , Credentials (..)
+, HttpMethod (..)
+, HttpBackendOptions (..)
 )
 where
 
 import ClassyPrelude
 import Network.Mime (MimeType)
+import Network.HTTP.Types ()
 import Data.Aeson (FromJSON (..), Value (..), (.=), (.!=), (.:?), (.:))
 import System.PosixCompat.Files
 import Data.Default (Default (..))
@@ -34,17 +37,17 @@ import Web.Templar.Databases (DSN (..), sqlDriverFromID)
 import Web.Templar.Logger (LogLevel (..))
 
 -- | A type of backend.
-data BackendType = HttpBackend Text Credentials -- ^ Fetch data over HTTP(S)
+data BackendType = HttpBackend Text HttpBackendOptions -- ^ Fetch data over HTTP(S)
                  | FileBackend Text -- ^ Read local files
                  | SqlBackend DSN Text [Text] -- ^ Query an SQL database
                  | SubprocessBackend Text [Text] MimeType -- ^ Run a command in a subprocess
                  deriving (Show, Generic)
 
 instance Serialize BackendType where
-    put (HttpBackend url credentials) = do
+    put (HttpBackend url options) = do
         Cereal.put 'h'
         Cereal.put (encodeUtf8 . unpack $ url)
-        Cereal.put credentials
+        Cereal.put options
     put (FileBackend path) = do
         Cereal.put 'f'
         Cereal.put (encodeUtf8 . unpack $ path)
@@ -161,7 +164,7 @@ backendSpecFromJSON (Object obj) = do
     where
         parseHttpBackendSpec = do
             t <- obj .: "uri"
-            return (HttpBackend t AnonymousCredentials, FetchOne)
+            return (HttpBackend t def, FetchOne)
         parseFileBackendSpec m = do
             path <- obj .: "path"
             return (FileBackend (pack path), m)
@@ -192,14 +195,14 @@ parseBackendURI t = do
         "http" ->
             return $
                 BackendSpec
-                    (HttpBackend t AnonymousCredentials)
+                    (HttpBackend t def)
                     FetchOne
                     def
                     Nothing
         "https" ->
             return $
                 BackendSpec
-                    (HttpBackend t AnonymousCredentials)
+                    (HttpBackend t def)
                     FetchOne
                     def
                     Nothing
@@ -293,8 +296,39 @@ data Credentials = AnonymousCredentials
 
 instance Serialize Credentials where
 
+data HttpMethod = GET | POST
+    deriving (Show, Generic)
+
+instance Serialize HttpMethod where
+
+data HttpBackendOptions =
+    HttpBackendOptions
+        { httpCredentials :: Credentials
+        , httpHttpMethods :: HttpMethod
+        }
+        deriving (Show, Generic)
+
+instance Serialize HttpBackendOptions where
+
 instance FromJSON Credentials where
     parseJSON Null = return AnonymousCredentials
     parseJSON (String "anonymous") = return AnonymousCredentials
     parseJSON _ = fail "Invalid credentials"
 
+instance FromJSON HttpMethod where
+    parseJSON (String str) = do
+        case toUpper str of
+            "GET" -> return GET
+            "POST" -> return POST
+            x -> fail $ "Unsupported request method: " <> show x
+    parseJSON _ = fail $ "Invalid request method, expected string"
+
+instance FromJSON HttpBackendOptions where
+    parseJSON Null = return def
+    parseJSON (Object o) =
+        HttpBackendOptions
+            <$> (o .:? "credentials" .!= AnonymousCredentials)
+            <*> (o .:? "method" .!= GET)
+
+instance Default HttpBackendOptions where
+    def = HttpBackendOptions AnonymousCredentials GET
