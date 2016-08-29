@@ -115,7 +115,13 @@ instance ToGVal m Wai.Request where
             , "path" ~> decodeUtf8 (Wai.rawPathInfo rq)
             , "query" ~> decodeUtf8 (Wai.rawQueryString rq)
             , "pathInfo" ~> Wai.pathInfo rq
-            , "queryInfo" ~> queryToQueryText (Wai.queryString rq)
+            , ( "queryInfo"
+              , Ginger.orderedDict
+                    [ (key, toGVal val)
+                    | (key, val)
+                    <- queryToQueryText (Wai.queryString rq)
+                    ]
+              )
             , ( "headers"
               , Ginger.orderedDict
                     [ (decodeCI n, toGVal $ decodeUtf8 v)
