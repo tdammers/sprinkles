@@ -15,49 +15,47 @@ module Web.Templar.Serve
 where
 
 import ClassyPrelude
-import Text.Ginger
-        ( parseGinger
-        , Template
-        , runGingerT
-        , GingerContext
-        , GVal (..)
-        , ToGVal (..)
-        , (~>)
-        )
-import Text.Ginger.Html (Html, htmlSource)
-import qualified Text.Ginger as Ginger
-import Data.Aeson as JSON
-import Data.Aeson.TH as JSON
-import Data.Aeson.Encode.Pretty as JSON
-import Data.Yaml as YAML
-import Data.Text (Text)
-import qualified Data.Text as Text
-import qualified Network.Wai as Wai
-import Network.HTTP.Types (Status, status200, status302, status400, status404, status500)
-import Network.HTTP.Types.URI (queryToQueryText)
-import qualified Network.Wai.Handler.Warp as Warp
-import qualified Network.Wai.Handler.CGI as CGI
-import qualified Network.Wai.Handler.SCGI as SCGI
-import qualified Network.Wai.Handler.FastCGI as FastCGI
-import Data.Default (def)
-import Data.ByteString.Builder (stringUtf8)
-import qualified Data.ByteString.UTF8 as UTF8
-import qualified Data.ByteString.Lazy.UTF8 as LUTF8
-import qualified Data.CaseInsensitive as CI
 import Control.Concurrent (forkIO)
-import Data.Time.Clock.POSIX (getPOSIXTime)
-import qualified Text.Pandoc as Pandoc
-import qualified Text.Pandoc.Readers.Creole as Pandoc
+import Data.Aeson as JSON
+import Data.Aeson.Encode.Pretty as JSON
+import Data.Aeson.TH as JSON
+import Data.ByteString.Builder (stringUtf8)
+import qualified Data.ByteString.Lazy.UTF8 as LUTF8
+import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.CaseInsensitive as CI
+import qualified Data.CaseInsensitive as CI
+import Data.Default (def)
+import qualified Data.Text as Text
+import Data.Text (Text)
+import Data.Time.Clock.POSIX (getPOSIXTime)
+import Data.Yaml as YAML
+
+import Network.HTTP.Types
+       (Status, status200, status302, status400, status404, status500)
+import Network.HTTP.Types.URI (queryToQueryText)
+import qualified Network.Wai as Wai
+import qualified Network.Wai.Handler.CGI as CGI
+import qualified Network.Wai.Handler.FastCGI as FastCGI
+import qualified Network.Wai.Handler.SCGI as SCGI
+import qualified Network.Wai.Handler.Warp as Warp
+
 import System.Environment (lookupEnv)
 import System.Locale.Read (getLocale)
+import qualified Text.Ginger as Ginger
+import Text.Ginger
+       (parseGinger, Template, runGingerT, GingerContext, GVal(..), ToGVal(..),
+        (~>))
+import Text.Ginger.Html (Html, htmlSource)
+import qualified Text.Pandoc as Pandoc
+import qualified Text.Pandoc.Readers.Creole as Pandoc
+
 import Web.Templar.Backends
-import Web.Templar.Rule
-import Web.Templar.ProjectConfig
 import Web.Templar.Cache
-import Web.Templar.ServerConfig
-import Web.Templar.Project
 import Web.Templar.Logger as Logger
+import Web.Templar.Project
+import Web.Templar.ProjectConfig
+import Web.Templar.Rule
+import Web.Templar.ServerConfig
 
 serveProject :: ServerConfig -> Project -> IO ()
 serveProject config project = do
