@@ -9,7 +9,6 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE MultiParamTypeClasses #-}
-{-#LANGUAGE PartialTypeSignatures #-}
 module Web.Templar.Serve
 ( serveProject
 )
@@ -216,9 +215,9 @@ gfnLoadBackendData writeLog cache args =
                 , toGVal backendData
                 )
 
-catchToGinger :: forall h. (LogLevel -> Text -> IO ())
-              -> IO _
-              -> IO _
+catchToGinger :: forall h m. (LogLevel -> Text -> IO ())
+              -> IO (GVal m)
+              -> IO (GVal m)
 catchToGinger writeLog action =
     action
         `catch` (\(e :: SomeException) -> do
@@ -352,8 +351,7 @@ handle404 (backendPaths, required) project request respond = do
                 backendData
                 request
                 respond
-        handleTemplateNotFound :: TemplateNotFoundException -> _
-        handleTemplateNotFound e = do
+        handleTemplateNotFound (e :: TemplateNotFoundException) = do
             writeLog logger Logger.Warning $ "Template 404.html not found, using built-in fallback"
             let headers = [("Content-type", "text/plain;charset=utf8")]
             respond . Wai.responseLBS status404 headers $ "Not Found"
@@ -378,8 +376,7 @@ handle500 err project request respond = do
                 backendData
                 request
                 respond
-        handleTemplateNotFound :: TemplateNotFoundException -> _
-        handleTemplateNotFound e = do
+        handleTemplateNotFound (e :: TemplateNotFoundException) = do
             writeLog logger Logger.Warning $ "Template 500.html not found, using built-in fallback"
             let headers = [("Content-type", "text/plain;charset=utf8")]
             respond . Wai.responseLBS status500 headers $ "Something went pear-shaped. The problem seems to be on our side."
