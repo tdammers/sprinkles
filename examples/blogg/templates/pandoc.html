@@ -1,0 +1,47 @@
+{%- extends 'master.html' -%}
+
+{%- block content -%}
+    <textarea id="pandoc_src"></textarea>
+    <div id="pandoc_dst"></div>
+    <script type="text/javascript">
+        var srcElem = document.getElementById('pandoc_src');
+        var dstElem = document.getElementById('pandoc_dst');
+        var post = function(url, data, cb) {
+            var request = new XMLHttpRequest();
+            request.onreadystatechange = function () {
+                var DONE = this.DONE || 4;
+                if (this.readyState === DONE){
+                    cb(this.responseText);
+                }
+            };
+            request.open('POST', url, true);
+            request.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            request.setRequestHeader('Content-type', 'text/x-markdown');
+            request.send(data);
+        };
+        var nextRequest = null;
+        var requestPending = false;
+        var sendRequest = function(src) {
+            var postNextRequest = function() {
+                post('/pandoc/post', nextRequest, function(dst) {
+                    dstElem.innerHTML = dst;
+                    if (nextRequest) {
+                        postNextRequest();
+                    }
+                    else {
+                        requestPending = false;
+                    }
+                });
+                requestPending = true;
+                nextRequest = false;
+            };
+            nextRequest = src;
+            if (!requestPending) {
+                postNextRequest();
+            }
+        };
+        srcElem.oninput = function(e) {
+            sendRequest(srcElem.value);
+        };
+    </script>
+{%- endblock -%}

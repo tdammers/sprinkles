@@ -27,10 +27,13 @@ rules:
   required:
     - page
   template: 'page.html'
-- pattern: '/post'
+- pattern: '/pandoc'
+  data: {}
+  template: 'pandoc.html'
+- pattern: '/pandoc/post'
   data:
     page: 'post:'
-  template: 'page.html'
+  template: 'pandoc-raw.html'
 - pattern: '/stuff/{{id:*}}'
   data:
     page:
