@@ -389,7 +389,7 @@ handleRedirectTarget :: Text
                      -> Project
                      -> Wai.Application
 handleRedirectTarget redirectPath
-                     (backendPaths, required) 
+                     (backendPaths, required)
                      project
                      request
                      respond = do
@@ -401,7 +401,7 @@ handleRedirectTarget redirectPath
 handleJSONTarget :: (HashMap Text BackendSpec, Set Text)
                  -> Project
                  -> Wai.Application
-handleJSONTarget (backendPaths, required) 
+handleJSONTarget (backendPaths, required)
                  project
                  request
                  respond = do
