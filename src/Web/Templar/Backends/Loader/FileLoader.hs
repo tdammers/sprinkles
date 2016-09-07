@@ -38,7 +38,7 @@ import Network.Mime
 import System.PosixCompat.Files
 
 fileLoader :: Text -> Loader
-fileLoader filepath writeLog fetchMode fetchOrder =
+fileLoader filepath writeLog _ fetchMode fetchOrder =
     fetch `catchIOError` handle
     where
         filename = unpack filepath

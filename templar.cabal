@@ -34,6 +34,7 @@ library
                  , Web.Templar.Backends.Loader.Type
                  , Web.Templar.Backends.Loader.HttpLoader
                  , Web.Templar.Backends.Loader.SubprocessLoader
+                 , Web.Templar.Backends.Loader.RequestBodyLoader
                  , Web.Templar.PandocGVal
                  , Web.Templar.Rule
                  , Web.Templar.ProjectConfig

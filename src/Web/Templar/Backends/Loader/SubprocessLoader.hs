@@ -27,7 +27,7 @@ import Web.Templar.Logger (LogLevel (..))
 import qualified System.Process as Process
 
 subprocessLoader :: Text -> [Text] -> MimeType -> Loader
-subprocessLoader cmd args mimeType writeLog fetchMode fetchOrder = do
+subprocessLoader cmd args mimeType writeLog _ fetchMode fetchOrder = do
     (_, Just hOut, _, _) <-
         Process.createProcess
             (Process.proc (unpack cmd) (map unpack args)) { Process.std_out = Process.CreatePipe }

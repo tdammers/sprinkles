@@ -21,6 +21,8 @@ module Web.Templar.Backends.Spec
 , Credentials (..)
 , HttpMethod (..)
 , HttpBackendOptions (..)
+, CachePolicy (..)
+, HasCachePolicy (..)
 )
 where
 
@@ -41,6 +43,7 @@ data BackendType = HttpBackend Text HttpBackendOptions -- ^ Fetch data over HTTP
                  | FileBackend Text -- ^ Read local files
                  | SqlBackend DSN Text [Text] -- ^ Query an SQL database
                  | SubprocessBackend Text [Text] MimeType -- ^ Run a command in a subprocess
+                 | RequestBodyBackend -- ^ Read the incoming request body
                  deriving (Show, Generic)
 
 instance Serialize BackendType where
@@ -61,6 +64,7 @@ instance Serialize BackendType where
         Cereal.put (encodeUtf8 . unpack $ cmd)
         Cereal.put (map (encodeUtf8 . unpack) args)
         Cereal.put t
+    put RequestBodyBackend = Cereal.put('b')
     get = do
         Cereal.get >>= \case
             'h' -> HttpBackend <$> (pack . decodeUtf8 <$> Cereal.get) <*> Cereal.get
@@ -73,6 +77,7 @@ instance Serialize BackendType where
                     (pack . decodeUtf8 <$> Cereal.get) <*>
                     (map (pack . decodeUtf8) <$> Cereal.get) <*>
                     Cereal.get
+            'b' -> return RequestBodyBackend
             x -> fail $ "Invalid backend type identifier: " <> show x
 
 type instance Element BackendType = Text
@@ -82,6 +87,7 @@ instance MonoFunctor BackendType where
     omap f (FileBackend t) = FileBackend (f t)
     omap f (SqlBackend dsn query params) = SqlBackend (omap f dsn) query (map f params)
     omap f (SubprocessBackend cmd args t) = SubprocessBackend cmd (map f args) t
+    omap _ RequestBodyBackend = RequestBodyBackend
 
 -- | A specification of a backend query.
 data BackendSpec =
@@ -157,6 +163,7 @@ backendSpecFromJSON (Object obj) = do
             "dir" -> parseDirBackendSpec
             "sql" -> parseSqlBackendSpec
             "subprocess" -> parseSubprocessSpec
+            "post" -> return (RequestBodyBackend, FetchOne)
     fetchMode <- obj .:? "fetch" .!= defFetchMode
     fetchOrder <- obj .:? "order" .!= def
     mimeOverride <- fmap encodeUtf8 <$> obj .:? "force-mime-type"
@@ -212,6 +219,8 @@ parseBackendURI t = do
         "sql" -> do
             be <- parseSqlBackendURI path
             return $ BackendSpec be FetchAll def Nothing
+        "post" ->
+            return $ BackendSpec RequestBodyBackend FetchOne def Nothing
         _ -> fail $ "Unknown protocol: " <> show protocol
     where
         parseSqlBackendURI path = do
@@ -332,3 +341,17 @@ instance FromJSON HttpBackendOptions where
 
 instance Default HttpBackendOptions where
     def = HttpBackendOptions AnonymousCredentials GET
+
+data CachePolicy = CacheForever
+                 | NoCaching
+
+class HasCachePolicy a where
+    cachePolicy :: a -> CachePolicy
+
+instance HasCachePolicy BackendSpec where
+    cachePolicy = cachePolicy . bsType
+
+instance HasCachePolicy BackendType where
+    cachePolicy = \case
+        RequestBodyBackend -> NoCaching
+        _ -> CacheForever

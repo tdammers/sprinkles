@@ -56,6 +56,7 @@ import Web.Templar.Project
 import Web.Templar.ProjectConfig
 import Web.Templar.Rule
 import Web.Templar.ServerConfig
+import Web.Templar.Backends.Loader.Type (PostBodySource (..))
 
 serveProject :: ServerConfig -> Project -> IO ()
 serveProject config project = do
@@ -198,6 +199,21 @@ mkContextLookup request project contextMap key = do
                 ]
     return . fromMaybe def $ lookup key contextMap'
 
+pbsFromRequest :: Wai.Request -> PostBodySource
+pbsFromRequest request =
+    PostBodySource
+        { loadPost = Wai.lazyRequestBody request
+        , contentType = fromMaybe "text/plain" $
+            lookup "Content-type" (Wai.requestHeaders request)
+        }
+
+pbsInvalid :: PostBodySource
+pbsInvalid =
+    PostBodySource
+        { loadPost = fail "POST body not available"
+        , contentType = "text/plain"
+        }
+
 gfnLoadBackendData :: forall h. (LogLevel -> Text -> IO ()) -> RawBackendCache -> Ginger.Function (Ginger.Run IO h)
 gfnLoadBackendData writeLog cache args =
     Ginger.dict <$> forM (zip [0..] args) loadPair
@@ -207,7 +223,7 @@ gfnLoadBackendData writeLog cache args =
         loadPair (index, (keyMay, gBackendURL)) = do
             let backendURL = Ginger.asText $ gBackendURL
             backendData :: Items (BackendData IO h) <- liftIO $
-                loadBackendData writeLog cache =<< parseBackendURI backendURL
+                loadBackendData writeLog pbsInvalid cache =<< parseBackendURI backendURL
             return
                 ( fromMaybe (tshow index) keyMay
                 , toGVal backendData
@@ -341,7 +357,7 @@ handle404 (backendPaths, required) project request respond = do
         cache = projectBackendCache project
         logger = projectLogger project
         respondNormally = do
-            backendData <- loadBackendDict (writeLog logger) cache backendPaths required
+            backendData <- loadBackendDict (writeLog logger) (pbsFromRequest request) cache backendPaths required
             respondTemplateHtml
                 project
                 status404
@@ -366,7 +382,7 @@ handle500 err project request respond = do
         backendPaths = pcContextData . projectConfig $ project
         logger = projectLogger project
         respondNormally = do
-            backendData <- loadBackendDict (writeLog logger) cache backendPaths (setFromList [])
+            backendData <- loadBackendDict (writeLog logger) (pbsFromRequest request) cache backendPaths (setFromList [])
             respondTemplateHtml
                 project
                 status500
@@ -402,7 +418,12 @@ handleJSONTarget (backendPaths, required)
                  respond = do
     let cache = projectBackendCache project
         logger = projectLogger project
-    backendData <- loadBackendDict (writeLog logger) cache backendPaths required
+    backendData <- loadBackendDict
+                        (writeLog logger)
+                        (pbsFromRequest request)
+                        cache
+                        backendPaths
+                        required
     respond $ Wai.responseLBS
         status200
         [("Content-type", "application/json")]
@@ -420,7 +441,12 @@ handleTemplateTarget templateName
     let cache = projectBackendCache project
         logger = projectLogger project
         go = do
-            backendData <- loadBackendDict (writeLog logger) cache backendPaths required
+            backendData <- loadBackendDict
+                                (writeLog logger)
+                                (pbsFromRequest request)
+                                cache
+                                backendPaths
+                                required
             respondTemplateHtml
                 project
                 status200
@@ -440,7 +466,12 @@ handleStaticTarget (backendPaths, required)
     let cache = projectBackendCache project
         logger = projectLogger project
         go = do
-            backendData <- loadBackendDict (writeLog logger) cache backendPaths required
+            backendData <- loadBackendDict
+                                (writeLog logger)
+                                (pbsFromRequest request)
+                                cache
+                                backendPaths
+                                required
             backendItem <- case lookup "file" backendData of
                 Nothing -> throwM NotFoundException
                 Just NotFound -> throwM NotFoundException
@@ -462,10 +493,10 @@ handleNotFound project request respond _ = do
         request
         respond
 
-loadBackendDict :: (LogLevel -> Text -> IO ()) -> RawBackendCache -> HashMap Text BackendSpec -> Set Text -> IO (HashMap Text (Items (BackendData IO Html)))
-loadBackendDict writeLog cache backendPaths required = do
+loadBackendDict :: (LogLevel -> Text -> IO ()) -> PostBodySource -> RawBackendCache -> HashMap Text BackendSpec -> Set Text -> IO (HashMap Text (Items (BackendData IO Html)))
+loadBackendDict writeLog postBodySrc cache backendPaths required = do
     pairs <- forM (mapToList backendPaths) $ \(key, backendPath) -> do
-        bd :: Items (BackendData IO Html) <- loadBackendData writeLog cache backendPath
+        bd :: Items (BackendData IO Html) <- loadBackendData writeLog postBodySrc cache backendPath
         case bd of
             NotFound ->
                 if key `elem` required

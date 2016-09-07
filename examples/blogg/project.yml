@@ -27,6 +27,10 @@ rules:
   required:
     - page
   template: 'page.html'
+- pattern: '/post'
+  data:
+    page: 'post:'
+  template: 'page.html'
 - pattern: '/stuff/{{id:*}}'
   data:
     page:

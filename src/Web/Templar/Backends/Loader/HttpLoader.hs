@@ -33,7 +33,7 @@ import qualified Network.Curl as Curl
 import Data.Char (isSpace)
 
 curlLoader :: Text -> HttpBackendOptions -> Loader
-curlLoader uriText options writeLog fetchMode fetchOrder = do
+curlLoader uriText options writeLog _ fetchMode fetchOrder = do
     Curl.initialize >>= \curl -> do
         response <- Curl.curlGetResponse_
             (unpack uriText)

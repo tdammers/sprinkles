@@ -38,6 +38,8 @@ import Web.Templar.Backends.Spec
         , FetchOrder (..)
         , FetchOrderField (..)
         , parseBackendURI
+        , CachePolicy (..)
+        , cachePolicy
         )
 import Web.Templar.Backends.Parsers
         ( parseBackendData
@@ -50,6 +52,7 @@ import Web.Templar.Backends.Data
         , reduceItems
         )
 import Web.Templar.Backends.Loader
+import Web.Templar.Backends.Loader.Type (PostBodySource)
 
 -- | Cache for raw backend data, stored as bytestrings.
 type RawBackendCache = Cache ByteString ByteString
@@ -58,10 +61,10 @@ type RawBackendCache = Cache ByteString ByteString
 type BackendCache = Cache BackendSpec [BackendSource]
 
 -- | Execute a backend query, with caching.
-loadBackendData :: (LogLevel -> Text -> IO ()) -> RawBackendCache -> BackendSpec -> IO (Items (BackendData m h))
-loadBackendData writeLog cache bspec =
+loadBackendData :: (LogLevel -> Text -> IO ()) -> PostBodySource -> RawBackendCache -> BackendSpec -> IO (Items (BackendData m h))
+loadBackendData writeLog cache loadPost bspec =
     fmap (reduceItems (bsFetchMode bspec)) $
-        fetchBackendData writeLog cache bspec >>=
+        fetchBackendData writeLog cache loadPost bspec >>=
         mapM parseBackendData >>=
         sorter
     where
@@ -89,17 +92,20 @@ wrapBackendCache =
         (fmap Just . eitherFailS . Cereal.decode)
 
 -- | Fetch raw backend data from a backend source, with caching.
-fetchBackendData :: (LogLevel -> Text -> IO ()) -> RawBackendCache -> BackendSpec -> IO [BackendSource]
-fetchBackendData writeLog rawCache spec = do
-    cached cache (fetchBackendData' writeLog) spec
+fetchBackendData :: (LogLevel -> Text -> IO ()) -> PostBodySource -> RawBackendCache -> BackendSpec -> IO [BackendSource]
+fetchBackendData writeLog loadPost rawCache spec = do
+    cacheWrap (fetchBackendData' writeLog loadPost) spec
     where
+        cacheWrap = case cachePolicy spec of
+            CacheForever -> cached cache
+            NoCaching -> id
         cache :: BackendCache
         cache = wrapBackendCache rawCache
 
 -- | Fetch raw backend data from a backend source, without caching.
-fetchBackendData' :: (LogLevel -> Text -> IO ()) -> BackendSpec -> IO [BackendSource]
-fetchBackendData' writeLog (BackendSpec backendType fetchMode fetchOrder mimeOverride) = do
-    map (overrideMime mimeOverride) <$> loader backendType writeLog fetchMode fetchOrder
+fetchBackendData' :: (LogLevel -> Text -> IO ()) -> PostBodySource -> BackendSpec -> IO [BackendSource]
+fetchBackendData' writeLog loadPost (BackendSpec backendType fetchMode fetchOrder mimeOverride) = do
+    map (overrideMime mimeOverride) <$> loader backendType writeLog loadPost fetchMode fetchOrder
 
 overrideMime :: Maybe MimeType -> BackendSource -> BackendSource
 overrideMime Nothing s = s

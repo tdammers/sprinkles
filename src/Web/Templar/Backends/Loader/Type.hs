@@ -26,7 +26,14 @@ import Web.Templar.Backends.Spec
         )
 import Web.Templar.Logger (LogLevel)
 
+data PostBodySource =
+    PostBodySource
+        { loadPost :: IO LByteString
+        , contentType :: ByteString
+        }
+
 type Loader = (LogLevel -> Text -> IO ())
+            -> PostBodySource
             -> FetchMode
             -> FetchOrder
             -> IO [BackendSource]

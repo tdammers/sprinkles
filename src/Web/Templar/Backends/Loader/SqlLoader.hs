@@ -32,7 +32,7 @@ import Data.Yaml as YAML
 import Web.Templar.Backends.Loader.Type
 
 sqlLoader :: DSN -> Text -> [Text] -> Loader
-sqlLoader dsn query params writeLog fetchMode fetchOrder = do
+sqlLoader dsn query params writeLog _ fetchMode fetchOrder = do
     rows <- DB.withConnection dsn $ \conn -> do
         writeLog Debug $
             "SQL: QUERY: " <> tshow query <>
