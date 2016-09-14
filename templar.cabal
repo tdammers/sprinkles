@@ -35,6 +35,13 @@ library
                  , Web.Templar.Backends.Loader.HttpLoader
                  , Web.Templar.Backends.Loader.SubprocessLoader
                  , Web.Templar.Backends.Loader.RequestBodyLoader
+                 , Web.Templar.Handlers
+                 , Web.Templar.Handlers.Common
+                 , Web.Templar.Handlers.Respond
+                 , Web.Templar.Handlers.Static
+                 , Web.Templar.Handlers.Redirect
+                 , Web.Templar.Handlers.JSON
+                 , Web.Templar.Handlers.Template
                  , Web.Templar.PandocGVal
                  , Web.Templar.Rule
                  , Web.Templar.ProjectConfig

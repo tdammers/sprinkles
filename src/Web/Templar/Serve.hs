@@ -19,11 +19,8 @@ import Control.Concurrent (forkIO)
 import Data.Aeson as JSON
 import Data.Aeson.Encode.Pretty as JSON
 import Data.Aeson.TH as JSON
-import Data.ByteString.Builder (stringUtf8)
 import qualified Data.ByteString.Lazy.UTF8 as LUTF8
 import qualified Data.ByteString.UTF8 as UTF8
-import qualified Data.CaseInsensitive as CI
-import qualified Data.CaseInsensitive as CI
 import Data.Default (def)
 import qualified Data.Text as Text
 import Data.Text (Text)
@@ -56,7 +53,17 @@ import Web.Templar.Project
 import Web.Templar.ProjectConfig
 import Web.Templar.Rule
 import Web.Templar.ServerConfig
-import Web.Templar.Backends.Loader.Type (PostBodySource (..))
+import Web.Templar.Backends.Loader.Type
+       (PostBodySource (..), pbsFromRequest, pbsInvalid)
+import Web.Templar.Handlers
+       ( handleStaticTarget
+       , handleNotFound
+       , handleRedirectTarget
+       , handleJSONTarget
+       , handleTemplateTarget
+       )
+import Web.Templar.Handlers.Respond
+import Web.Templar.Handlers.Common (loadBackendDict, handle500, handle404)
 
 serveProject :: ServerConfig -> Project -> IO ()
 serveProject config project = do
@@ -99,48 +106,6 @@ serveSCGI project = SCGI.run (appFromProject project)
 serveFastCGI :: Project -> IO ()
 serveFastCGI project = FastCGI.run (appFromProject project)
 
-instance ToGVal m ByteString where
-    toGVal = toGVal . UTF8.toString
-
-instance ToGVal m (CI.CI ByteString) where
-    toGVal = toGVal . CI.original
-
-instance ToGVal m Wai.Request where
-    toGVal rq =
-        Ginger.orderedDict
-            [ "httpVersion" ~> tshow (Wai.httpVersion rq)
-            , "method" ~> decodeUtf8 (Wai.requestMethod rq)
-            , "path" ~> decodeUtf8 (Wai.rawPathInfo rq)
-            , "query" ~> decodeUtf8 (Wai.rawQueryString rq)
-            , "pathInfo" ~> Wai.pathInfo rq
-            , ( "queryInfo"
-              , Ginger.orderedDict
-                    [ (key, toGVal val)
-                    | (key, val)
-                    <- queryToQueryText (Wai.queryString rq)
-                    ]
-              )
-            , ( "headers"
-              , Ginger.orderedDict
-                    [ (decodeCI n, toGVal $ decodeUtf8 v)
-                    | (n, v)
-                    <- Wai.requestHeaders rq
-                    ]
-              )
-            ]
-
-decodeCI :: CI.CI ByteString -> Text
-decodeCI = decodeUtf8 . CI.original
-
-data GingerFunctionCallException =
-    GingerInvalidFunctionArgs
-        { invalidFunctionName :: Text
-        , invalidFunctionExpectedArgs :: Text
-        }
-    deriving (Show, Eq, Generic)
-
-instance Exception GingerFunctionCallException
-
 appFromProject :: Project -> Wai.Application
 appFromProject project request respond = do
     handleRequest project request respond `catch` handleException
@@ -148,168 +113,6 @@ appFromProject project request respond = do
         handleException (e :: SomeException) = do
             writeLog (projectLogger project) Logger.Error $ tshow e
             respond $ Wai.responseLBS status500 [] "Something went pear-shaped."
-
-respondTemplateHtml :: ToGVal (Ginger.Run IO Html) a => Project -> Status -> Text -> HashMap Text a -> Wai.Application
-respondTemplateHtml project status templateName contextMap request respond = do
-    let contextLookup = mkContextLookup request project contextMap
-        headers = [("Content-type", "text/html;charset=utf8")]
-    template <- getTemplate project templateName
-    respond . Wai.responseStream status headers $ \write flush -> do
-        let writeHtml = write . stringUtf8 . unpack . htmlSource
-            context :: GingerContext IO Html
-            context = Ginger.makeContextHtmlM contextLookup writeHtml
-        runGingerT context template
-        flush
-
-respondTemplateText :: ToGVal (Ginger.Run IO Text) a => Project -> Status -> Text -> HashMap Text a -> Wai.Application
-respondTemplateText project status templateName contextMap request respond = do
-    let contextLookup = mkContextLookup request project contextMap
-        headers = [("Content-type", "text/plain;charset=utf8")]
-    template <- getTemplate project templateName
-    respond . Wai.responseStream status headers $ \write flush -> do
-        let writeText = write . stringUtf8 . unpack
-            context :: GingerContext IO Text
-            context = Ginger.makeContextTextM contextLookup writeText
-        runGingerT context template
-        flush
-
-mkContextLookup :: (ToGVal (Ginger.Run IO h) a)
-                => Wai.Request
-                -> Project
-                -> HashMap Text a
-                -> Text
-                -> Ginger.Run IO h (GVal (Ginger.Run IO h))
-mkContextLookup request project contextMap key = do
-    let cache = projectBackendCache project
-        logger = projectLogger project
-        contextMap' =
-            fmap toGVal contextMap <>
-            mapFromList
-                [ "request" ~> request
-                , ("load", Ginger.fromFunction (gfnLoadBackendData (writeLog logger) cache))
-                , ("ellipse", Ginger.fromFunction gfnEllipse)
-                , ("json", Ginger.fromFunction gfnJSON)
-                , ("yaml", Ginger.fromFunction gfnYAML)
-                , ("getlocale", Ginger.fromFunction (gfnGetLocale (writeLog logger)))
-                , ("pandoc", Ginger.fromFunction (gfnPandoc (writeLog logger)))
-                , ("markdown", Ginger.fromFunction (gfnPandocAlias "markdown" (writeLog logger)))
-                , ("textile", Ginger.fromFunction (gfnPandocAlias "textile" (writeLog logger)))
-                , ("rst", Ginger.fromFunction (gfnPandocAlias "rst" (writeLog logger)))
-                , ("creole", Ginger.fromFunction (gfnPandocAlias "creole" (writeLog logger)))
-                ]
-    return . fromMaybe def $ lookup key contextMap'
-
-pbsFromRequest :: Wai.Request -> PostBodySource
-pbsFromRequest request =
-    PostBodySource
-        { loadPost = Wai.lazyRequestBody request
-        , contentType = fromMaybe "text/plain" $
-            lookup "Content-type" (Wai.requestHeaders request)
-        }
-
-pbsInvalid :: PostBodySource
-pbsInvalid =
-    PostBodySource
-        { loadPost = fail "POST body not available"
-        , contentType = "text/plain"
-        }
-
-gfnLoadBackendData :: forall h. (LogLevel -> Text -> IO ()) -> RawBackendCache -> Ginger.Function (Ginger.Run IO h)
-gfnLoadBackendData writeLog cache args =
-    Ginger.dict <$> forM (zip [0..] args) loadPair
-    where
-        loadPair :: (Int, (Maybe Text, GVal (Ginger.Run IO h)))
-                 -> Ginger.Run IO h (Text, GVal (Ginger.Run IO h))
-        loadPair (index, (keyMay, gBackendURL)) = do
-            let backendURL = Ginger.asText $ gBackendURL
-            backendData :: Items (BackendData IO h) <- liftIO $
-                loadBackendData writeLog pbsInvalid cache =<< parseBackendURI backendURL
-            return
-                ( fromMaybe (tshow index) keyMay
-                , toGVal backendData
-                )
-
-catchToGinger :: forall h m. (LogLevel -> Text -> IO ())
-              -> IO (GVal m)
-              -> IO (GVal m)
-catchToGinger writeLog action =
-    action
-        `catch` (\(e :: SomeException) -> do
-            writeLog Logger.Error . tshow $ e
-            return . toGVal $ False
-        )
-
-gfnPandoc :: forall h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run IO h)
-gfnPandoc writeLog args = liftIO . catchToGinger writeLog $
-    case Ginger.extractArgsDefL [("src", ""), ("reader", "markdown")] args of
-        Right [src, readerName] -> toGVal <$> pandoc (Ginger.asText readerName) (Ginger.asText src)
-        _ -> throwM $ GingerInvalidFunctionArgs "pandoc" "string src, string reader"
-
-gfnPandocAlias :: forall h. Text -> (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run IO h)
-gfnPandocAlias readerName writeLog args = liftIO . catchToGinger writeLog $
-    case Ginger.extractArgsDefL [("src", "")] args of
-        Right [src] -> toGVal <$> pandoc readerName (Ginger.asText src)
-        _ -> throwM $ GingerInvalidFunctionArgs "pandoc" "string src, string reader"
-
-pandoc :: Text -> Text -> IO Pandoc.Pandoc
-pandoc readerName src = do
-    reader <- either
-        (\err -> fail $ "Invalid reader: " ++ show err)
-        return
-        (getReader $ unpack readerName)
-    let read = case reader of
-            Pandoc.StringReader r -> r Pandoc.def . unpack
-            Pandoc.ByteStringReader r -> fmap (fmap fst) . r Pandoc.def . encodeUtf8
-    read (fromStrict src) >>= either
-        (\err -> fail $ "Reading " ++ show readerName ++ " failed: " ++ show err)
-        return
-    where
-        getReader "creole" = Right $ Pandoc.mkStringReader Pandoc.readCreole
-        getReader readerName = Pandoc.getReader readerName
-
-gfnGetLocale :: forall h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run IO h)
-gfnGetLocale writeLog args = liftIO . catchToGinger writeLog $ do
-    case Ginger.extractArgsDefL [("category", "LC_TIME"), ("locale", "")] args of
-        Right [gCat, gName] ->
-            case (Ginger.asText gCat, Text.unpack . Ginger.asText $ gName) of
-                ("LC_TIME", "") -> toGVal <$> getLocale Nothing
-                ("LC_TIME", localeName) -> toGVal <$> getLocale (Just localeName)
-                (cat, localeName) -> return def -- valid call, but category not implemented
-        _ -> throwM $ GingerInvalidFunctionArgs "getlocale" "string category, string name"
-
-gfnEllipse :: Ginger.Function (Ginger.Run IO h)
-gfnEllipse [] = return def
-gfnEllipse [(Nothing, str)] =
-    gfnEllipse [(Nothing, str), (Nothing, toGVal (100 :: Int))]
-gfnEllipse [(Nothing, str), (Nothing, len)] = do
-    let txt = Ginger.asText str
-        actualLen = ClassyPrelude.length txt
-        targetLen = fromMaybe 100 $ ceiling <$> Ginger.asNumber len
-        txt' = if actualLen + 3 > targetLen
-                    then take (targetLen - 3) txt <> "..."
-                    else txt
-    return . toGVal $ txt'
-gfnEllipse ((Nothing, str):xs) = do
-    let len = fromMaybe (toGVal (100 :: Int)) $ lookup (Just "len") xs
-    gfnEllipse [(Nothing, str), (Nothing, len)]
-gfnEllipse xs = do
-    let str = fromMaybe def $ lookup (Just "str") xs
-    gfnEllipse $ (Nothing, str):xs
-
-gfnJSON :: Ginger.Function (Ginger.Run IO h)
-gfnJSON [] = return def
-gfnJSON ((_, x):xs) = do
-    return . toGVal . LUTF8.toString . JSON.encodePretty $ x
-
-gfnYAML :: Ginger.Function (Ginger.Run IO h)
-gfnYAML [] = return def
-gfnYAML ((_, x):xs) = do
-    return . toGVal . UTF8.toString . YAML.encode $ x
-
-data NotFoundException = NotFoundException
-    deriving (Show)
-
-instance Exception NotFoundException where
 
 handleRequest :: Project -> Wai.Application
 handleRequest project request respond = do
@@ -347,160 +150,3 @@ handleRequest project request respond = do
                         project
                         request
                         respond
-
-handle404 :: (HashMap Text BackendSpec, Set Text)
-          -> Project
-          -> Wai.Application
-handle404 (backendPaths, required) project request respond = do
-    respondNormally `catch` handleTemplateNotFound
-    where
-        cache = projectBackendCache project
-        logger = projectLogger project
-        respondNormally = do
-            backendData <- loadBackendDict (writeLog logger) (pbsFromRequest request) cache backendPaths required
-            respondTemplateHtml
-                project
-                status404
-                "404.html"
-                backendData
-                request
-                respond
-        handleTemplateNotFound (e :: TemplateNotFoundException) = do
-            writeLog logger Logger.Warning $ "Template 404.html not found, using built-in fallback"
-            let headers = [("Content-type", "text/plain;charset=utf8")]
-            respond . Wai.responseLBS status404 headers $ "Not Found"
-
-handle500 :: Show e
-          => e
-          -> Project
-          -> Wai.Application
-handle500 err project request respond = do
-    writeLog logger Logger.Error $ tshow err
-    respondNormally `catch` handleTemplateNotFound
-    where
-        cache = projectBackendCache project
-        backendPaths = pcContextData . projectConfig $ project
-        logger = projectLogger project
-        respondNormally = do
-            backendData <- loadBackendDict (writeLog logger) (pbsFromRequest request) cache backendPaths (setFromList [])
-            respondTemplateHtml
-                project
-                status500
-                "500.html"
-                backendData
-                request
-                respond
-        handleTemplateNotFound (e :: TemplateNotFoundException) = do
-            writeLog logger Logger.Warning $ "Template 500.html not found, using built-in fallback"
-            let headers = [("Content-type", "text/plain;charset=utf8")]
-            respond . Wai.responseLBS status500 headers $ "Something went pear-shaped. The problem seems to be on our side."
-
-handleRedirectTarget :: Text
-                     -> (HashMap Text BackendSpec, Set Text)
-                     -> Project
-                     -> Wai.Application
-handleRedirectTarget redirectPath
-                     (backendPaths, required)
-                     project
-                     request
-                     respond = do
-    respond $ Wai.responseLBS
-        status302
-        [("Location", UTF8.fromString . unpack $ redirectPath)]
-        ""
-
-handleJSONTarget :: (HashMap Text BackendSpec, Set Text)
-                 -> Project
-                 -> Wai.Application
-handleJSONTarget (backendPaths, required)
-                 project
-                 request
-                 respond = do
-    let cache = projectBackendCache project
-        logger = projectLogger project
-    backendData <- loadBackendDict
-                        (writeLog logger)
-                        (pbsFromRequest request)
-                        cache
-                        backendPaths
-                        required
-    respond $ Wai.responseLBS
-        status200
-        [("Content-type", "application/json")]
-        (JSON.encode backendData)
-
-handleTemplateTarget :: Text
-                     -> (HashMap Text BackendSpec, Set Text)
-                     -> Project
-                     -> Wai.Application
-handleTemplateTarget templateName
-                     (backendPaths, required)
-                     project
-                     request
-                     respond = do
-    let cache = projectBackendCache project
-        logger = projectLogger project
-        go = do
-            backendData <- loadBackendDict
-                                (writeLog logger)
-                                (pbsFromRequest request)
-                                cache
-                                backendPaths
-                                required
-            respondTemplateHtml
-                project
-                status200
-                templateName
-                backendData
-                request
-                respond
-    go `catch` handleNotFound project request respond
-
-handleStaticTarget :: (HashMap Text BackendSpec, Set Text)
-                     -> Project
-                     -> Wai.Application
-handleStaticTarget (backendPaths, required)
-                   project
-                   request
-                   respond = do
-    let cache = projectBackendCache project
-        logger = projectLogger project
-        go = do
-            backendData <- loadBackendDict
-                                (writeLog logger)
-                                (pbsFromRequest request)
-                                cache
-                                backendPaths
-                                required
-            backendItem <- case lookup "file" backendData of
-                Nothing -> throwM NotFoundException
-                Just NotFound -> throwM NotFoundException
-                Just (SingleItem item) -> return item
-                Just (MultiItem []) -> throwM NotFoundException
-                Just (MultiItem (x:xs)) -> return x
-            respond $ Wai.responseLBS
-                status200
-                [("Content-type", bmMimeType . bdMeta $ backendItem)]
-                (bdRaw $ backendItem)
-    go `catch` handleNotFound project request respond
-
-handleNotFound :: Project -> Wai.Request -> (Wai.Response -> IO Wai.ResponseReceived) -> NotFoundException -> IO Wai.ResponseReceived
-handleNotFound project request respond _ = do
-    let globalBackendPaths = pcContextData . projectConfig $ project
-    handle404
-        (globalBackendPaths, setFromList [])
-        project
-        request
-        respond
-
-loadBackendDict :: (LogLevel -> Text -> IO ()) -> PostBodySource -> RawBackendCache -> HashMap Text BackendSpec -> Set Text -> IO (HashMap Text (Items (BackendData IO Html)))
-loadBackendDict writeLog postBodySrc cache backendPaths required = do
-    pairs <- forM (mapToList backendPaths) $ \(key, backendPath) -> do
-        bd :: Items (BackendData IO Html) <- loadBackendData writeLog postBodySrc cache backendPath
-        case bd of
-            NotFound ->
-                if key `elem` required
-                    then throwM NotFoundException
-                    else return $ (key, NotFound)
-            _ -> return (key, bd)
-    return $ mapFromList pairs
