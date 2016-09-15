@@ -5,7 +5,6 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE LambdaCase #-}
-{-#LANGUAGE DeriveGeneric #-}
 
 -- | HTTP backend loader
 module Web.Templar.Backends.Loader.HttpLoader
@@ -33,7 +32,7 @@ import qualified Network.Curl as Curl
 import Data.Char (isSpace)
 
 curlLoader :: Text -> HttpBackendOptions -> Loader
-curlLoader uriText options writeLog _ fetchMode fetchOrder = do
+curlLoader uriText options writeLog _ fetchMode fetchOrder =
     Curl.initialize >>= \curl -> do
         response <- Curl.curlGetResponse_
             (unpack uriText)

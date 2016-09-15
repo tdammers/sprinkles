@@ -5,7 +5,6 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE LambdaCase #-}
-{-#LANGUAGE DeriveGeneric #-}
 
 -- | SQL backend loader
 module Web.Templar.Backends.Loader.SqlLoader
@@ -24,7 +23,6 @@ import Web.Templar.Backends.Data
 import qualified Database.HDBC as HDBC
 import qualified Web.Templar.Databases as DB
 import Web.Templar.Databases (DSN (..), sqlDriverFromID)
-import Web.Templar.Backends.Loader.Type
 import Web.Templar.Logger (LogLevel (..))
 import Data.Aeson as JSON
 import Data.Aeson.TH as JSON
@@ -46,15 +44,15 @@ sqlLoader dsn query params writeLog _ fetchMode fetchOrder = do
         mapRow :: Map String HDBC.SqlValue -> BackendSource
         mapRow row =
             let json = JSON.encode (fmap (HDBC.fromSql :: HDBC.SqlValue -> Text) row)
-                name = fromMaybe "SQL" . fmap HDBC.fromSql $
-                    (lookup "name" row) <|>
-                    (lookup "title" row) <|>
+                name = maybe "SQL" HDBC.fromSql $
+                    lookup "name" row <|>
+                    lookup "title" row <|>
                     (headMay . fmap snd . mapToList $ row)
                 meta = BackendMeta
                         { bmMimeType = "application/json"
                         , bmMTime = Nothing
                         , bmName = name
                         , bmPath = "SQL"
-                        , bmSize = (Just . fromIntegral $ length json)
+                        , bmSize = Just . fromIntegral $ length json
                         }
             in BackendSource meta json

@@ -1,9 +1,6 @@
-{-#LANGUAGE DeriveGeneric #-}
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
 {-#LANGUAGE OverloadedLists #-}
-{-#LANGUAGE TemplateHaskell #-}
-{-#LANGUAGE GeneralizedNewtypeDeriving #-}
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE ScopedTypeVariables #-}
 {-#LANGUAGE FlexibleInstances #-}

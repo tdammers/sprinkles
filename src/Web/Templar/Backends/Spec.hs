@@ -64,9 +64,8 @@ instance Serialize BackendType where
         Cereal.put (encodeUtf8 . unpack $ cmd)
         Cereal.put (map (encodeUtf8 . unpack) args)
         Cereal.put t
-    put RequestBodyBackend = Cereal.put('b')
-    get = do
-        Cereal.get >>= \case
+    put RequestBodyBackend = Cereal.put 'b'
+    get = Cereal.get >>= \case
             'h' -> HttpBackend <$> (pack . decodeUtf8 <$> Cereal.get) <*> Cereal.get
             'f' -> FileBackend <$> (pack . decodeUtf8 <$> Cereal.get)
             's' -> SqlBackend <$>
@@ -325,12 +324,12 @@ instance FromJSON Credentials where
     parseJSON _ = fail "Invalid credentials"
 
 instance FromJSON HttpMethod where
-    parseJSON (String str) = do
+    parseJSON (String str) =
         case toUpper str of
             "GET" -> return GET
             "POST" -> return POST
             x -> fail $ "Unsupported request method: " <> show x
-    parseJSON _ = fail $ "Invalid request method, expected string"
+    parseJSON _ = fail "Invalid request method, expected string"
 
 instance FromJSON HttpBackendOptions where
     parseJSON Null = return def

@@ -1,9 +1,6 @@
-{-#LANGUAGE DeriveGeneric #-}
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
 {-#LANGUAGE OverloadedLists #-}
-{-#LANGUAGE TemplateHaskell #-}
-{-#LANGUAGE GeneralizedNewtypeDeriving #-}
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE ScopedTypeVariables #-}
 {-#LANGUAGE FlexibleInstances #-}
@@ -51,6 +48,6 @@ handleStaticTarget (backendPaths, required)
             respond $ Wai.responseLBS
                 status200
                 [("Content-type", bmMimeType . bdMeta $ backendItem)]
-                (bdRaw $ backendItem)
+                (bdRaw backendItem)
     go `catch` handleNotFound project request respond
 

@@ -5,7 +5,6 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE LambdaCase #-}
-{-#LANGUAGE DeriveGeneric #-}
 
 -- | Subprocess backend loader
 module Web.Templar.Backends.Loader.SubprocessLoader
@@ -39,7 +38,7 @@ subprocessLoader cmd args mimeType writeLog _ fetchMode fetchOrder = do
                 { bmMimeType = mimeType
                 , bmMTime = Nothing
                 , bmName = cmd
-                , bmPath = concat . intersperse " " $ cmd:args
+                , bmPath = unwords $ cmd:args
                 , bmSize = Just contentLength
                 }
     return [BackendSource meta body]

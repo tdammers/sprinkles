@@ -1,9 +1,6 @@
-{-#LANGUAGE DeriveGeneric #-}
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
 {-#LANGUAGE OverloadedLists #-}
-{-#LANGUAGE TemplateHaskell #-}
-{-#LANGUAGE GeneralizedNewtypeDeriving #-}
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE ScopedTypeVariables #-}
 {-#LANGUAGE FlexibleInstances #-}
@@ -37,7 +34,7 @@ handleRedirectTarget redirectPath
                      (backendPaths, required)
                      project
                      request
-                     respond = do
+                     respond =
     respond $ Wai.responseLBS
         status302
         [("Location", UTF8.fromString . unpack $ redirectPath)]

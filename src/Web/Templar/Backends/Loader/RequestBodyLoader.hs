@@ -5,7 +5,6 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE LambdaCase #-}
-{-#LANGUAGE DeriveGeneric #-}
 
 -- | File backend loader
 module Web.Templar.Backends.Loader.RequestBodyLoader

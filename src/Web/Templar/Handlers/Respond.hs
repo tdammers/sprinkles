@@ -2,8 +2,6 @@
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
 {-#LANGUAGE OverloadedLists #-}
-{-#LANGUAGE TemplateHaskell #-}
-{-#LANGUAGE GeneralizedNewtypeDeriving #-}
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE ScopedTypeVariables #-}
 {-#LANGUAGE FlexibleInstances #-}
@@ -22,7 +20,6 @@ import Web.Templar.Logger as Logger
 import Web.Templar.Project
 import Web.Templar.ProjectConfig
 
-import qualified Text.Ginger as Ginger
 import Text.Ginger
        (parseGinger, Template, runGingerT, GingerContext, GVal(..), ToGVal(..),
         (~>))
@@ -36,7 +33,6 @@ import qualified Data.Yaml as YAML
 import qualified Data.Aeson as JSON
 import qualified Data.Aeson.Encode.Pretty as JSON
 import Data.Default (Default, def)
-import qualified Text.Pandoc as Pandoc
 import Data.Text (Text)
 import qualified Data.Text as Text
 import System.Locale.Read (getLocale)
@@ -151,7 +147,7 @@ gfnLoadBackendData writeLog cache args =
         loadPair :: (Int, (Maybe Text, GVal (Ginger.Run IO h)))
                  -> Ginger.Run IO h (Text, GVal (Ginger.Run IO h))
         loadPair (index, (keyMay, gBackendURL)) = do
-            let backendURL = Ginger.asText $ gBackendURL
+            let backendURL = Ginger.asText gBackendURL
             backendData :: Items (BackendData IO h) <- liftIO $
                 loadBackendData writeLog pbsInvalid cache =<< parseBackendURI backendURL
             return
@@ -198,7 +194,7 @@ pandoc readerName src = do
         getReader readerName = Pandoc.getReader readerName
 
 gfnGetLocale :: forall h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run IO h)
-gfnGetLocale writeLog args = liftIO . catchToGinger writeLog $ do
+gfnGetLocale writeLog args = liftIO . catchToGinger writeLog $
     case Ginger.extractArgsDefL [("category", "LC_TIME"), ("locale", "")] args of
         Right [gCat, gName] ->
             case (Ginger.asText gCat, Text.unpack . Ginger.asText $ gName) of
@@ -228,12 +224,12 @@ gfnEllipse xs = do
 
 gfnJSON :: Ginger.Function (Ginger.Run IO h)
 gfnJSON [] = return def
-gfnJSON ((_, x):xs) = do
+gfnJSON ((_, x):xs) =
     return . toGVal . LUTF8.toString . JSON.encodePretty $ x
 
 gfnYAML :: Ginger.Function (Ginger.Run IO h)
 gfnYAML [] = return def
-gfnYAML ((_, x):xs) = do
+gfnYAML ((_, x):xs) =
     return . toGVal . UTF8.toString . YAML.encode $ x
 
 

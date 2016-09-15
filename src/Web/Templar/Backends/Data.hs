@@ -139,11 +139,17 @@ instance Serialize BackendMeta where
                     <*> (decodeUtf8 <$> Cereal.get)
                     <*> Cereal.get
 
+mtimeFlavors :: BackendMeta -> (Maybe POSIXTime, Maybe Scientific, Maybe LocalTime)
+mtimeFlavors bm =
+    let mtime = bmMTime bm
+    in ( mtime
+       , realToFrac <$> mtime :: Maybe Scientific
+       , utcToLocalTime utc . posixSecondsToUTCTime <$> mtime
+       )
+
 instance ToJSON BackendMeta where
     toJSON bm =
-        let mtime = bmMTime bm
-            mtimeSci = realToFrac <$> mtime :: Maybe Scientific
-            mtimeUTC = utcToLocalTime utc . posixSecondsToUTCTime <$> mtime
+        let (mtime, mtimeSci, mtimeUTC) = mtimeFlavors bm
         in JSON.object
             [ "mimeType" .= decodeUtf8 (bmMimeType bm)
             , "mtime" .= mtimeSci
@@ -155,9 +161,7 @@ instance ToJSON BackendMeta where
 
 instance ToGVal m BackendMeta where
     toGVal bm =
-        let mtime = bmMTime bm
-            mtimeSci = realToFrac <$> mtime :: Maybe Scientific
-            mtimeUTC = utcToLocalTime utc . posixSecondsToUTCTime <$> mtime
+        let (mtime, mtimeSci, mtimeUTC) = mtimeFlavors bm
         in Ginger.dict
             [ "type" ~> decodeUtf8 (bmMimeType bm)
             , "mtime" ~> mtimeSci

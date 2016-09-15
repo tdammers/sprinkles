@@ -5,7 +5,6 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE LambdaCase #-}
-{-#LANGUAGE DeriveGeneric #-}
 
 -- | File backend loader
 module Web.Templar.Backends.Loader.FileLoader
@@ -65,33 +64,28 @@ fileLoader filepath writeLog _ fetchMode fetchOrder =
                 `catchIOError` \err -> do
                     writeLog Notice $ tshow err
                     return ""
-            status <- getFileStatus candidate
-            let mtimeUnix = modificationTime status
-                meta = BackendMeta
-                        { bmMimeType = mimeType
-                        , bmMTime = Just . realToFrac $ mtimeUnix
-                        , bmName = pack $ takeBaseName candidate
-                        , bmPath = pack candidate
-                        , bmSize = (Just . fromIntegral $ fileSize status :: Maybe Integer)
-                        }
-            return $ BackendSource meta contents
+            mkFileBackendSource mimeType candidate contents
 
         fetchAsFile candidate = do
             let mimeType = mimeLookup . pack $ candidate
-            contents <- (readFile candidate)
+            contents <- readFile candidate
                 `catchIOError` \err -> do
                     writeLog Notice $ tshow err
                     return ""
-            status <- getFileStatus candidate
-            let mtimeUnix = modificationTime status
-                meta = BackendMeta
-                        { bmMimeType = mimeType
-                        , bmMTime = Just . realToFrac $ mtimeUnix
-                        , bmName = pack $ takeBaseName candidate
-                        , bmPath = pack candidate
-                        , bmSize = (Just . fromIntegral $ fileSize status :: Maybe Integer)
-                        }
-            return $ BackendSource meta contents
+            mkFileBackendSource mimeType candidate contents
+
+mkFileBackendSource :: MimeType -> FilePath -> LByteString -> IO BackendSource
+mkFileBackendSource mimeType candidate contents = do
+    status <- getFileStatus candidate
+    let mtimeUnix = modificationTime status
+        meta = BackendMeta
+                { bmMimeType = mimeType
+                , bmMTime = Just . realToFrac $ mtimeUnix
+                , bmName = pack $ takeBaseName candidate
+                , bmPath = pack candidate
+                , bmSize = Just . fromIntegral $ fileSize status :: Maybe Integer
+                }
+    return $ BackendSource meta contents
 
 -- | Our own extended MIME type dictionary. The default one lacks appropriate
 -- entries for some of the important types we use, so we add them here.

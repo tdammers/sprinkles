@@ -5,7 +5,6 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE LambdaCase #-}
-{-#LANGUAGE DeriveGeneric #-}
 
 -- | Parse raw backend data into useful data structures.
 module Web.Templar.Backends.Parsers
@@ -46,7 +45,7 @@ parsersTable = mapFromList . mconcat $
     [ zip mimeTypes (repeat parser) | (mimeTypes, parser) <- parsers ]
 
 -- | The parsers we know, by mime types.
-parsers :: Monad m => [([MimeType], (BackendSource -> m (BackendData n h)))]
+parsers :: Monad m => [([MimeType], BackendSource -> m (BackendData n h))]
 parsers =
     [  ( [ "application/json", "text/json" ]
       , json
@@ -103,7 +102,7 @@ parsers =
 -- fallback for otherwise unsupported file types.
 parseRawData :: Monad m => BackendSource -> m (BackendData n h)
 parseRawData (BackendSource meta body) =
-    return $ BackendData
+    return BackendData
         { bdJSON = JSON.Null
         , bdGVal = toGVal JSON.Null
         , bdMeta = meta
@@ -135,7 +134,7 @@ pandocBS :: Monad m
          => (LByteString -> Either PandocError Pandoc)
          -> BackendSource
          -> m (BackendData n h)
-pandocBS reader input@(BackendSource meta body) = do
+pandocBS reader input@(BackendSource meta body) =
     case reader body of
         Left err -> fail . show $ err
         Right pandoc -> return $ toBackendData input pandoc

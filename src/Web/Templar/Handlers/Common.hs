@@ -1,9 +1,6 @@
-{-#LANGUAGE DeriveGeneric #-}
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
 {-#LANGUAGE OverloadedLists #-}
-{-#LANGUAGE TemplateHaskell #-}
-{-#LANGUAGE GeneralizedNewtypeDeriving #-}
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE ScopedTypeVariables #-}
 {-#LANGUAGE FlexibleInstances #-}
@@ -42,7 +39,7 @@ handleNotFound project request respond _ = do
 handle404 :: (HashMap Text BackendSpec, Set Text)
           -> Project
           -> Wai.Application
-handle404 (backendPaths, required) project request respond = do
+handle404 (backendPaths, required) project request respond =
     respondNormally `catch` handleTemplateNotFound
     where
         cache = projectBackendCache project
@@ -57,7 +54,7 @@ handle404 (backendPaths, required) project request respond = do
                 request
                 respond
         handleTemplateNotFound (e :: TemplateNotFoundException) = do
-            writeLog logger Logger.Warning $ "Template 404.html not found, using built-in fallback"
+            writeLog logger Logger.Warning "Template 404.html not found, using built-in fallback"
             let headers = [("Content-type", "text/plain;charset=utf8")]
             respond . Wai.responseLBS status404 headers $ "Not Found"
 
@@ -82,7 +79,7 @@ handle500 err project request respond = do
                 request
                 respond
         handleTemplateNotFound (e :: TemplateNotFoundException) = do
-            writeLog logger Logger.Warning $ "Template 500.html not found, using built-in fallback"
+            writeLog logger Logger.Warning "Template 500.html not found, using built-in fallback"
             let headers = [("Content-type", "text/plain;charset=utf8")]
             respond . Wai.responseLBS status500 headers $ "Something went pear-shaped. The problem seems to be on our side."
 
@@ -94,6 +91,6 @@ loadBackendDict writeLog postBodySrc cache backendPaths required = do
             NotFound ->
                 if key `elem` required
                     then throwM NotFoundException
-                    else return $ (key, NotFound)
+                    else return (key, NotFound)
             _ -> return (key, bd)
     return $ mapFromList pairs
