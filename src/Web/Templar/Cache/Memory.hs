@@ -23,10 +23,9 @@ memCache maxAge = do
             , cacheVacuum = do
                 now <- getPOSIXTime
                 let threshold = now - maxAge
-                itemsDeleted <- modifyMVar cacheVar $ \m -> do
+                modifyMVar cacheVar $ \m -> do
                     let m' = HashMap.filter (\(_, ts) -> ts > threshold) m
                         sizeBefore = HashMap.size m
                         sizeAfter = HashMap.size m'
-                    return (m', (sizeBefore - sizeAfter))
-                return itemsDeleted
+                    return (m', sizeBefore - sizeAfter)
             }

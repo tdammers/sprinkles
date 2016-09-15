@@ -4,6 +4,7 @@ module Control.MaybeEitherMonad
 where
 
 import Control.Exception
+import Data.Maybe (fromMaybe)
 
 -- | Return the 'Just' value, or fail on 'Nothing'
 maybeFail :: Monad m => Maybe a -> m a
@@ -31,7 +32,7 @@ instance Exception LeftException where
 
 -- | Get 'Just' the value, or throw a 'NothingException'
 maybeThrow :: Maybe a -> a
-maybeThrow = maybe (throw NothingException) id
+maybeThrow = fromMaybe (throw NothingException)
 
 -- | Get the 'Right' value, or throw a 'LeftException'
 eitherThrowS :: Either String a -> a

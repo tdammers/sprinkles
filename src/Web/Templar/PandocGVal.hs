@@ -25,7 +25,11 @@ writerOptions =
 instance ToGVal m Pandoc where
     toGVal pandoc@(Pandoc meta blocks) =
         def { asList = Just $ map toGVal blocks
-            , asDictItems = Just $ [("meta", toGVal meta), ("body", toGVal blocks)]
+            , asDictItems =
+                Just
+                    [ ("meta", toGVal meta)
+                    , ("body", toGVal blocks)
+                    ]
             , asLookup = Just $ \case
                             "meta" -> Just (toGVal meta)
                             "body" -> Just (toGVal blocks)
@@ -59,15 +63,13 @@ instance ToGVal m Block where
             listItems :: [GVal m]
             blockProps :: HashMap Text (GVal m)
             (blockProps, listItems) = blockChildren block
-            baseProps :: HashMap Text (GVal m)
             baseProps = mapFromList ["children" ~> listItems]
-            props :: HashMap Text (GVal m)
             props = baseProps <> blockProps
         in def { asList = Just listItems
                , asDictItems = Just $ mapToList props
                , asLookup = Just $ \key -> lookup key props
                , asHtml = unsafeRawHtml . pack . writeHtmlString writerOptions $ pandoc
-               , asText = unwords . fmap (<> " ") . fmap asText $ listItems
+               , asText = unwords . fmap ((<> " ") . asText) $ listItems
                , asBoolean = True
                , asNumber = Nothing
                , asFunction = Nothing
@@ -186,9 +188,7 @@ instance ToGVal m Inline where
             listItems :: [GVal m]
             inlineProps :: HashMap Text (GVal m)
             (inlineProps, listItems) = inlineChildren inline
-            baseProps :: HashMap Text (GVal m)
             baseProps = mapFromList ["children" ~> listItems]
-            props :: HashMap Text (GVal m)
             props = baseProps <> inlineProps
         in def { asList = Just listItems
                , asDictItems = Just $ mapToList props

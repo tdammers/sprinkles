@@ -1,7 +1,5 @@
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
-{-#LANGUAGE TemplateHaskell #-}
-{-#LANGUAGE GeneralizedNewtypeDeriving #-}
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE ScopedTypeVariables #-}
 {-#LANGUAGE FlexibleInstances #-}
@@ -87,36 +85,32 @@ patternQueryItemP = do
     required <- option True $ char '?' *> return False
     return $ PatternQueryItem nameMay key val required
 
+doubleBraced :: Parsec Text () a -> Parsec Text () a
+doubleBraced inner =
+    string "{{" *> inner <* string "}}"
+
+
 namedPathItemP :: Parsec Text () PatternPathItem
-namedPathItemP = do
-    char '{'
-    char '{'
+namedPathItemP = doubleBraced $ do
     name <- optionMaybe $ fmap pack (some alphaNum <* char ':')
     base <- baseItemP
     multi <- multiModifierP
-    char '}'
-    char '}'
     return $ PatternPathItem name base multi
 
 multiModifierP :: Parsec Text () MatchMulti
 multiModifierP = (char '*' >> return MatchMany) <|> return MatchOne
 
 namedQueryItemP :: Parsec Text () (Maybe Text, BasePatternItem)
-namedQueryItemP = do
-    char '{'
-    char '{'
+namedQueryItemP = doubleBraced $ do
     name <- optionMaybe $ fmap pack (some alphaNum <* char ':')
     base <- baseItemP
-    char '}'
-    char '}'
     return (name, base)
 
 baseItemP :: Parsec Text () BasePatternItem
 baseItemP = regexP <|> anyP <|> literalP
 
 anyP :: Parsec Text () BasePatternItem
-anyP = do
-    char '*' *> return Any
+anyP = char '*' *> return Any
 
 literalP :: Parsec Text () BasePatternItem
 literalP = Exactly . pack <$> some (noneOf ['{', '}', '*', '/', '?', '&', '='])
@@ -197,7 +191,7 @@ matchBaseItemMulti pitem (q:remainder) =
 
 matchBaseItem :: BasePatternItem -> Text -> Maybe Text
 matchBaseItem (Exactly t) x =
-    if (t == x)
+    if t == x
         then Just t
         else Nothing
 matchBaseItem Any x = Just x

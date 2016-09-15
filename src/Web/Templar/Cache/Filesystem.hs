@@ -13,6 +13,7 @@ import System.Directory (removeFile, getDirectoryContents)
 import System.FilePath (takeFileName)
 import System.PosixCompat.Files (getFileStatus, modificationTime)
 import Data.Time.Clock.POSIX
+import Data.Char (isAsciiLower, isAsciiUpper, isDigit)
 
 ignoreNonexisting :: a -> IOError -> IO a
 ignoreNonexisting r err =
@@ -56,8 +57,9 @@ filesystemCache serializeKey deserializeKey writeValue readValue cacheDir maxAge
             now <- getPOSIXTime
             let expirationTS = now - maxAge
                 expired = map fst . filter (\(_, ts) -> ts < expirationTS) $ timestamped
-            forM_ expired $ \filename -> do
-                removeFile filename `catchIOError` ignoreNonexisting_
+            forM_ expired $ \filename ->
+                removeFile filename
+                `catchIOError` ignoreNonexisting_
             return $ length expired
         }
     where
@@ -70,9 +72,9 @@ encodeFilename =
     where
         encodeChar :: Char -> FilePath
         encodeChar c
-            | (c >= 'a' && c <= 'z') ||
-              (c >= 'A' && c <= 'Z') ||
-              (c >= '0' && c <= '9') = [c]
+            | isAsciiLower c ||
+              isAsciiUpper c ||
+              isDigit c = [c]
             | otherwise = '_' : show (ord c)
 
 decodeFilename :: FilePath -> String

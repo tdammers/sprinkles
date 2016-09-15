@@ -1,7 +1,6 @@
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
 {-#LANGUAGE OverloadedLists #-}
-{-#LANGUAGE TemplateHaskell #-}
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE ScopedTypeVariables #-}
 {-#LANGUAGE TypeSynonymInstances #-}
@@ -31,19 +30,18 @@ data BackendCacheConfig =
 
 instance FromJSON BackendCacheConfig where
     parseJSON (String str) = maybeFail $ backendCacheConfigFromString str
-    parseJSON (Object obj) = do
-        (obj .: "type") >>= \case
-            "file" -> FilesystemCache <$>
-                        (obj .:? "dir" .!= ".cache") <*>
-                        (obj .:? "max-age" .!= 300)
-            "mem" -> MemCache <$>
-                        (obj .:? "max-age" .!= 60)
-            "memcached" -> return MemcachedCache
-            x -> fail $ "Invalid backend cache type: '" <> x
+    parseJSON (Object obj) = (obj .: "type") >>= \case
+        "file" -> FilesystemCache <$>
+                    (obj .:? "dir" .!= ".cache") <*>
+                    (obj .:? "max-age" .!= 300)
+        "mem" -> MemCache <$>
+                    (obj .:? "max-age" .!= 60)
+        "memcached" -> return MemcachedCache
+        x -> fail $ "Invalid backend cache type: '" <> x
     parseJSON x = fail $ "Invalid backend cache specification: " <> show x
 
 backendCacheConfigFromString :: Text -> Maybe BackendCacheConfig
-backendCacheConfigFromString str = do
+backendCacheConfigFromString str =
     case splitSeq ":" str of
         ["file", dir] -> return $ FilesystemCache (unpack dir) 300
         ["file"] -> return $ FilesystemCache ".cache" 300
@@ -65,13 +63,13 @@ instance FromJSON ServerDriver where
     parseJSON (String "warp") =
         return $ WarpDriver Nothing
     parseJSON (String "cgi") =
-        return $ CGIDriver
+        return CGIDriver
     parseJSON (String "fastcgi") =
-        return $ FastCGIDriver
+        return FastCGIDriver
     parseJSON (String "fcgi") =
-        return $ FastCGIDriver
+        return FastCGIDriver
     parseJSON (String "scgi") =
-        return $ SCGIDriver
+        return SCGIDriver
     parseJSON (String "default") =
         return def
     parseJSON (Object o) = do
@@ -131,7 +129,7 @@ instance FromJSON ServerConfig where
         driver <- fromMaybe def
                     <$> ( obj .:? "driver" )
         logger <- obj .:? "log"
-        return $ ServerConfig
+        return ServerConfig
             { scBackendCache = caches
             , scDriver = driver
             , scLogger = logger
@@ -155,7 +153,7 @@ firstNonNull [] xs = xs
 firstNonNull xs _ = xs
 
 loadServerConfigFile :: FilePath -> IO ServerConfig
-loadServerConfigFile fn = do
+loadServerConfigFile fn =
     YAML.decodeFileEither fn >>=
         either
             (fail . show)

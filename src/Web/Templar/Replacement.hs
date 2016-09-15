@@ -1,7 +1,5 @@
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
-{-#LANGUAGE TemplateHaskell #-}
-{-#LANGUAGE GeneralizedNewtypeDeriving #-}
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE ScopedTypeVariables #-}
 {-#LANGUAGE FlexibleInstances #-}
@@ -30,7 +28,7 @@ instance FromJSON Replacement where
     parseJSON val = (maybe (fail "invalid replacement") return . parseReplacement) =<< parseJSON val
 
 expandReplacementText :: HashMap Text Text -> Text -> Maybe Text
-expandReplacementText variables input = do
+expandReplacementText variables input =
     expandReplacement variables <$> parseReplacement input
 
 parseReplacement :: Text -> Maybe Replacement

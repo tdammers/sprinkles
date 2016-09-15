@@ -59,8 +59,8 @@ haveGitModifications = do
     return . not . null $ outLines
 
 formatPackageVersion :: Version -> String
-formatPackageVersion v =
-    intercalate "." . map show . versionBranch $ v
+formatPackageVersion =
+    intercalate "." . map show . versionBranch
 
 embedPackageVersionStr :: FilePath -> Q Exp
 embedPackageVersionStr fp = do

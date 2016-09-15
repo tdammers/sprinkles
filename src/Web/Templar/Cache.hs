@@ -54,18 +54,17 @@ nullCache =
 appendCache :: Cache k v -> Cache k v -> Cache k v
 appendCache first second =
     Cache
-        { cacheGet = \key -> do
-            cacheGet first key >>= \case
-                Nothing ->
-                    cacheGet second key >>=
-                        maybe
-                            (return Nothing)
-                            (\value -> do
-                                cachePut first key value
-                                return $ Just value
-                            )
-                Just value ->
-                    return $ Just value
+        { cacheGet = \key -> cacheGet first key >>= \case
+            Nothing ->
+                cacheGet second key >>=
+                    maybe
+                        (return Nothing)
+                        (\value -> do
+                            cachePut first key value
+                            return $ Just value
+                        )
+            Just value ->
+                return $ Just value
         , cachePut = \key value -> do
             cachePut first key value
             cachePut second key value
@@ -91,12 +90,11 @@ transformCache transK
                untransV
                innerCache =
     Cache
-        { cacheGet = \key -> do
-            cacheGet innerCache (transK key) >>= \case
+        { cacheGet = \key -> cacheGet innerCache (transK key) >>= \case
                 Nothing -> return Nothing
                 Just tval -> untransV tval
         , cachePut = \key value ->
             transV value >>= optionally (cachePut innerCache (transK key))
-        , cacheDelete = \key -> cacheDelete innerCache (transK key)
+        , cacheDelete = cacheDelete innerCache . transK
         , cacheVacuum = cacheVacuum innerCache
         }

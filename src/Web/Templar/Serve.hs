@@ -1,9 +1,6 @@
-{-#LANGUAGE DeriveGeneric #-}
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
 {-#LANGUAGE OverloadedLists #-}
-{-#LANGUAGE TemplateHaskell #-}
-{-#LANGUAGE GeneralizedNewtypeDeriving #-}
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE ScopedTypeVariables #-}
 {-#LANGUAGE FlexibleInstances #-}
@@ -78,7 +75,7 @@ serveProject config project = do
             FastCGIDriver -> serveFastCGI
         vacuum = forever $ do
             itemsCleared <- cacheVacuum (projectBackendCache project)
-            when (itemsCleared > 0) $ do
+            when (itemsCleared > 0) $
                 writeLog (projectLogger project) Notice $
                     "Cache items deleted: " <> tshow itemsCleared
             threadDelay 5000000 -- check every 5 seconds
@@ -107,7 +104,7 @@ serveFastCGI :: Project -> IO ()
 serveFastCGI project = FastCGI.run (appFromProject project)
 
 appFromProject :: Project -> Wai.Application
-appFromProject project request respond = do
+appFromProject project request respond =
     handleRequest project request respond `catch` handleException
     where
         handleException (e :: SomeException) = do
@@ -115,7 +112,7 @@ appFromProject project request respond = do
             respond $ Wai.responseLBS status500 [] "Something went pear-shaped."
 
 handleRequest :: Project -> Wai.Application
-handleRequest project request respond = do
+handleRequest project request respond =
     go `catchIOError` \e -> handle500 e project request respond
     where
         cache = projectBackendCache project

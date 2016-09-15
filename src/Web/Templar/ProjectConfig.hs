@@ -1,7 +1,6 @@
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
 {-#LANGUAGE OverloadedLists #-}
-{-#LANGUAGE TemplateHaskell #-}
 {-#LANGUAGE LambdaCase #-}
 module Web.Templar.ProjectConfig
 where
@@ -38,7 +37,7 @@ instance FromJSON ProjectConfig where
     parseJSON (Object obj) = do
         contextData <- fromMaybe (mapFromList []) <$> obj .:? "data"
         rules <- fromMaybe [] <$> (obj .:? "rules" <|> obj .:? "Rules")
-        return $ ProjectConfig
+        return ProjectConfig
             { pcContextData = contextData
             , pcRules = rules
             }
@@ -55,13 +54,13 @@ firstNonNull [] xs = xs
 firstNonNull xs _ = xs
 
 loadProjectConfigFile :: FilePath -> IO ProjectConfig
-loadProjectConfigFile fn = do
+loadProjectConfigFile fn =
     YAML.decodeFileEither fn >>=
         either
             (fail . show)
             return
 
 loadProjectConfig :: FilePath -> IO ProjectConfig
-loadProjectConfig dir = do
+loadProjectConfig dir =
     loadProjectConfigFile $ dir </> "project.yml"
 

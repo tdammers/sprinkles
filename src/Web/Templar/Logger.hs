@@ -61,11 +61,11 @@ writeLog logger level message = do
 
 formatMessage :: LogMessage -> Text
 formatMessage msg =
-    (tshow $ lmTimestamp msg) <>
+    tshow (lmTimestamp msg) <>
     " [" <>
-    (tshow $ lmLevel msg) <>
+    tshow (lmLevel msg) <>
     "] " <>
-    (lmMessage msg)
+    lmMessage msg
 
 data Logger =
     Logger
@@ -95,7 +95,7 @@ syslogLogger level = Logger go
                 "templar"
                 []
                 Syslog.USER
-                (Syslog.logUpTo $ logLevelToSyslogPrio level) $ do
+                (Syslog.logUpTo $ logLevelToSyslogPrio level) $
                     Syslog.syslog
                         (logLevelToSyslogPrio . lmLevel $ msg)
                         (unpack . lmMessage $ msg)
@@ -106,7 +106,7 @@ newBufferedLogger inner = do
     channel <- newChan
     logOpen <- newMVar ()
     let writeFn = writeChan channel
-    forkIO . forever $ do
+    forkIO . forever $
         -- TODO: This thread will currently keep running until the main
         -- program exits. OK for now, but it would be cleaner to provide a
         -- cleanup function that can be used in a bracket.

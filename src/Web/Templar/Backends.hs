@@ -5,7 +5,6 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE LambdaCase #-}
-{-#LANGUAGE DeriveGeneric #-}
 
 -- | Main Backend module.
 module Web.Templar.Backends
@@ -93,7 +92,7 @@ wrapBackendCache =
 
 -- | Fetch raw backend data from a backend source, with caching.
 fetchBackendData :: (LogLevel -> Text -> IO ()) -> PostBodySource -> RawBackendCache -> BackendSpec -> IO [BackendSource]
-fetchBackendData writeLog loadPost rawCache spec = do
+fetchBackendData writeLog loadPost rawCache spec =
     cacheWrap (fetchBackendData' writeLog loadPost) spec
     where
         cacheWrap = case cachePolicy spec of
@@ -104,7 +103,10 @@ fetchBackendData writeLog loadPost rawCache spec = do
 
 -- | Fetch raw backend data from a backend source, without caching.
 fetchBackendData' :: (LogLevel -> Text -> IO ()) -> PostBodySource -> BackendSpec -> IO [BackendSource]
-fetchBackendData' writeLog loadPost (BackendSpec backendType fetchMode fetchOrder mimeOverride) = do
+fetchBackendData'
+        writeLog
+        loadPost
+        (BackendSpec backendType fetchMode fetchOrder mimeOverride) =
     map (overrideMime mimeOverride) <$> loader backendType writeLog loadPost fetchMode fetchOrder
 
 overrideMime :: Maybe MimeType -> BackendSource -> BackendSource
