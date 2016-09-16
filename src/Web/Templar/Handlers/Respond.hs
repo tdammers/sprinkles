@@ -231,5 +231,3 @@ gfnYAML :: Ginger.Function (Ginger.Run IO h)
 gfnYAML [] = return def
 gfnYAML ((_, x):xs) =
     return . toGVal . UTF8.toString . YAML.encode $ x
-
-

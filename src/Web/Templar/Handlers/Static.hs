@@ -30,16 +30,14 @@ handleStaticTarget backendData
                    project
                    request
                    respond = do
-    let go = do
-            backendItem <- case lookup "file" backendData of
-                Nothing -> throwM NotFoundException
-                Just NotFound -> throwM NotFoundException
-                Just (SingleItem item) -> return item
-                Just (MultiItem []) -> throwM NotFoundException
-                Just (MultiItem (x:xs)) -> return x
-            respond $ Wai.responseLBS
-                status200
-                [("Content-type", bmMimeType . bdMeta $ backendItem)]
-                (bdRaw backendItem)
-    go `catch` handleNotFound project request respond
+    backendItem <- case lookup "file" backendData of
+        Nothing -> throwM NotFoundException
+        Just NotFound -> throwM NotFoundException
+        Just (SingleItem item) -> return item
+        Just (MultiItem []) -> throwM NotFoundException
+        Just (MultiItem (x:xs)) -> return x
+    respond $ Wai.responseLBS
+        status200
+        [("Content-type", bmMimeType . bdMeta $ backendItem)]
+        (bdRaw backendItem)
 

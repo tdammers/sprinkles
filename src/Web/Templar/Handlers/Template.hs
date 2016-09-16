@@ -31,14 +31,11 @@ handleTemplateTarget templateName
                      backendData
                      project
                      request
-                     respond = do
-    let go = do
-            respondTemplateHtml
-                project
-                status200
-                templateName
-                backendData
-                request
-                respond
-    go `catch` handleNotFound project request respond
-
+                     respond =
+    respondTemplateHtml
+        project
+        status200
+        templateName
+        backendData
+        request
+        respond

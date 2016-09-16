@@ -61,7 +61,12 @@ import Web.Templar.Handlers
        , handleTemplateTarget
        )
 import Web.Templar.Handlers.Respond
-import Web.Templar.Handlers.Common (loadBackendDict, handle500, handle404)
+import Web.Templar.Handlers.Common
+       ( loadBackendDict
+       , NotFoundException (..)
+       , handle500
+       , handle404
+       )
 
 serveProject :: ServerConfig -> Project -> IO ()
 serveProject config project = do
@@ -114,7 +119,8 @@ appFromProject project request respond =
 
 handleRequest :: Project -> Wai.Application
 handleRequest project request respond =
-    go `catchIOError` \e -> handle500 e project request respond
+    go `catch` handleNotFound project request respond 
+       `catchIOError` \e -> handle500 e project request respond
     where
         go = do
             let path = Wai.pathInfo request
@@ -126,10 +132,7 @@ handleRequest project request respond =
                     path
                     query of
                 Nothing ->
-                    handle404
-                        project
-                        request
-                        respond
+                    throwM NotFoundException
                 Just (rule, captures) ->
                     handleRule
                         rule
