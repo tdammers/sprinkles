@@ -11,6 +11,8 @@ import Web.Templar.Backends
 import Data.Aeson as JSON
 import Control.MaybeEitherMonad
 import Network.HTTP.Types.URI (QueryText)
+import qualified Data.AList as AList
+import Data.AList (AList)
 
 data RuleTarget p =
     TemplateTarget p |
@@ -22,7 +24,7 @@ data RuleTarget p =
 data Rule =
     Rule
         { ruleRoutePattern :: Pattern
-        , ruleContextData :: HashMap Text BackendSpec
+        , ruleContextData :: AList Text BackendSpec
         , ruleTarget :: RuleTarget Replacement
         , ruleRequired :: Set Text
         }
@@ -31,7 +33,7 @@ data Rule =
 instance FromJSON Rule where
     parseJSON (Object obj) = do
         pattern <- obj .: "pattern"
-        contextData <- fromMaybe (mapFromList []) <$> obj .:? "data"
+        contextData <- fromMaybe AList.empty <$> obj .:? "data"
         templateMay <- fmap TemplateTarget <$> (obj .:? "template")
         redirectMay <- fmap RedirectTarget <$> (obj .:? "redirect")
         static <- fromMaybe False <$> (obj .:? "static")
@@ -49,7 +51,13 @@ expandRuleTarget _ StaticTarget = StaticTarget
 expandRuleTarget varMap (TemplateTarget p) = TemplateTarget $ expandReplacement varMap p
 expandRuleTarget varMap (RedirectTarget p) = RedirectTarget $ expandReplacement varMap p
 
-applyRule :: Rule -> [Text] -> QueryText -> Maybe (HashMap Text BackendSpec, Set Text, RuleTarget Text)
+applyRule :: Rule
+          -> [Text]
+          -> QueryText
+          -> Maybe ( AList Text BackendSpec
+                   , Set Text
+                   , RuleTarget Text
+                   )
 applyRule rule path query = do
     varMap <- matchPattern (ruleRoutePattern rule) path query
     let f :: Replacement -> Text
@@ -63,7 +71,13 @@ applyRule rule path query = do
         , expandRuleTarget varMap (ruleTarget rule)
         )
 
-applyRules :: [Rule] -> [Text] -> QueryText -> Maybe (HashMap Text BackendSpec, Set Text, RuleTarget Text)
+applyRules :: [Rule]    
+           -> [Text]
+           -> QueryText
+           -> Maybe ( AList Text BackendSpec
+                    , Set Text
+                    , RuleTarget Text
+                    )
 applyRules [] _ _ = Nothing
 applyRules (rule:rules) path query =
     applyRule rule path query <|> applyRules rules path query

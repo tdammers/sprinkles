@@ -23,14 +23,17 @@ import Network.HTTP.Types
        (Status, status200, status302, status400, status404, status500)
 import Web.Templar.Backends.Loader.Type
        (PostBodySource (..), pbsFromRequest, pbsInvalid)
-
+import Data.AList (AList)
+import qualified Data.AList as AList
 
 handleTemplateTarget :: Text
-                     -> (HashMap Text BackendSpec, Set Text)
+                     -> AList Text BackendSpec
+                     -> Set Text
                      -> Project
                      -> Wai.Application
 handleTemplateTarget templateName
-                     (backendPaths, required)
+                     backendPaths
+                     required
                      project
                      request
                      respond = do

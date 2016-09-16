@@ -23,6 +23,7 @@ import qualified Data.Text as Text
 import Data.Text (Text)
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import Data.Yaml as YAML
+import Data.AList (AList)
 
 import Network.HTTP.Types
        (Status, status200, status302, status400, status404, status500)
@@ -123,12 +124,17 @@ handleRequest project request respond =
             case applyRules (pcRules . projectConfig $ project) path query of
                 Nothing ->
                     handle404
-                        (globalBackendPaths, setFromList [])
+                        globalBackendPaths
+                        (setFromList [])
                         project
                         request
                         respond
                 Just (backendPaths, required, target) -> do
-                    let handle = case target of
+                    let handle :: AList Text BackendSpec
+                               -> Set Text
+                               -> Project
+                               -> Wai.Application
+                        handle = case target of
                             RedirectTarget redirectPath ->
                                 handleRedirectTarget
                                     redirectPath
@@ -143,7 +149,8 @@ handleRequest project request respond =
                                 handleTemplateTarget
                                     templateName
                     handle
-                        (globalBackendPaths <> backendPaths, required)
+                        (globalBackendPaths <> backendPaths)
+                        required
                         project
                         request
                         respond

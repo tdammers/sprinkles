@@ -15,17 +15,19 @@ import Data.Default
 import System.FilePath.Glob (glob)
 import System.Environment (getEnv, lookupEnv)
 import Control.MaybeEitherMonad (maybeFail)
+import Data.AList (AList)
+import qualified Data.AList as AList
 
 data ProjectConfig =
     ProjectConfig
-        { pcContextData :: HashMap Text BackendSpec
+        { pcContextData :: AList Text BackendSpec
         , pcRules :: [Rule]
         }
         deriving (Show)
 
 instance Default ProjectConfig where
     def = ProjectConfig
-            { pcContextData = mapFromList []
+            { pcContextData = AList.empty
             , pcRules = []
             }
 
@@ -35,7 +37,7 @@ instance Monoid ProjectConfig where
 
 instance FromJSON ProjectConfig where
     parseJSON (Object obj) = do
-        contextData <- fromMaybe (mapFromList []) <$> obj .:? "data"
+        contextData <- fromMaybe AList.empty <$> obj .:? "data"
         rules <- fromMaybe [] <$> (obj .:? "rules" <|> obj .:? "Rules")
         return ProjectConfig
             { pcContextData = contextData

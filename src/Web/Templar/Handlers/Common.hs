@@ -21,6 +21,8 @@ import Web.Templar.Handlers.Respond
 import Text.Ginger.Html (Html, htmlSource)
 import Web.Templar.Backends.Loader.Type
        (PostBodySource (..), pbsFromRequest, pbsInvalid)
+import Data.AList (AList)
+import qualified Data.AList as AList
 
 data NotFoundException = NotFoundException
     deriving (Show)
@@ -31,21 +33,28 @@ handleNotFound :: Project -> Wai.Request -> (Wai.Response -> IO Wai.ResponseRece
 handleNotFound project request respond _ = do
     let globalBackendPaths = pcContextData . projectConfig $ project
     handle404
-        (globalBackendPaths, setFromList [])
+        globalBackendPaths
+        (setFromList [])
         project
         request
         respond
 
-handle404 :: (HashMap Text BackendSpec, Set Text)
+handle404 :: AList Text BackendSpec
+          -> Set Text
           -> Project
           -> Wai.Application
-handle404 (backendPaths, required) project request respond =
+handle404 backendPaths required project request respond =
     respondNormally `catch` handleTemplateNotFound
     where
         cache = projectBackendCache project
         logger = projectLogger project
         respondNormally = do
-            backendData <- loadBackendDict (writeLog logger) (pbsFromRequest request) cache backendPaths required
+            backendData <- loadBackendDict
+                                (writeLog logger)
+                                (pbsFromRequest request)
+                                cache
+                                backendPaths
+                                required
             respondTemplateHtml
                 project
                 status404
@@ -86,11 +95,11 @@ handle500 err project request respond = do
 loadBackendDict :: (LogLevel -> Text -> IO ())
                 -> PostBodySource
                 -> RawBackendCache
-                -> HashMap Text BackendSpec
+                -> AList Text BackendSpec
                 -> Set Text
                 -> IO (HashMap Text (Items (BackendData IO Html)))
 loadBackendDict writeLog postBodySrc cache backendPaths required = do
-    pairs <- forM (mapToList backendPaths) $ \(key, backendPath) -> do
+    pairs <- forM (AList.toList backendPaths) $ \(key, backendPath) -> do
         bd :: Items (BackendData IO Html) <- loadBackendData writeLog postBodySrc cache backendPath
         case bd of
             NotFound ->

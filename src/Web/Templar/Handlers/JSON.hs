@@ -25,12 +25,15 @@ import Web.Templar.Backends.Loader.Type
 import Data.Aeson as JSON
 import Data.Aeson.Encode.Pretty as JSON
 import Data.Aeson.TH as JSON
+import Data.AList (AList)
+import qualified Data.AList as AList
 
-
-handleJSONTarget :: (HashMap Text BackendSpec, Set Text)
+handleJSONTarget :: AList Text BackendSpec
+                 -> Set Text
                  -> Project
                  -> Wai.Application
-handleJSONTarget (backendPaths, required)
+handleJSONTarget backendPaths
+                 required
                  project
                  request
                  respond = do

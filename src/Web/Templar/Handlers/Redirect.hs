@@ -24,14 +24,16 @@ import Web.Templar.Backends.Loader.Type
        (PostBodySource (..), pbsFromRequest, pbsInvalid)
 import qualified Data.ByteString.Lazy.UTF8 as LUTF8
 import qualified Data.ByteString.UTF8 as UTF8
-
+import Data.AList (AList)
 
 handleRedirectTarget :: Text
-                     -> (HashMap Text BackendSpec, Set Text)
+                     -> AList Text BackendSpec
+                     -> Set Text
                      -> Project
                      -> Wai.Application
 handleRedirectTarget redirectPath
-                     (backendPaths, required)
+                     backendPaths
+                     required
                      project
                      request
                      respond =
