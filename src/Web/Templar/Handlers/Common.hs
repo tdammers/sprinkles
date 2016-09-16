@@ -83,7 +83,12 @@ handle500 err project request respond = do
             let headers = [("Content-type", "text/plain;charset=utf8")]
             respond . Wai.responseLBS status500 headers $ "Something went pear-shaped. The problem seems to be on our side."
 
-loadBackendDict :: (LogLevel -> Text -> IO ()) -> PostBodySource -> RawBackendCache -> HashMap Text BackendSpec -> Set Text -> IO (HashMap Text (Items (BackendData IO Html)))
+loadBackendDict :: (LogLevel -> Text -> IO ())
+                -> PostBodySource
+                -> RawBackendCache
+                -> HashMap Text BackendSpec
+                -> Set Text
+                -> IO (HashMap Text (Items (BackendData IO Html)))
 loadBackendDict writeLog postBodySrc cache backendPaths required = do
     pairs <- forM (mapToList backendPaths) $ \(key, backendPath) -> do
         bd :: Items (BackendData IO Html) <- loadBackendData writeLog postBodySrc cache backendPath
