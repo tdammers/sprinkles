@@ -26,26 +26,13 @@ import Web.Templar.Backends.Loader.Type
 import Data.AList (AList)
 import qualified Data.AList as AList
 
-handleTemplateTarget :: Text
-                     -> AList Text BackendSpec
-                     -> Set Text
-                     -> Project
-                     -> Wai.Application
+handleTemplateTarget :: Text -> ContextualHandler
 handleTemplateTarget templateName
-                     backendPaths
-                     required
+                     backendData
                      project
                      request
                      respond = do
-    let cache = projectBackendCache project
-        logger = projectLogger project
-        go = do
-            backendData <- loadBackendDict
-                                (writeLog logger)
-                                (pbsFromRequest request)
-                                cache
-                                backendPaths
-                                required
+    let go = do
             respondTemplateHtml
                 project
                 status200

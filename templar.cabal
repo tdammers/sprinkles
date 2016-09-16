@@ -76,6 +76,7 @@ library
                , http-types
                , memcached-binary
                , mime-types
+               , mtl
                , network-uri
                , pandoc
                , pandoc-creole

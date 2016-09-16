@@ -29,23 +29,22 @@ data NotFoundException = NotFoundException
 
 instance Exception NotFoundException where
 
+type ContextualHandler =
+    HashMap Text (Items (BackendData IO Html)) -> Project -> Wai.Application
+
 handleNotFound :: Project -> Wai.Request -> (Wai.Response -> IO Wai.ResponseReceived) -> NotFoundException -> IO Wai.ResponseReceived
 handleNotFound project request respond _ = do
-    let globalBackendPaths = pcContextData . projectConfig $ project
     handle404
-        globalBackendPaths
-        (setFromList [])
         project
         request
         respond
 
-handle404 :: AList Text BackendSpec
-          -> Set Text
-          -> Project
+handle404 :: Project
           -> Wai.Application
-handle404 backendPaths required project request respond =
+handle404 project request respond =
     respondNormally `catch` handleTemplateNotFound
     where
+        backendPaths = pcContextData . projectConfig $ project
         cache = projectBackendCache project
         logger = projectLogger project
         respondNormally = do
@@ -54,7 +53,7 @@ handle404 backendPaths required project request respond =
                                 (pbsFromRequest request)
                                 cache
                                 backendPaths
-                                required
+                                (setFromList [])
             respondTemplateHtml
                 project
                 status404

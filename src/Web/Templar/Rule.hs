@@ -13,6 +13,8 @@ import Control.MaybeEitherMonad
 import Network.HTTP.Types.URI (QueryText)
 import qualified Data.AList as AList
 import Data.AList (AList)
+import Text.Ginger (Run, ToGVal (..), GVal)
+import Control.Monad.Writer (Writer)
 
 data RuleTarget p =
     TemplateTarget p |
@@ -45,39 +47,35 @@ instance FromJSON Rule where
         return $ Rule pattern contextData target required
     parseJSON x = fail $ "Expected rule, but found " <> show x
 
-expandRuleTarget :: HashMap Text Text -> RuleTarget Replacement -> RuleTarget Text
+expandRuleTarget :: HashMap Text (GVal (Run (Writer Text) Text)) -> RuleTarget Replacement -> RuleTarget Text
 expandRuleTarget _ JSONTarget = JSONTarget
 expandRuleTarget _ StaticTarget = StaticTarget
 expandRuleTarget varMap (TemplateTarget p) = TemplateTarget $ expandReplacement varMap p
 expandRuleTarget varMap (RedirectTarget p) = RedirectTarget $ expandReplacement varMap p
 
+expandReplacementBackend :: HashMap Text (GVal (Run (Writer Text) Text))
+                         -> BackendSpec
+                         -> BackendSpec
+expandReplacementBackend varMap = omap (maybeThrow . expandReplacementText varMap)
+
 applyRule :: Rule
+          -> HashMap Text (GVal (Run (Writer Text) Text))
           -> [Text]
           -> QueryText
-          -> Maybe ( AList Text BackendSpec
-                   , Set Text
-                   , RuleTarget Text
+          -> Maybe ( Rule
+                   , HashMap Text Text
                    )
-applyRule rule path query = do
-    varMap <- matchPattern (ruleRoutePattern rule) path query
-    let f :: Replacement -> Text
-        f pathPattern = expandReplacement varMap pathPattern
-        expandReplacementBackend :: BackendSpec -> BackendSpec
-        expandReplacementBackend =
-            omap (maybeThrow . expandReplacementText varMap)
-    return
-        ( fmap expandReplacementBackend (ruleContextData rule)
-        , ruleRequired rule
-        , expandRuleTarget varMap (ruleTarget rule)
-        )
+applyRule rule context path query = do
+    captures <- matchPattern (ruleRoutePattern rule) path query
+    return (rule, captures)
 
 applyRules :: [Rule]    
+           -> HashMap Text (GVal (Run (Writer Text) Text))
            -> [Text]
            -> QueryText
-           -> Maybe ( AList Text BackendSpec
-                    , Set Text
-                    , RuleTarget Text
+           -> Maybe ( Rule
+                    , HashMap Text Text
                     )
-applyRules [] _ _ = Nothing
-applyRules (rule:rules) path query =
-    applyRule rule path query <|> applyRules rules path query
+applyRules [] _ _ _ = Nothing
+applyRules (rule:rules) context path query =
+    applyRule rule context path query <|> applyRules rules context path query

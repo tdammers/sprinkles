@@ -26,14 +26,9 @@ import qualified Data.ByteString.Lazy.UTF8 as LUTF8
 import qualified Data.ByteString.UTF8 as UTF8
 import Data.AList (AList)
 
-handleRedirectTarget :: Text
-                     -> AList Text BackendSpec
-                     -> Set Text
-                     -> Project
-                     -> Wai.Application
+handleRedirectTarget :: Text -> ContextualHandler
 handleRedirectTarget redirectPath
-                     backendPaths
-                     required
+                     backendData
                      project
                      request
                      respond =

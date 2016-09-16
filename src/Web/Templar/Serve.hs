@@ -116,41 +116,66 @@ handleRequest :: Project -> Wai.Application
 handleRequest project request respond =
     go `catchIOError` \e -> handle500 e project request respond
     where
-        cache = projectBackendCache project
         go = do
             let path = Wai.pathInfo request
                 query = queryToQueryText . Wai.queryString $ request
-            let globalBackendPaths = pcContextData . projectConfig $ project
-            case applyRules (pcRules . projectConfig $ project) path query of
+                context = mapFromList []
+            case applyRules
+                    (pcRules . projectConfig $ project)
+                    context
+                    path
+                    query of
                 Nothing ->
                     handle404
-                        globalBackendPaths
-                        (setFromList [])
                         project
                         request
                         respond
-                Just (backendPaths, required, target) -> do
-                    let handle :: AList Text BackendSpec
-                               -> Set Text
-                               -> Project
-                               -> Wai.Application
-                        handle = case target of
-                            RedirectTarget redirectPath ->
-                                handleRedirectTarget
-                                    redirectPath
-
-                            StaticTarget ->
-                                handleStaticTarget
-
-                            JSONTarget ->
-                                handleJSONTarget
-
-                            TemplateTarget templateName ->
-                                handleTemplateTarget
-                                    templateName
-                    handle
-                        (globalBackendPaths <> backendPaths)
-                        required
+                Just (rule, captures) ->
+                    handleRule
+                        rule
+                        captures
                         project
                         request
                         respond
+
+handleRule :: Rule -> HashMap Text Text -> Project -> Wai.Application
+handleRule rule captures project request respond = do
+    let cache = projectBackendCache project
+        capturesG = fmap toGVal captures
+        globalBackendSpecs = pcContextData . projectConfig $ project
+        backendSpecs =
+            fmap (expandReplacementBackend capturesG) . ruleContextData $ rule
+        target = expandRuleTarget capturesG . ruleTarget $ rule
+        logger = projectLogger project
+
+    backendData :: HashMap Text (Items (BackendData IO Html))
+                <- loadBackendDict
+                        (writeLog logger)
+                        (pbsFromRequest request)
+                        cache
+                        backendSpecs
+                        (ruleRequired rule)
+
+    let handle :: HashMap Text (Items (BackendData IO Html))
+               -> Project
+               -> Wai.Application
+        handle = case target of
+            RedirectTarget redirectPath ->
+                handleRedirectTarget
+                    redirectPath
+
+            StaticTarget ->
+                handleStaticTarget
+
+            JSONTarget ->
+                handleJSONTarget
+
+            TemplateTarget templateName ->
+                handleTemplateTarget
+                    templateName
+
+    handle
+        backendData
+        project
+        request
+        respond

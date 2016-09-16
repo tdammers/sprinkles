@@ -14,7 +14,17 @@ where
 import ClassyPrelude
 import Data.Aeson as JSON
 import Data.Aeson.TH as JSON
-import Text.Ginger (Template, runGinger, parseGinger, makeContextText, toGVal)
+import Text.Ginger ( Template
+                   , runGinger
+                   , parseGinger
+                   , makeContextText
+                   , ToGVal
+                   , toGVal
+                   , GVal (..)
+                   , Run
+                   )
+import Data.Default
+import Control.Monad.Writer (Writer)
 
 data ReplacementItem =
     Literal Text |
@@ -27,7 +37,7 @@ newtype Replacement = Replacement Template
 instance FromJSON Replacement where
     parseJSON val = (maybe (fail "invalid replacement") return . parseReplacement) =<< parseJSON val
 
-expandReplacementText :: HashMap Text Text -> Text -> Maybe Text
+expandReplacementText :: HashMap Text (GVal (Run (Writer Text) Text)) -> Text -> Maybe Text
 expandReplacementText variables input =
     expandReplacement variables <$> parseReplacement input
 
@@ -39,9 +49,9 @@ parseReplacement input =
         Nothing
         (unpack input)
 
-expandReplacement :: HashMap Text Text -> Replacement -> Text
+expandReplacement :: HashMap Text (GVal (Run (Writer Text) Text)) -> Replacement -> Text
 expandReplacement variables (Replacement template) =
     runGinger context template
     where
         context = makeContextText lookupFn
-        lookupFn varName = toGVal $ lookup varName variables
+        lookupFn varName = fromMaybe def $ lookup varName variables

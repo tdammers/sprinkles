@@ -25,24 +25,12 @@ import Web.Templar.Backends.Loader.Type
 import Data.AList (AList)
 import qualified Data.AList as AList
 
-handleStaticTarget :: AList Text BackendSpec
-                   -> Set Text
-                   -> Project
-                   -> Wai.Application
-handleStaticTarget backendPaths
-                   required
+handleStaticTarget :: ContextualHandler
+handleStaticTarget backendData
                    project
                    request
                    respond = do
-    let cache = projectBackendCache project
-        logger = projectLogger project
-        go = do
-            backendData <- loadBackendDict
-                                (writeLog logger)
-                                (pbsFromRequest request)
-                                cache
-                                backendPaths
-                                required
+    let go = do
             backendItem <- case lookup "file" backendData of
                 Nothing -> throwM NotFoundException
                 Just NotFound -> throwM NotFoundException

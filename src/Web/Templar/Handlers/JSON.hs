@@ -28,23 +28,11 @@ import Data.Aeson.TH as JSON
 import Data.AList (AList)
 import qualified Data.AList as AList
 
-handleJSONTarget :: AList Text BackendSpec
-                 -> Set Text
-                 -> Project
-                 -> Wai.Application
-handleJSONTarget backendPaths
-                 required
+handleJSONTarget :: ContextualHandler
+handleJSONTarget backendData
                  project
                  request
                  respond = do
-    let cache = projectBackendCache project
-        logger = projectLogger project
-    backendData <- loadBackendDict
-                        (writeLog logger)
-                        (pbsFromRequest request)
-                        cache
-                        backendPaths
-                        required
     respond $ Wai.responseLBS
         status200
         [("Content-type", "application/json")]
