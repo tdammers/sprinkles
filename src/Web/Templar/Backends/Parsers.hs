@@ -36,19 +36,23 @@ import Data.Char (ord)
 import Web.Templar.PandocGVal
 
 -- | Parse raw backend data source into a structured backend data record.
-parseBackendData :: Monad m => BackendSource -> m (BackendData n h)
+parseBackendData :: (Monad m, Monad n)
+                 => BackendSource
+                 -> m (BackendData n h)
 parseBackendData item@(BackendSource meta body) = do
     let t = takeWhile (/= fromIntegral (ord ';')) (bmMimeType meta)
         parse = fromMaybe parseRawData $ lookup t parsersTable
     parse item
 
 -- | Lookup table of mime types to parsers.
-parsersTable :: Monad m => HashMap MimeType (BackendSource -> m (BackendData n h))
+parsersTable :: (Monad m, Monad n)
+             => HashMap MimeType (BackendSource -> m (BackendData n h))
 parsersTable = mapFromList . mconcat $
     [ zip mimeTypes (repeat parser) | (mimeTypes, parser) <- parsers ]
 
 -- | The parsers we know, by mime types.
-parsers :: Monad m => [([MimeType], BackendSource -> m (BackendData n h))]
+parsers :: (Monad m, Monad n)
+        => [([MimeType], BackendSource -> m (BackendData n h))]
 parsers =
     [  ( [ "application/json", "text/json" ]
       , json
@@ -134,7 +138,7 @@ yaml item@(BackendSource meta body) =
         Right json -> return . toBackendData item $ (json :: JSON.Value)
 
 -- | Parser for Pandoc-supported formats that are read from 'LByteString's.
-pandocBS :: Monad m
+pandocBS :: (Monad m, Monad n)
          => (LByteString -> Either PandocError Pandoc)
          -> BackendSource
          -> m (BackendData n h)
@@ -145,10 +149,10 @@ pandocBS reader input@(BackendSource meta body) =
 
 -- | Parser for Pandoc-supported formats that are read from 'LByteString's, and
 -- return a 'Pandoc' document plus a 'MediaBag'.
-pandocWithMedia :: Monad m
-         => (LByteString -> Either PandocError (Pandoc, Pandoc.MediaBag))
-         -> BackendSource
-         -> m (BackendData n h)
+pandocWithMedia :: (Monad m, Monad n)
+                => (LByteString -> Either PandocError (Pandoc, Pandoc.MediaBag))
+                -> BackendSource
+                -> m (BackendData n h)
 pandocWithMedia reader input@(BackendSource meta body) =
     case reader body of
         Left err -> fail . show $ err
@@ -158,7 +162,7 @@ pandocWithMedia reader input@(BackendSource meta body) =
             children <- mapFromList <$> mediaBagToBackendData mediaBag
             return $ addBackendDataChildren children base
 
-mediaBagToBackendData :: Monad m
+mediaBagToBackendData :: (Monad m, Monad n)
                       => Pandoc.MediaBag
                       -> m [(Text, BackendData n h)]
 mediaBagToBackendData bag = do
@@ -179,7 +183,7 @@ mediaBagToBackendData bag = do
         (pack path,) <$> parseBackendData (BackendSource meta body)
 
 -- | Parser for Pandoc-supported formats that are read from 'String's.
-pandoc :: Monad m
+pandoc :: (Monad m, Monad n)
        => (String -> Either PandocError Pandoc)
        -> BackendSource
        -> m (BackendData n h)

@@ -10,8 +10,10 @@ where
 import ClassyPrelude hiding (asText, asList)
 import Text.Ginger as Ginger (GVal (..), ToGVal (..), dict, (~>))
 import Text.Ginger.Html (unsafeRawHtml)
+import qualified Text.Ginger as Ginger
+import qualified Text.Ginger.Run.VM as Ginger
 import Text.Pandoc
-import Text.Pandoc.Walk (query)
+import Text.Pandoc.Walk (query, walk)
 import Data.Default (def)
 import Data.Aeson (ToJSON (..))
 import Data.Scientific (fromFloatDigits)
@@ -22,17 +24,54 @@ writerOptions =
         , writerHtml5 = True
         }
 
-instance ToGVal m Pandoc where
+gfnWithMediaRoot :: Monad m => Pandoc -> Ginger.Function (Ginger.Run m h)
+gfnWithMediaRoot pandoc args = do
+    defMediaroot <- fromMaybe def . Ginger.lookupKey "path" <$> Ginger.getVar "request"
+    let extracted =
+            Ginger.extractArgsDefL
+                [ ("mediaroot", defMediaroot)
+                ]
+                args
+    case extracted of
+        Right [mediaroot] -> do
+            let pandoc' = localUrlPrefix (unpack $ asText mediaroot) pandoc
+            return $ toGVal pandoc'
+        _ -> return def
+
+prefixUrl :: String -> String -> String
+prefixUrl prefix url
+    | "http://" `isPrefixOf` url = url
+    | "https://" `isPrefixOf` url = url
+    | "/" `isPrefixOf` url = url
+    | ":" `isPrefixOf` url = url
+    | otherwise = prefix ++ "/" ++ url
+
+localUrlPrefix :: String -> Pandoc -> Pandoc
+localUrlPrefix prefix = walk goInline
+    where
+        goInline :: Inline -> Inline
+        goInline (Image attrs inlines (url, title)) =
+            Image attrs (map goInline inlines) (prefixUrl prefix url, title)
+        goInline (Link attrs inlines (url, title)) =
+            Link attrs (map goInline inlines) (prefixUrl prefix url, title)
+        goInline x = x
+        
+
+instance Monad m => ToGVal (Ginger.Run m h) Pandoc where
     toGVal pandoc@(Pandoc meta blocks) =
         def { asList = Just $ map toGVal blocks
             , asDictItems =
                 Just
-                    [ ("meta", toGVal meta)
-                    , ("body", toGVal blocks)
+                    [ ( "meta", toGVal meta )
+                    , ( "body", toGVal blocks )
+                    , ( "withMediaRoot"
+                      , Ginger.fromFunction . gfnWithMediaRoot $ pandoc
+                      )
                     ]
             , asLookup = Just $ \case
                             "meta" -> Just (toGVal meta)
                             "body" -> Just (toGVal blocks)
+                            "withMediaRoot" -> Just . Ginger.fromFunction . gfnWithMediaRoot $ pandoc
                             _ -> Nothing
             , asHtml = unsafeRawHtml . pack . writeHtmlString writerOptions $ pandoc
             , asText = unwords . fmap (asText . toGVal) $ blocks

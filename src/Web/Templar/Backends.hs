@@ -60,7 +60,8 @@ type RawBackendCache = Cache ByteString ByteString
 type BackendCache = Cache BackendSpec [BackendSource]
 
 -- | Execute a backend query, with caching.
-loadBackendData :: (LogLevel -> Text -> IO ())
+loadBackendData :: Monad m
+                => (LogLevel -> Text -> IO ())
                 -> PostBodySource
                 -> RawBackendCache
                 -> BackendSpec

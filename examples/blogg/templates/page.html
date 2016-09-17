@@ -6,5 +6,5 @@
 
 {%- block content %}
     <h1>{{ pageTitle(page) }}</h1>
-    {{ removePageHeading(page) }}
+    {{ removePageHeading(page.withMediaRoot()) }}
 {% endblock -%}
