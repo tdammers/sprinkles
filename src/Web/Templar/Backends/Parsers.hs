@@ -5,6 +5,7 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE LambdaCase #-}
+{-#LANGUAGE TupleSections #-}
 
 -- | Parse raw backend data into useful data structures.
 module Web.Templar.Backends.Parsers
@@ -19,9 +20,11 @@ import Web.Templar.Backends.Data
         , BackendMeta (..)
         , BackendSource (..)
         , toBackendData
+        , addBackendDataChildren
         )
-import qualified Text.Pandoc as Pandoc
 import Text.Pandoc (Pandoc)
+import qualified Text.Pandoc as Pandoc
+import qualified Text.Pandoc.MediaBag as Pandoc
 import qualified Text.Pandoc.Readers.Creole as Pandoc
 import Text.Pandoc.Error (PandocError)
 import Network.Mime (MimeType)
@@ -94,7 +97,7 @@ parsers =
       )
     , ( [ "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         ]
-      , pandocBS (fmap fst . Pandoc.readDocx Pandoc.def)
+      , pandocWithMedia (Pandoc.readDocx Pandoc.def)
       )
     ]
 
@@ -107,6 +110,7 @@ parseRawData (BackendSource meta body) =
         , bdGVal = toGVal JSON.Null
         , bdMeta = meta
         , bdRaw = body
+        , bdChildren = mapFromList []
         }
 
 -- | Parser for (utf-8) plaintext documents.
@@ -138,6 +142,41 @@ pandocBS reader input@(BackendSource meta body) =
     case reader body of
         Left err -> fail . show $ err
         Right pandoc -> return $ toBackendData input pandoc
+
+-- | Parser for Pandoc-supported formats that are read from 'LByteString's, and
+-- return a 'Pandoc' document plus a 'MediaBag'.
+pandocWithMedia :: Monad m
+         => (LByteString -> Either PandocError (Pandoc, Pandoc.MediaBag))
+         -> BackendSource
+         -> m (BackendData n h)
+pandocWithMedia reader input@(BackendSource meta body) =
+    case reader body of
+        Left err -> fail . show $ err
+        Right (pandoc, mediaBag) -> do
+            -- TODO: marshal mediaBag to backend data item children
+            let base = toBackendData input pandoc
+            children <- mapFromList <$> mediaBagToBackendData mediaBag
+            return $ addBackendDataChildren children base
+
+mediaBagToBackendData :: Monad m
+                      => Pandoc.MediaBag
+                      -> m [(Text, BackendData n h)]
+mediaBagToBackendData bag = do
+    let metas = Pandoc.mediaDirectory bag
+    forM metas $ \(path, mimeType, contentLength) -> do
+        (_, body) <- maybe
+                        (fail $ "Media not found: " <> path)
+                        return
+                        (Pandoc.lookupMedia path bag)
+        let meta =
+                BackendMeta
+                    { bmMimeType = encodeUtf8 . pack $ mimeType
+                    , bmMTime = Nothing
+                    , bmName = pack path
+                    , bmPath = pack path
+                    , bmSize = Just $ fromIntegral contentLength
+                    }
+        (pack path,) <$> parseBackendData (BackendSource meta body)
 
 -- | Parser for Pandoc-supported formats that are read from 'String's.
 pandoc :: Monad m

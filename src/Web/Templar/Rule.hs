@@ -19,7 +19,7 @@ import Control.Monad.Writer (Writer)
 data RuleTarget p =
     TemplateTarget p |
     RedirectTarget p |
-    StaticTarget |
+    StaticTarget (Maybe p) |
     JSONTarget
     deriving (Eq, Show)
 
@@ -39,9 +39,10 @@ instance FromJSON Rule where
         templateMay <- fmap TemplateTarget <$> (obj .:? "template")
         redirectMay <- fmap RedirectTarget <$> (obj .:? "redirect")
         static <- fromMaybe False <$> (obj .:? "static")
+        staticChildPath <- obj .:? "child"
         let target =
                 if static
-                    then StaticTarget
+                    then StaticTarget staticChildPath
                     else (fromMaybe JSONTarget $ redirectMay <|> templateMay)
         required <- obj .:? "required" .!= []
         return $ Rule pattern contextData target required
@@ -49,7 +50,7 @@ instance FromJSON Rule where
 
 expandRuleTarget :: HashMap Text (GVal (Run (Writer Text) Text)) -> RuleTarget Replacement -> RuleTarget Text
 expandRuleTarget _ JSONTarget = JSONTarget
-expandRuleTarget _ StaticTarget = StaticTarget
+expandRuleTarget varMap (StaticTarget pMay) = StaticTarget $ fmap (expandReplacement varMap) pMay
 expandRuleTarget varMap (TemplateTarget p) = TemplateTarget $ expandReplacement varMap p
 expandRuleTarget varMap (RedirectTarget p) = RedirectTarget $ expandReplacement varMap p
 

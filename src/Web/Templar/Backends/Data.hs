@@ -15,6 +15,7 @@ module Web.Templar.Backends.Data
 , toBackendData
 , Items (..)
 , reduceItems
+, addBackendDataChildren
 )
 where
 
@@ -73,6 +74,7 @@ data BackendData m h =
         , bdGVal :: GVal (Run m h) -- ^ Result body as GVal
         , bdRaw :: LByteString -- ^ Raw result body source
         , bdMeta :: BackendMeta -- ^ Meta-information
+        , bdChildren :: HashMap Text (BackendData m h) -- ^ Child documents
         }
 
 -- | A raw (unparsed) record from a query result.
@@ -96,7 +98,14 @@ toBackendData src val =
         , bdGVal = toGVal val
         , bdRaw = bsSource src
         , bdMeta = bsMeta src
+        , bdChildren = mapFromList []
         }
+
+addBackendDataChildren :: HashMap Text (BackendData m h)
+                       -> BackendData m h
+                       -> BackendData m h
+addBackendDataChildren children bd =
+    bd { bdChildren = children <> bdChildren bd }
 
 instance ToJSON (BackendData m h) where
     toJSON = bdJSON
@@ -106,12 +115,16 @@ instance ToGVal (Run m h) (BackendData m h) where
         let baseVal = bdGVal bd
             baseLookup = fromMaybe (const def) $ Ginger.asLookup baseVal
             baseDictItems = Ginger.asDictItems baseVal
+            children = bdChildren bd
+            childrenG = toGVal children
         in baseVal
             { Ginger.asLookup = Just $ \case
                 "props" -> return . toGVal . bdMeta $ bd
+                "children" -> return childrenG
                 k -> baseLookup k
             , Ginger.asDictItems =
-                (("props" ~> bdMeta bd):) <$> baseDictItems
+                (("props" ~> bdMeta bd):) .
+                (("children", childrenG):) <$> baseDictItems
             }
 
 -- | Metadata for a backend query result.

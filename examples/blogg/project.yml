@@ -69,3 +69,8 @@ rules:
   data:
     page: 'file://./data/pages/{{page}}.*'
   required: [ 'page' ]
+- pattern: '/{{page:*}}/{{mediapath:**}}'
+  data:
+    - file: 'file://./data/pages/{{page}}.*'
+  static: true
+  child: '{{mediapath}}'

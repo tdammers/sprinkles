@@ -25,17 +25,23 @@ import Web.Templar.Backends.Loader.Type
 import Data.AList (AList)
 import qualified Data.AList as AList
 
-handleStaticTarget :: ContextualHandler
-handleStaticTarget backendData
+handleStaticTarget :: Maybe Text -> ContextualHandler
+handleStaticTarget childPathMay
+                   backendData
                    project
                    request
                    respond = do
-    backendItem <- case lookup "file" backendData of
+    backendItemBase <- case lookup "file" backendData of
         Nothing -> throwM NotFoundException
         Just NotFound -> throwM NotFoundException
         Just (SingleItem item) -> return item
         Just (MultiItem []) -> throwM NotFoundException
         Just (MultiItem (x:xs)) -> return x
+    backendItem <- case childPathMay of
+        Nothing -> return backendItemBase
+        Just path -> case lookup path (bdChildren backendItemBase) of
+            Nothing -> throwM NotFoundException
+            Just item -> return item
     respond $ Wai.responseLBS
         status200
         [("Content-type", bmMimeType . bdMeta $ backendItem)]

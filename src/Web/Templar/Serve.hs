@@ -167,8 +167,8 @@ handleRule rule captures project request respond = do
                 handleRedirectTarget
                     redirectPath
 
-            StaticTarget ->
-                handleStaticTarget
+            StaticTarget p ->
+                handleStaticTarget p
 
             JSONTarget ->
                 handleJSONTarget
