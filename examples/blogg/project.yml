@@ -5,6 +5,7 @@ definitions:
     dsn: './data/stuff.sqlite'
 data:
   menu: 'file://./data/menu.yml'
+  settings: 'file://./data/settings.yml'
   stuff:
     type: 'sql'
     connection: *main_db
@@ -12,11 +13,12 @@ data:
 rules:
 - pattern: '/'
   data:
-    files:
-      type: 'dir'
-      path: './data/pages'
-      fetch: 4
-      order: random
+    - files:
+        type: 'dir'
+        path: './data/pages'
+        fetch: 4
+        order: random
+    - page: 'file://./data/pages/{{settings.site["start-page"]}}.*'
   template: 'home.html'
 - pattern: '/echo/{{message:*}}'
   data:

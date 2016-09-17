@@ -146,8 +146,7 @@ handleRule rule captures project request respond = do
     let cache = projectBackendCache project
         capturesG = fmap toGVal captures
         globalBackendSpecs = pcContextData . projectConfig $ project
-        backendSpecs =
-            fmap (expandReplacementBackend capturesG) . ruleContextData $ rule
+        backendSpecs = ruleContextData $ rule
         target = expandRuleTarget capturesG . ruleTarget $ rule
         logger = projectLogger project
 
@@ -156,8 +155,9 @@ handleRule rule captures project request respond = do
                         (writeLog logger)
                         (pbsFromRequest request)
                         cache
-                        backendSpecs
+                        (globalBackendSpecs <> backendSpecs)
                         (ruleRequired rule)
+                        capturesG
 
     let handle :: HashMap Text (Items (BackendData IO Html))
                -> Project

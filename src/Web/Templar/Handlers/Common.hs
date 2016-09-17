@@ -21,8 +21,11 @@ import Web.Templar.Handlers.Respond
 import Text.Ginger.Html (Html, htmlSource)
 import Web.Templar.Backends.Loader.Type
        (PostBodySource (..), pbsFromRequest, pbsInvalid)
+import Web.Templar.Rule (expandReplacementBackend)
 import Data.AList (AList)
 import qualified Data.AList as AList
+import Text.Ginger (GVal, ToGVal (..), Run, marshalGVal)
+import Control.Monad.Writer (Writer)
 
 data NotFoundException = NotFoundException
     deriving (Show)
@@ -54,6 +57,7 @@ handle404 project request respond =
                                 cache
                                 backendPaths
                                 (setFromList [])
+                                (mapFromList [])
             respondTemplateHtml
                 project
                 status404
@@ -78,7 +82,13 @@ handle500 err project request respond = do
         backendPaths = pcContextData . projectConfig $ project
         logger = projectLogger project
         respondNormally = do
-            backendData <- loadBackendDict (writeLog logger) (pbsFromRequest request) cache backendPaths (setFromList [])
+            backendData <- loadBackendDict
+                (writeLog logger)
+                (pbsFromRequest request)
+                cache
+                backendPaths
+                (setFromList [])
+                (mapFromList [])
             respondTemplateHtml
                 project
                 status500
@@ -96,14 +106,33 @@ loadBackendDict :: (LogLevel -> Text -> IO ())
                 -> RawBackendCache
                 -> AList Text BackendSpec
                 -> Set Text
+                -> HashMap Text (GVal (Run (Writer Text) Text))
                 -> IO (HashMap Text (Items (BackendData IO Html)))
-loadBackendDict writeLog postBodySrc cache backendPaths required = do
-    pairs <- forM (AList.toList backendPaths) $ \(key, backendPath) -> do
-        bd :: Items (BackendData IO Html) <- loadBackendData writeLog postBodySrc cache backendPath
-        case bd of
-            NotFound ->
-                if key `elem` required
-                    then throwM NotFoundException
-                    else return (key, NotFound)
-            _ -> return (key, bd)
-    return $ mapFromList pairs
+loadBackendDict writeLog postBodySrc cache backendPaths required globalContext = do
+    mapFromList <$> go globalContext (AList.toList backendPaths)
+    where
+        go :: HashMap Text (GVal (Run (Writer Text) Text))
+           -> [(Text, BackendSpec)]
+           -> IO [(Text, Items (BackendData IO Html))]
+        go _ [] = return []
+        go context ((key, backendSpec):specs) = do
+            let expBackendSpec = (expandReplacementBackend context backendSpec)
+            bd :: Items (BackendData IO Html)
+               <- loadBackendData
+                    writeLog
+                    postBodySrc
+                    cache
+                    expBackendSpec
+            resultItem <- case bd of
+                NotFound ->
+                    if key `elem` required
+                        then throwM NotFoundException
+                        else return (key, NotFound)
+                _ -> return (key, bd)
+            let bdG :: GVal (Run IO Html)
+                bdG = toGVal bd
+                bdGP :: GVal (Run (Writer Text) Text)
+                bdGP = marshalGVal bdG
+                context' = insertMap key bdGP context
+            remainder <- go context' specs
+            return $ resultItem:remainder

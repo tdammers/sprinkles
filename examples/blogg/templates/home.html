@@ -1,7 +1,9 @@
 {% extends 'master.html' %}
 
 {%- block content %}
-{% for page in files|sort(by="mtime", reverse=true) %}
-    {{ pagePreview(page) }}
-{% endfor %}
+    <h1>{{ pageTitle(page) }}</h1>
+    {{ removePageHeading(page) }}
+    {% for page in files|sort(by="mtime", reverse=true) %}
+        {{ pagePreview(page) }}
+    {% endfor %}
 {% endblock -%}
