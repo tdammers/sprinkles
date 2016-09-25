@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+    <body>
+        <form method="POST" type="application/x-www-form-urlencoded" action="/">
+            <div>
+                <label>Name <input name="name" value="{{ form.name }}" /></label>
+            </div>
+            <div>
+                <label>Department <input name="department" value="{{ form.department }}" /></label>
+            </div>
+            <div>
+                <button type="submit">Submit</button>
+            </div>
+        </form>
+        <pre>{{ form|json(pretty=true) }}</pre>
+    </body>
+</html>

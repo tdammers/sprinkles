@@ -1,0 +1,5 @@
+rules:
+    - pattern: '/'
+      data:
+        form: 'post:'
+      template: 'blah.html'

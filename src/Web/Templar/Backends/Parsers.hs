@@ -34,6 +34,7 @@ import qualified Data.Aeson.TH as JSON
 import qualified Data.Yaml as YAML
 import Data.Char (ord)
 import Web.Templar.PandocGVal
+import Network.HTTP.Types (parseQuery, queryToQueryText)
 
 -- | Parse raw backend data source into a structured backend data record.
 parseBackendData :: (Monad m, Monad n)
@@ -54,7 +55,7 @@ parsersTable = mapFromList . mconcat $
 parsers :: (Monad m, Monad n)
         => [([MimeType], BackendSource -> m (BackendData n h))]
 parsers =
-    [  ( [ "application/json", "text/json" ]
+    [ ( [ "application/json", "text/json" ]
       , json
       )
     , ( [ "text/plain" ]
@@ -66,6 +67,10 @@ parsers =
         , "text/yaml"
         ]
       , yaml
+      )
+    , ( [ "application/x-www-form-urlencoded"
+        ]
+      , urlencodedForm
       )
     , ( [ "application/x-markdown"
         , "text/x-markdown"
@@ -136,6 +141,19 @@ yaml item@(BackendSource meta body) =
     case YAML.decodeEither (toStrict body) of
         Left err -> fail $ err ++ "\n" ++ show body
         Right json -> return . toBackendData item $ (json :: JSON.Value)
+
+urlencodedForm :: Monad m => BackendSource -> m (BackendData n h)
+urlencodedForm item@(BackendSource meta body) =
+    return .
+        toBackendData item .
+        asTextHashMap .
+        mapFromList .
+        queryToQueryText .
+        parseQuery .
+        toStrict $ body
+    where
+        asTextHashMap :: HashMap Text (Maybe Text) -> HashMap Text (Maybe Text)
+        asTextHashMap = id
 
 -- | Parser for Pandoc-supported formats that are read from 'LByteString's.
 pandocBS :: (Monad m, Monad n)
