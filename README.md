@@ -239,6 +239,23 @@ Particular points of interest:
   means, among other things, that shell magic such as globbing, environment
   variable substitution, or shorthands like `~` won't work.
 
+##### The `post` Backend
+
+Parse the request body according to its content type.
+
+Longhand:
+
+    type: 'post'
+
+Shorthand:
+
+    'post:'
+
+Particular points of interests:
+
+- This backend will only produce data for POST requests, since GET requests do
+  not have a body.
+
 #### Supported Content Types
 
 Templar detects the content type (file format) for backend data automatically
