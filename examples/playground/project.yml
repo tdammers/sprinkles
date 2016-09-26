@@ -1,5 +1,15 @@
+data:
+    - mysql: 'file://mysql.yml'
 rules:
     - pattern: '/'
       data:
         form: 'post:'
       template: 'blah.html'
+    - pattern: '/my'
+      data:
+      - test:
+            type: 'sql'
+            driver: 'mysql'
+            dsn: 'user={{mysql.user}};password={{mysql.password}};host={{mysql.host|default("localhost");database={{mysql.database}}'
+            query: 'SELECT title, body FROM pages'
+            fetch: one
