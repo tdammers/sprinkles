@@ -17,6 +17,7 @@ packages:
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:
+  - HDBC-mysql-0.6.6.4
   - wai-handler-fastcgi-3.0.0.2
   - system-locale-0.1.0.0
   - megaparsec-5.0.1

@@ -163,6 +163,7 @@ backendSpecFromJSON (Object obj) = do
             "sql" -> parseSqlBackendSpec
             "subprocess" -> parseSubprocessSpec
             "post" -> return (RequestBodyBackend, FetchOne)
+            x -> fail $ "Invalid backend specifier: " ++ show x
     fetchMode <- obj .:? "fetch" .!= defFetchMode
     fetchOrder <- obj .:? "order" .!= def
     mimeOverride <- fmap encodeUtf8 <$> obj .:? "force-mime-type"

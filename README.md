@@ -26,6 +26,7 @@ installing templar.
     - `libcurl` (for HTTP backends)
     - `libpcre` (for PCRE regex support)
     - `libpq5` (for the PostgreSQL backend)
+    - `libmysqlclient` (for MySQL support)
 - Get the binary release tarball from
   https://github.com/tdammers/templar/releases/latest (both zip file and
   tarball are available, both contain the same files)
@@ -49,6 +50,7 @@ The easiest way to do that is to use
     - `libgmp` (for Haskell's bignum type)
     - `libcurl` (for HTTP backends)
     - `libpcre` (for PCRE regex support)
+    - `libmysqlclient` (for MySQL support)
 - Install stack
 - Clone the Templar repository:
   `git clone https://bitbucket.org/tdammers/templar.git`

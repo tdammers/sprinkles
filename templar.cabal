@@ -57,6 +57,7 @@ library
                , HDBC
                , HDBC-postgresql
                , HDBC-sqlite3
+               , HDBC-mysql
                , HTTP
                , aeson
                , aeson-pretty
