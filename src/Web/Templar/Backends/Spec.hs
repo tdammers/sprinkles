@@ -30,6 +30,7 @@ import ClassyPrelude
 import Network.Mime (MimeType)
 import Network.HTTP.Types ()
 import Data.Aeson (FromJSON (..), Value (..), (.=), (.!=), (.:?), (.:))
+import qualified Data.Aeson as JSON
 import System.PosixCompat.Files
 import Data.Default (Default (..))
 import Web.Templar.Cache
@@ -37,6 +38,7 @@ import qualified Data.Serialize as Cereal
 import Data.Serialize (Serialize)
 import Web.Templar.Databases (DSN (..), sqlDriverFromID)
 import Web.Templar.Logger (LogLevel (..))
+import Data.Walk (walk)
 
 -- | A type of backend.
 data BackendType = HttpBackend Text HttpBackendOptions -- ^ Fetch data over HTTP(S)
@@ -44,6 +46,7 @@ data BackendType = HttpBackend Text HttpBackendOptions -- ^ Fetch data over HTTP
                  | SqlBackend DSN Text [Text] -- ^ Query an SQL database
                  | SubprocessBackend Text [Text] MimeType -- ^ Run a command in a subprocess
                  | RequestBodyBackend -- ^ Read the incoming request body
+                 | LiteralBackend Value -- ^ Return literal data from the spec itself
                  deriving (Show, Generic)
 
 instance Serialize BackendType where
@@ -65,6 +68,9 @@ instance Serialize BackendType where
         Cereal.put (map (encodeUtf8 . unpack) args)
         Cereal.put t
     put RequestBodyBackend = Cereal.put 'b'
+    put (LiteralBackend b) = do
+        Cereal.put 'l'
+        Cereal.put (JSON.encode b)
     get = Cereal.get >>= \case
             'h' -> HttpBackend <$> (pack . decodeUtf8 <$> Cereal.get) <*> Cereal.get
             'f' -> FileBackend <$> (pack . decodeUtf8 <$> Cereal.get)
@@ -77,6 +83,8 @@ instance Serialize BackendType where
                     (map (pack . decodeUtf8) <$> Cereal.get) <*>
                     Cereal.get
             'b' -> return RequestBodyBackend
+            'l' -> LiteralBackend <$>
+                    (fromMaybe JSON.Null . JSON.decode <$> Cereal.get)
             x -> fail $ "Invalid backend type identifier: " <> show x
 
 type instance Element BackendType = Text
@@ -87,6 +95,8 @@ instance MonoFunctor BackendType where
     omap f (SqlBackend dsn query params) = SqlBackend (omap f dsn) query (map f params)
     omap f (SubprocessBackend cmd args t) = SubprocessBackend cmd (map f args) t
     omap _ RequestBodyBackend = RequestBodyBackend
+    omap f (LiteralBackend b) =
+        LiteralBackend (walk f b)
 
 -- | A specification of a backend query.
 data BackendSpec =
@@ -117,6 +127,9 @@ instance MonoFunctor BackendSpec where
 --   // - "glob" (resolve a glob and load all matching files)
 --   // - "dir" (get a directory listing)
 --   // - "sql" (query an SQL database)
+--   // - "subprocess" (execute a subprocess and read its stdout)
+--   // - "post" (get the request body; only for POST requests)
+--   // - "literal" (return literal value as specified)
 --   "type": type,
 --
 --   // fetch mode. One of:
@@ -163,6 +176,7 @@ backendSpecFromJSON (Object obj) = do
             "sql" -> parseSqlBackendSpec
             "subprocess" -> parseSubprocessSpec
             "post" -> return (RequestBodyBackend, FetchOne)
+            "literal" -> parseLiteralBackendSpec
             x -> fail $ "Invalid backend specifier: " ++ show x
     fetchMode <- obj .:? "fetch" .!= defFetchMode
     fetchOrder <- obj .:? "order" .!= def
@@ -191,6 +205,10 @@ backendSpecFromJSON (Object obj) = do
                 Array v -> parseJSON rawCmd >>= \case
                     cmd:args -> return (SubprocessBackend cmd args t, FetchOne)
                     [] -> fail "Expected a command and a list of arguments"
+        parseLiteralBackendSpec = do
+            b <- obj .:? "body" .!= JSON.Null
+            return (LiteralBackend b, FetchOne)
+
 backendSpecFromJSON x = fail $ "Invalid JSON value for BackendSpec: " <> show x <> ", expecting object or string"
 
 -- | Parse a 'Text' into a 'BackendSpec'.
@@ -213,14 +231,25 @@ parseBackendURI t = do
                     FetchOne
                     def
                     Nothing
-        "dir" -> return $ BackendSpec (FileBackend (pack $ unpack path </> "*")) FetchAll def Nothing
-        "glob" -> return $ BackendSpec (FileBackend path) FetchAll def Nothing
-        "file" -> return $ BackendSpec (FileBackend path) FetchOne def Nothing
+        "dir" -> return $
+            BackendSpec (FileBackend (pack $ unpack path </> "*")) FetchAll def Nothing
+        "glob" -> return $
+            BackendSpec (FileBackend path) FetchAll def Nothing
+        "file" -> return $
+            BackendSpec (FileBackend path) FetchOne def Nothing
         "sql" -> do
             be <- parseSqlBackendURI path
             return $ BackendSpec be FetchAll def Nothing
         "post" ->
-            return $ BackendSpec RequestBodyBackend FetchOne def Nothing
+            return $
+                BackendSpec
+                    RequestBodyBackend
+                    FetchOne def Nothing
+        "literal" ->
+            return $
+                BackendSpec
+                    (LiteralBackend $ JSON.String path)
+                    FetchOne def Nothing
         _ -> fail $ "Unknown protocol: " <> show protocol
     where
         parseSqlBackendURI path = do

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+    <body>
+        <h1>{{ test }}</h1>
+        <p>Editing #{{page.id}}</p>
+        <form action="/save/{{ page.id }}"
+              method="POST"
+              type="application/x-www-form-urlencoded">
+            <h1><input type="text" name="title" value="{{ page.title }}" /></h1>
+            <p><input type="text" name="slug" value="{{ page.slug }}" /></p>
+            <p><textarea name="body">{{ page.body }}</textarea></p>
+            <p><button type="submit">Save</button></p>
+        </form>
+    </body>
+</html>

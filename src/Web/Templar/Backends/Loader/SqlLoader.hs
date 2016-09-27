@@ -32,13 +32,14 @@ import Web.Templar.Backends.Loader.Type
 sqlLoader :: DSN -> Text -> [Text] -> Loader
 sqlLoader dsn query params writeLog _ fetchMode fetchOrder = do
     rows <- DB.withConnection dsn $ \conn -> do
-        writeLog Debug $
-            "SQL: QUERY: " <> tshow query <>
-            " ON " <> DB.dsnToText dsn <>
-            " WITH: " <> tshow params
-        stmt <- HDBC.prepare conn (unpack query)
-        HDBC.execute stmt (map HDBC.toSql params)
-        HDBC.fetchAllRowsMap stmt
+        HDBC.withTransaction conn $ \conn -> do
+            writeLog Debug $
+                "SQL: QUERY: " <> tshow query <>
+                " ON " <> DB.dsnToText dsn <>
+                " WITH: " <> tshow params
+            stmt <- HDBC.prepare conn (unpack query)
+            HDBC.execute stmt (map HDBC.toSql params)
+            HDBC.fetchAllRowsMap stmt
     return $ map mapRow rows
     where
         mapRow :: Map String HDBC.SqlValue -> BackendSource

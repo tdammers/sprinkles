@@ -1,15 +1,62 @@
+definitions:
+    - &main_db
+      driver: 'sqlite'
+      dsn: './db.sqlite'
 data:
-    - mysql: 'file://mysql.yml'
+    - test: 'literal:"Hello"'
 rules:
     - pattern: '/'
+      redirect: '/hello'
+    - pattern: '/{{slug:*}}/edit'
       data:
-        form: 'post:'
-      template: 'blah.html'
-    - pattern: '/my'
-      data:
-      - test:
+        page:
             type: 'sql'
-            driver: 'mysql'
-            dsn: 'user={{mysql.user}};password={{mysql.password}};host={{mysql.host|default("localhost");database={{mysql.database}}'
-            query: 'SELECT title, body FROM pages'
+            connection: *main_db
+            query: "SELECT id, slug, title, body FROM pages WHERE slug = ?"
+            params: ['{{slug}}']
             fetch: one
+      required: ['page']
+      template: 'edit.html'
+    - pattern: '/{{slug:*}}'
+      data:
+        page:
+            type: 'sql'
+            connection: *main_db
+            query: "SELECT id, slug, title, body FROM pages WHERE slug = ?"
+            params: ['{{slug}}']
+            fetch: one
+      required: ['page']
+      template: 'page.html'
+    - pattern: '/save'
+      data:
+        - form:
+            type: 'post'
+        - inserted:
+            type: 'sql'
+            connection: *main_db
+            query: "INSERT INTO pages (slug, title, body) VALUES (?, ?, ?); SELECT last_insert_rowid() AS id"
+            params: ['{{form.slug}}', '{{form.title}}', '{{form.body}}']
+            fetch: one
+        - page:
+            type: 'sql'
+            connection: *main_db
+            query: "SELECT slug FROM pages WHERE id = ?"
+            params: ['{{inserted.id}}']
+            fetch: one
+      redirect: '/{{page.slug}}'
+    - pattern: '/save/{{id:/^[1-9][0-9]*$/}}'
+      data:
+        - form: 'post:'
+        - inserted:
+            type: 'sql'
+            connection: *main_db
+            query: "UPDATE pages SET slug = ?, title = ?, body = ? WHERE id = ?"
+            params: ['{{form.slug}}', '{{form.title}}', '{{form.body}}', '{{id}}']
+            fetch: one
+        - page:
+            type: 'sql'
+            connection: *main_db
+            query: "SELECT id, slug, title, body FROM pages WHERE id = ?"
+            params: ['{{id}}']
+            fetch: one
+      redirect: '/{{form.slug}}'

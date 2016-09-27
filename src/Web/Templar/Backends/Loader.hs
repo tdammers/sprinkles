@@ -27,3 +27,4 @@ loader (FileBackend filepath) = fileLoader filepath
 loader (HttpBackend uriText credentials) = curlLoader uriText credentials
 loader (SubprocessBackend cmd args mimeType) = subprocessLoader cmd args mimeType
 loader RequestBodyBackend = requestBodyLoader
+loader (LiteralBackend body) = error "'literal' backend not implemented yet"
