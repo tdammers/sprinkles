@@ -7,6 +7,11 @@ data:
         type: 'literal'
         body:
             message: 'hello!'
+    - pages:
+        type: 'sql'
+        connection: *main_db
+        query: "SELECT id, slug, title FROM pages ORDER BY title"
+        fetch: all
 rules:
     - pattern: '/'
       redirect: '/hello'
@@ -20,16 +25,15 @@ rules:
             fetch: one
       required: ['page']
       template: 'edit.html'
-    - pattern: '/{{slug:*}}'
+    - pattern: '/new'
       data:
         page:
-            type: 'sql'
-            connection: *main_db
-            query: "SELECT id, slug, title, body FROM pages WHERE slug = ?"
-            params: ['{{slug}}']
-            fetch: one
-      required: ['page']
-      template: 'page.html'
+            type: 'literal'
+            body:
+                title: 'Enter Page Title'
+                slug: 'choose-a-good-slug'
+                body: 'Start typing here'
+      template: 'edit.html'
     - pattern: '/save'
       data:
         - form:
@@ -47,6 +51,16 @@ rules:
             params: ['{{inserted.id}}']
             fetch: one
       redirect: '/{{page.slug}}'
+    - pattern: '/{{slug:*}}'
+      data:
+        page:
+            type: 'sql'
+            connection: *main_db
+            query: "SELECT id, slug, title, body FROM pages WHERE slug = ?"
+            params: ['{{slug}}']
+            fetch: one
+      required: ['page']
+      template: 'page.html'
     - pattern: '/save/{{id:/^[1-9][0-9]*$/}}'
       data:
         - form: 'post:'

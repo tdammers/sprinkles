@@ -1,9 +1,8 @@
 <!DOCTYPE html>
 <html>
     <body>
-        <h1>{{ test|json }}</h1>
-        <p>Editing #{{page.id}}</p>
-        <form action="/save/{{ page.id }}"
+        <p>Editing {{page.id|default("new page")}}</p>
+        <form action="/save{{ page.id ? '/' ~ page.id : ''}}"
               method="POST"
               type="application/x-www-form-urlencoded">
             <h1><input type="text" name="title" value="{{ page.title }}" /></h1>
