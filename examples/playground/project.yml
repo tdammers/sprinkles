@@ -1,7 +1,9 @@
 definitions:
-  - &main_db
-    driver: 'sqlite'
-    dsn: './db.sqlite'
+    - &main_db
+      driver: 'sqlite'
+      dsn: './db.sqlite'
+data:
+    - test: 'literal:"Hello"'
 rules:
     - pattern: '/'
       redirect: '/hello'
