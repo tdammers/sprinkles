@@ -19,6 +19,7 @@ import qualified Network.Wai as Wai
 import Web.Templar.Logger as Logger
 import Web.Templar.Project
 import Web.Templar.ProjectConfig
+import Web.Templar.Exceptions
 
 import Text.Ginger
        (parseGinger, Template, runGingerT, GingerContext, GVal(..), ToGVal(..),
@@ -79,16 +80,6 @@ instance ToGVal m Wai.Request where
 
 decodeCI :: CI.CI ByteString -> Text
 decodeCI = decodeUtf8 . CI.original
-
-data GingerFunctionCallException =
-    GingerInvalidFunctionArgs
-        { invalidFunctionName :: Text
-        , invalidFunctionExpectedArgs :: Text
-        }
-    deriving (Show, Eq, Generic)
-
-instance Exception GingerFunctionCallException
-
 
 respondTemplateHtml :: ToGVal (Ginger.Run IO Html) a => Project -> Status -> Text -> HashMap Text a -> Wai.Application
 respondTemplateHtml project status templateName contextMap request respond = do
@@ -161,7 +152,7 @@ catchToGinger :: forall h m. (LogLevel -> Text -> IO ())
 catchToGinger writeLog action =
     action
         `catch` (\(e :: SomeException) -> do
-            writeLog Logger.Error . tshow $ e
+            writeLog Logger.Error . formatException $ e
             return . toGVal $ False
         )
 

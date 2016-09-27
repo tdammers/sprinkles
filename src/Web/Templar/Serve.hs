@@ -44,6 +44,7 @@ import Text.Ginger.Html (Html, htmlSource)
 import qualified Text.Pandoc as Pandoc
 import qualified Text.Pandoc.Readers.Creole as Pandoc
 
+import Web.Templar.Exceptions
 import Web.Templar.Backends
 import Web.Templar.Cache
 import Web.Templar.Logger as Logger
@@ -114,12 +115,12 @@ appFromProject project request respond =
     handleRequest project request respond `catch` handleException
     where
         handleException (e :: SomeException) = do
-            writeLog (projectLogger project) Logger.Error $ tshow e
+            writeLog (projectLogger project) Logger.Error . formatException $  e
             respond $ Wai.responseLBS status500 [] "Something went pear-shaped."
 
 handleRequest :: Project -> Wai.Application
 handleRequest project request respond =
-    go `catch` handleNotFound project request respond 
+    go `catch` handleNotFound project request respond
        `catchIOError` \e -> handle500 e project request respond
     where
         go = do
