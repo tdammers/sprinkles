@@ -3,7 +3,10 @@ definitions:
       driver: 'sqlite'
       dsn: './db.sqlite'
 data:
-    - test: 'literal:"Hello"'
+    - test:
+        type: 'literal'
+        body:
+            message: 'hello!'
 rules:
     - pattern: '/'
       redirect: '/hello'

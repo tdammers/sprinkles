@@ -35,6 +35,7 @@ library
                  , Web.Templar.Backends.Loader.HttpLoader
                  , Web.Templar.Backends.Loader.SubprocessLoader
                  , Web.Templar.Backends.Loader.RequestBodyLoader
+                 , Web.Templar.Backends.Loader.LiteralLoader
                  , Web.Templar.Handlers
                  , Web.Templar.Handlers.Common
                  , Web.Templar.Handlers.Respond
