@@ -39,8 +39,8 @@ eitherThrowS :: Either String a -> a
 eitherThrowS = either (throw . LeftException) id
 
 -- | Get the 'Right' value, or throw a 'LeftException'
-eitherThrow :: Show err => Either err a -> a
-eitherThrow = either (throw . LeftException . show) id
+eitherThrow :: Exception err => Either err a -> a
+eitherThrow = either throw id
 
 -- | @optionally f v@ executes the @f@ action on 'Just' the value of @v@, or
 -- does nothing if @v@ is 'Nothing'.

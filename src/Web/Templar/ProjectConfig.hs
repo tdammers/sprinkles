@@ -60,7 +60,7 @@ loadProjectConfigFile :: FilePath -> IO ProjectConfig
 loadProjectConfigFile fn =
     YAML.decodeFileEither fn >>=
         either
-            (fail . show)
+            throwM
             return
 
 loadProjectConfig :: FilePath -> IO ProjectConfig

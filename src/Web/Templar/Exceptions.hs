@@ -5,6 +5,8 @@
 module Web.Templar.Exceptions
 ( formatException
 , GingerFunctionCallException (..)
+, InvalidReaderException (..)
+, handleUncaughtExceptions
 )
 where
 
@@ -13,6 +15,10 @@ import Control.Exception
 import qualified Database.HDBC as HDBC
 import Database.HDBC (SqlError (..))
 import GHC.Generics
+import Text.Pandoc.Error (PandocError (..))
+import qualified Data.Yaml as YAML
+
+-- * Various exception types for specific situations
 
 data GingerFunctionCallException =
     GingerInvalidFunctionArgs
@@ -23,6 +29,20 @@ data GingerFunctionCallException =
 
 instance Exception GingerFunctionCallException
 
+data InvalidReaderException =
+    InvalidReaderException
+        { invalidReaderName :: Text
+        , invalidReaderMessage :: Text
+        }
+    deriving (Show, Eq, Generic)
+
+instance Exception InvalidReaderException
+
+throwInvalidReaderException :: String -> String -> IO ()
+throwInvalidReaderException name msg =
+    throwM $ InvalidReaderException (pack name) (pack msg)
+
+-- * Exception formatting
 
 formatException :: SomeException -> Text
 formatException e =
@@ -30,18 +50,26 @@ formatException e =
 
 formatters :: [SomeException -> Maybe Text]
 formatters =
-    [ (formatSqlError =<<) . fromException
-    , (formatIOError =<<) . fromException
+    [ fmap formatSqlError . fromException
+    , fmap formatIOError . fromException
+    , fmap formatYamlParseException . fromException
     ]
 
-formatSqlError :: SqlError -> Maybe Text
+formatSqlError :: SqlError -> Text
 formatSqlError (SqlError { seErrorMsg = msg }) =
-    return $ "SQL Error: " <> pack msg
+    "SQL Error: " <> pack msg
 
-formatIOError :: IOException -> Maybe Text
+formatIOError :: IOException -> Text
 formatIOError e =
-    return $ tshow e
+    tshow e
 
-formatGingerFunctionCallException :: GingerFunctionCallException -> Maybe Text
+formatGingerFunctionCallException :: GingerFunctionCallException -> Text
 formatGingerFunctionCallException e =
-    return $ "Invalid arguments to function '" <> invalidFunctionName e <> "', expected " <> invalidFunctionExpectedArgs e
+    "Invalid arguments to function '" <> invalidFunctionName e <> "', expected " <> invalidFunctionExpectedArgs e
+
+formatYamlParseException :: YAML.ParseException -> Text
+formatYamlParseException = pack . YAML.prettyPrintParseException
+
+handleUncaughtExceptions :: SomeException -> IO ()
+handleUncaughtExceptions e =
+    hPutStrLn stderr . formatException $ e

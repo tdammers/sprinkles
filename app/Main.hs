@@ -8,6 +8,7 @@ module Main where
 
 import ClassyPrelude hiding ( (<|>), try )
 import Web.Templar
+import Web.Templar.Exceptions
 import Text.Read (read, readMaybe)
 import Data.Default (def)
 import Text.Parsec
@@ -104,7 +105,10 @@ argSpecs =
 templarVersion = $(embedPackageVersionStr "templar.cabal")
 
 main :: IO ()
-main = do
+main = runMain `catch` handleUncaughtExceptions
+
+runMain :: IO ()
+runMain = do
     args <- getArgs
     opts <- parseArgs args
     case opts of

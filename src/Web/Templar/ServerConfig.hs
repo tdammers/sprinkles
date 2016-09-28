@@ -156,7 +156,7 @@ loadServerConfigFile :: FilePath -> IO ServerConfig
 loadServerConfigFile fn =
     YAML.decodeFileEither fn >>=
         either
-            (fail . show)
+            throwM
             return
 
 loadServerConfig :: FilePath -> IO ServerConfig
