@@ -116,12 +116,16 @@ appFromProject project request respond =
     where
         handleException (e :: SomeException) = do
             writeLog (projectLogger project) Logger.Error . formatException $  e
-            respond $ Wai.responseLBS status500 [] "Something went pear-shaped."
+            respond $
+                Wai.responseLBS
+                    status500
+                    []
+                    "Something went pear-shaped. It's bad, but the problem is still on our side."
 
 handleRequest :: Project -> Wai.Application
 handleRequest project request respond =
     go `catch` handleNotFound project request respond
-       `catchIOError` \e -> handle500 e project request respond
+       `catch` \e -> handle500 e project request respond
     where
         go = do
             let path = Wai.pathInfo request

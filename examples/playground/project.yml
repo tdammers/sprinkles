@@ -25,6 +25,8 @@ rules:
             fetch: one
       required: ['page']
       template: 'edit.html'
+    - pattern: '/boom'
+      template: 'invalid.html'
     - pattern: '/new'
       data:
         page:

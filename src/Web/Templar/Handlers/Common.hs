@@ -10,6 +10,7 @@ module Web.Templar.Handlers.Common
 where
 
 import ClassyPrelude
+import Web.Templar.Exceptions
 import Web.Templar.Backends
 import qualified Network.Wai as Wai
 import Web.Templar.Logger as Logger
@@ -70,12 +71,11 @@ handle404 project request respond =
             let headers = [("Content-type", "text/plain;charset=utf8")]
             respond . Wai.responseLBS status404 headers $ "Not Found"
 
-handle500 :: Show e
-          => e
+handle500 :: SomeException
           -> Project
           -> Wai.Application
 handle500 err project request respond = do
-    writeLog logger Logger.Error $ tshow err
+    writeLog logger Logger.Error $ formatException err
     respondNormally `catch` handleTemplateNotFound
     where
         cache = projectBackendCache project

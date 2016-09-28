@@ -23,6 +23,7 @@ import System.Directory (makeAbsolute, doesDirectoryExist, doesFileExist, getDir
 import System.FilePath
 import Data.Time.Clock.POSIX (POSIXTime)
 
+import Web.Templar.Exceptions
 import Web.Templar.Rule
 import Web.Templar.ProjectConfig
 import Web.Templar.ServerConfig
@@ -33,11 +34,6 @@ import Web.Templar.Cache.Memory (memCache)
 import Web.Templar.Cache.Memcached (memcachedCache)
 
 newtype TemplateCache = TemplateCache (HashMap Text Template)
-
-data TemplateNotFoundException = TemplateNotFoundException Text
-    deriving (Show, Eq, Generic)
-
-instance Exception TemplateNotFoundException
 
 data Project =
     Project
@@ -123,11 +119,11 @@ preloadTemplates dir = do
     let relativeFilenames = map (makeRelative prefix) filenames
     templates <- forM relativeFilenames $ \filename -> do
         source <- maybe
-                    (fail $ "Source not found: " <> filename)
+                    (throwM . TemplateNotFoundException . pack $ filename)
                     return
                     (lookup filename templateSourceMap)
         parseGinger resolver (Just filename) source >>= \case
-            Left err -> fail . show $ err
+            Left err -> throwM err
             Right t -> return t
     return . TemplateCache . mapFromList $ zip (map pack relativeFilenames) templates
 

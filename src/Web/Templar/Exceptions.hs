@@ -6,6 +6,7 @@ module Web.Templar.Exceptions
 ( formatException
 , GingerFunctionCallException (..)
 , InvalidReaderException (..)
+, TemplateNotFoundException (..)
 , handleUncaughtExceptions
 )
 where
@@ -42,6 +43,11 @@ throwInvalidReaderException :: String -> String -> IO ()
 throwInvalidReaderException name msg =
     throwM $ InvalidReaderException (pack name) (pack msg)
 
+data TemplateNotFoundException = TemplateNotFoundException Text
+    deriving (Show, Eq, Generic)
+
+instance Exception TemplateNotFoundException
+
 -- * Exception formatting
 
 formatException :: SomeException -> Text
@@ -53,6 +59,7 @@ formatters =
     [ fmap formatSqlError . fromException
     , fmap formatIOError . fromException
     , fmap formatYamlParseException . fromException
+    , fmap formatTemplateNotFoundException . fromException
     ]
 
 formatSqlError :: SqlError -> Text
@@ -69,6 +76,12 @@ formatGingerFunctionCallException e =
 
 formatYamlParseException :: YAML.ParseException -> Text
 formatYamlParseException = pack . YAML.prettyPrintParseException
+
+formatTemplateNotFoundException :: TemplateNotFoundException -> Text
+formatTemplateNotFoundException (TemplateNotFoundException templateName) =
+    "Template not found: " <> templateName
+
+-- * Handling exceptions
 
 handleUncaughtExceptions :: SomeException -> IO ()
 handleUncaughtExceptions e =
