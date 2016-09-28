@@ -123,7 +123,7 @@ preloadTemplates dir = do
                     return
                     (lookup filename templateSourceMap)
         parseGinger resolver (Just filename) source >>= \case
-            Left err -> throwM err
+            Left err -> throwM $ withSourceContext (pack filename) err
             Right t -> return t
     return . TemplateCache . mapFromList $ zip (map pack relativeFilenames) templates
 
