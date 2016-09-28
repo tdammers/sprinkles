@@ -34,28 +34,55 @@ gfnWithMediaRoot pandoc args = do
                 args
     case extracted of
         Right [mediaroot] -> do
-            let pandoc' = localUrlPrefix (unpack $ asText mediaroot) pandoc
+            let pandoc' = relativeUrlPrefix (unpack $ asText mediaroot) pandoc
             return $ toGVal pandoc'
         _ -> return def
 
-prefixUrl :: String -> String -> String
-prefixUrl prefix url
+gfnWithAppRoot :: Monad m => Pandoc -> Ginger.Function (Ginger.Run m h)
+gfnWithAppRoot pandoc args = do
+    defApproot <- Ginger.getVar "approot"
+    let extracted =
+            Ginger.extractArgsDefL
+                [ ("approot", defApproot)
+                ]
+                args
+    case extracted of
+        Right [approot] -> do
+            let pandoc' = localUrlPrefix (unpack $ asText approot) pandoc
+            return $ toGVal pandoc'
+        _ -> return def
+
+prefixRelativeUrl :: String -> String -> String
+prefixRelativeUrl prefix url
     | "http://" `isPrefixOf` url = url
     | "https://" `isPrefixOf` url = url
     | "/" `isPrefixOf` url = url
     | ":" `isPrefixOf` url = url
     | otherwise = prefix ++ "/" ++ url
 
-localUrlPrefix :: String -> Pandoc -> Pandoc
-localUrlPrefix prefix = walk goInline
+prefixLocalUrl :: String -> String -> String
+prefixLocalUrl prefix url
+    | "http://" `isPrefixOf` url = url
+    | "https://" `isPrefixOf` url = url
+    | ":" `isPrefixOf` url = url
+    | "/" `isPrefixOf` url = prefix ++ url
+    | otherwise = url
+
+modifyUrls :: (String -> String) -> Pandoc -> Pandoc
+modifyUrls f = walk goInline
     where
         goInline :: Inline -> Inline
         goInline (Image attrs inlines (url, title)) =
-            Image attrs (map goInline inlines) (prefixUrl prefix url, title)
+            Image attrs (map goInline inlines) (f url, title)
         goInline (Link attrs inlines (url, title)) =
-            Link attrs (map goInline inlines) (prefixUrl prefix url, title)
+            Link attrs (map goInline inlines) (f url, title)
         goInline x = x
-        
+
+localUrlPrefix :: String -> Pandoc -> Pandoc
+localUrlPrefix prefix = modifyUrls (prefixLocalUrl prefix)
+
+relativeUrlPrefix :: String -> Pandoc -> Pandoc
+relativeUrlPrefix prefix = modifyUrls (prefixRelativeUrl prefix)
 
 instance Monad m => ToGVal (Ginger.Run m h) Pandoc where
     toGVal pandoc@(Pandoc meta blocks) =
@@ -64,6 +91,9 @@ instance Monad m => ToGVal (Ginger.Run m h) Pandoc where
                 Just
                     [ ( "meta", toGVal meta )
                     , ( "body", toGVal blocks )
+                    , ( "withAppRoot"
+                      , Ginger.fromFunction . gfnWithAppRoot $ pandoc
+                      )
                     , ( "withMediaRoot"
                       , Ginger.fromFunction . gfnWithMediaRoot $ pandoc
                       )
@@ -72,6 +102,7 @@ instance Monad m => ToGVal (Ginger.Run m h) Pandoc where
                             "meta" -> Just (toGVal meta)
                             "body" -> Just (toGVal blocks)
                             "withMediaRoot" -> Just . Ginger.fromFunction . gfnWithMediaRoot $ pandoc
+                            "withAppRoot" -> Just . Ginger.fromFunction . gfnWithAppRoot $ pandoc
                             _ -> Nothing
             , asHtml = unsafeRawHtml . pack . writeHtmlString writerOptions $ pandoc
             , asText = unwords . fmap (asText . toGVal) $ blocks
