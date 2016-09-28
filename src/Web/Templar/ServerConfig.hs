@@ -21,6 +21,7 @@ import System.Directory (doesFileExist)
 import Data.Scientific (Scientific)
 import Data.Time.Clock.POSIX (POSIXTime)
 import Web.Templar.Logger (LogLevel (..))
+import Web.Templar.Exceptions
 
 data BackendCacheConfig =
     FilesystemCache FilePath POSIXTime |
@@ -156,7 +157,7 @@ loadServerConfigFile :: FilePath -> IO ServerConfig
 loadServerConfigFile fn =
     YAML.decodeFileEither fn >>=
         either
-            throwM
+            (throwM . withSourceContext (pack fn))
             return
 
 loadServerConfig :: FilePath -> IO ServerConfig

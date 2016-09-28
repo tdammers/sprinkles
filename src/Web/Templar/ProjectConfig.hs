@@ -17,6 +17,7 @@ import System.Environment (getEnv, lookupEnv)
 import Control.MaybeEitherMonad (maybeFail)
 import Data.AList (AList)
 import qualified Data.AList as AList
+import Web.Templar.Exceptions
 
 data ProjectConfig =
     ProjectConfig
@@ -60,7 +61,7 @@ loadProjectConfigFile :: FilePath -> IO ProjectConfig
 loadProjectConfigFile fn =
     YAML.decodeFileEither fn >>=
         either
-            throwM
+            (throwM . withSourceContext (pack fn))
             return
 
 loadProjectConfig :: FilePath -> IO ProjectConfig
