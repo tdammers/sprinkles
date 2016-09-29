@@ -50,7 +50,7 @@ handleNotFound project request respond _ = do
 
 handleMethodNotAllowed :: Project -> Wai.Request -> (Wai.Response -> IO Wai.ResponseReceived) -> MethodNotAllowedException -> IO Wai.ResponseReceived
 handleMethodNotAllowed project request respond _ = do
-    handle404
+    handle405
         project
         request
         respond

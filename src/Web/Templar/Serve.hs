@@ -134,11 +134,12 @@ handleRequest project request respond =
             let path = Wai.pathInfo request
                 query = queryToQueryText . Wai.queryString $ request
                 method = Wai.requestMethod request
-            case applyRules
+            let matchResult = applyRules
                     (pcRules . projectConfig $ project)
                     method
                     path
-                    query of
+                    query
+            case matchResult of
                 Left PathNotMatched ->
                     throwM NotFoundException
                 Left MethodNotMatched ->
