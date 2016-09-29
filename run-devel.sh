@@ -48,4 +48,4 @@ watch_serve examples/blogg 5100 &
 watch_serve examples/countryInfo 5101 &
 watch_serve examples/playground 5102 &
 watch_hasktags &
-stack install --file-watch # --test --haddock
+stack install --file-watch --test # --haddock
