@@ -73,25 +73,49 @@ expandReplacementBackend :: HashMap Text (GVal (Run (Writer Text) Text))
                          -> BackendSpec
 expandReplacementBackend varMap = omap (maybeThrow . expandReplacementText varMap)
 
+data NonMatchReason =
+    PathNotMatched | MethodNotMatched
+    deriving (Eq, Ord, Enum, Show, Read)
+
+-- | Alternative-like monoid append operator for Eithers over orderable Lefts.
+-- The behavior is almost exactly like Alternative proper, except that when
+-- both sides fail, the larger failure value prevails.
+--
+-- In other words:
+--
+-- Left 3 <|+> Left 2 == Left 3
+-- Left 2 <|+> Left 3 == Left 3
+-- Left 2 <|+> Right "Hello" == Right "Hello"
+-- Right "Hello" <|+> Left 2 == Right "Hello"
+-- Right "Hello" <|+> Right "Hello" == Right "Hello"
+(<|+>) :: Ord e => Either e a -> Either e a -> Either e a
+Left e1 <|+> Left e2 = Left (max e1 e2)
+Left _ <|+> Right a = Right a
+Right a <|+> _ = Right a
+
 matchMethod :: Set HTTP.Method -> HTTP.Method -> Maybe HTTP.Method
 matchMethod acceptedMethods method =
     if method `elem` acceptedMethods
         then Just method
         else Nothing
 
-matchRule :: Rule -> HTTP.Method -> [Text] -> QueryText -> Maybe (HashMap Text Text)
+matchRule :: Rule -> HTTP.Method -> [Text] -> QueryText -> Either NonMatchReason (HashMap Text Text)
 matchRule rule method path query = do
-    captures <- matchPattern (ruleRoutePattern rule) path query
-    matchMethod (ruleAcceptedMethods rule) method
+    captures <- maybe (Left PathNotMatched) Right $
+        matchPattern (ruleRoutePattern rule) path query
+    maybe (Left MethodNotMatched) Right $
+        matchMethod (ruleAcceptedMethods rule) method
     return captures
 
 applyRule :: Rule
           -> HTTP.Method
           -> [Text]
           -> QueryText
-          -> Maybe ( Rule
-                   , HashMap Text Text
-                   )
+          -> Either
+                NonMatchReason
+                ( Rule
+                , HashMap Text Text
+                )
 applyRule rule method path query = do
     captures <- matchRule rule method path query
     return (rule, captures)
@@ -100,9 +124,11 @@ applyRules :: [Rule]
            -> HTTP.Method
            -> [Text]
            -> QueryText
-           -> Maybe ( Rule
-                    , HashMap Text Text
-                    )
-applyRules [] _ _ _ = Nothing
+           -> Either
+                 NonMatchReason
+                 ( Rule
+                 , HashMap Text Text
+                )
+applyRules [] _ _ _ = Left PathNotMatched
 applyRules (rule:rules) method path query =
-    applyRule rule method path query <|> applyRules rules method path query
+    applyRule rule method path query <|+> applyRules rules method path query

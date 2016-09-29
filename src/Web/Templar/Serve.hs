@@ -57,6 +57,7 @@ import Web.Templar.Backends.Loader.Type
 import Web.Templar.Handlers
        ( handleStaticTarget
        , handleNotFound
+       , handleMethodNotAllowed
        , handleRedirectTarget
        , handleJSONTarget
        , handleTemplateTarget
@@ -65,6 +66,7 @@ import Web.Templar.Handlers.Respond
 import Web.Templar.Handlers.Common
        ( loadBackendDict
        , NotFoundException (..)
+       , MethodNotAllowedException (..)
        , handle500
        , handle404
        )
@@ -125,6 +127,7 @@ appFromProject project request respond =
 handleRequest :: Project -> Wai.Application
 handleRequest project request respond =
     go `catch` handleNotFound project request respond
+       `catch` handleMethodNotAllowed project request respond
        `catch` \e -> handle500 e project request respond
     where
         go = do
@@ -136,9 +139,11 @@ handleRequest project request respond =
                     method
                     path
                     query of
-                Nothing ->
+                Left PathNotMatched ->
                     throwM NotFoundException
-                Just (rule, captures) ->
+                Left MethodNotMatched ->
+                    throwM MethodNotAllowedException
+                Right (rule, captures) ->
                     handleRule
                         rule
                         captures

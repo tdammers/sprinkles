@@ -5,7 +5,9 @@ module Web.Templar.Handlers
 , handleRedirectTarget
 , handleTemplateTarget
 , handleNotFound
+, handleMethodNotAllowed
 , handle404
+, handle405
 , handle500
 )
 where

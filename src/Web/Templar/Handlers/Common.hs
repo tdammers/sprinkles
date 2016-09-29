@@ -17,7 +17,7 @@ import Web.Templar.Logger as Logger
 import Web.Templar.Project
 import Web.Templar.ProjectConfig
 import Network.HTTP.Types
-       (Status, status200, status302, status400, status404, status500)
+       (Status, status200, status302, status400, status404, status405, status500)
 import Web.Templar.Handlers.Respond
 import Text.Ginger.Html (Html, htmlSource)
 import Web.Templar.Backends.Loader.Type
@@ -33,6 +33,11 @@ data NotFoundException = NotFoundException
 
 instance Exception NotFoundException where
 
+data MethodNotAllowedException = MethodNotAllowedException
+    deriving (Show)
+
+instance Exception MethodNotAllowedException where
+
 type ContextualHandler =
     HashMap Text (Items (BackendData IO Html)) -> Project -> Wai.Application
 
@@ -43,13 +48,23 @@ handleNotFound project request respond _ = do
         request
         respond
 
-handle404 :: Project
-          -> Wai.Application
-handle404 project request respond =
+handleMethodNotAllowed :: Project -> Wai.Request -> (Wai.Response -> IO Wai.ResponseReceived) -> MethodNotAllowedException -> IO Wai.ResponseReceived
+handleMethodNotAllowed project request respond _ = do
+    handle404
+        project
+        request
+        respond
+
+handleHttpError :: Status
+                -> Text
+                -> Text
+                -> Project
+                -> Wai.Application
+handleHttpError status templateName message project request respond =
     respondNormally `catch` handleTemplateNotFound
     where
-        backendPaths = pcContextData . projectConfig $ project
         cache = projectBackendCache project
+        backendPaths = pcContextData . projectConfig $ project
         logger = projectLogger project
         respondNormally = do
             backendData <- loadBackendDict
@@ -61,45 +76,32 @@ handle404 project request respond =
                                 (mapFromList [])
             respondTemplateHtml
                 project
-                status404
-                "404.html"
+                status
+                templateName
                 backendData
                 request
                 respond
         handleTemplateNotFound (e :: TemplateNotFoundException) = do
-            writeLog logger Logger.Warning "Template 404.html not found, using built-in fallback"
+            writeLog logger Logger.Warning $ "Template " ++ templateName ++ " not found, using built-in fallback"
             let headers = [("Content-type", "text/plain;charset=utf8")]
-            respond . Wai.responseLBS status404 headers $ "Not Found"
+            respond . Wai.responseLBS status headers . fromStrict . encodeUtf8 $ message
+
+handle404 :: Project
+          -> Wai.Application
+handle404 = handleHttpError status404 "404.html" "Not Found"
+
+handle405 :: Project
+          -> Wai.Application
+handle405 = handleHttpError status405 "405.html" "Method Not Allowed"
 
 handle500 :: SomeException
           -> Project
           -> Wai.Application
 handle500 err project request respond = do
-    writeLog logger Logger.Error $ formatException err
-    respondNormally `catch` handleTemplateNotFound
+    writeLog (projectLogger project) Logger.Error $ formatException err
+    handleHttpError status500 "500.html" message project request respond
     where
-        cache = projectBackendCache project
-        backendPaths = pcContextData . projectConfig $ project
-        logger = projectLogger project
-        respondNormally = do
-            backendData <- loadBackendDict
-                (writeLog logger)
-                (pbsFromRequest request)
-                cache
-                backendPaths
-                (setFromList [])
-                (mapFromList [])
-            respondTemplateHtml
-                project
-                status500
-                "500.html"
-                backendData
-                request
-                respond
-        handleTemplateNotFound (e :: TemplateNotFoundException) = do
-            writeLog logger Logger.Warning "Template 500.html not found, using built-in fallback"
-            let headers = [("Content-type", "text/plain;charset=utf8")]
-            respond . Wai.responseLBS status500 headers $ "Something went pear-shaped. The problem seems to be on our side."
+        message = "Something went pear-shaped. The problem seems to be on our side."
 
 loadBackendDict :: (LogLevel -> Text -> IO ())
                 -> PostBodySource
