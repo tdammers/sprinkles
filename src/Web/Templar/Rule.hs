@@ -1,6 +1,7 @@
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
 {-#LANGUAGE OverloadedLists #-}
+{-#LANGUAGE ScopedTypeVariables #-}
 module Web.Templar.Rule
 where
 
@@ -11,10 +12,13 @@ import Web.Templar.Backends
 import Data.Aeson as JSON
 import Control.MaybeEitherMonad
 import Network.HTTP.Types.URI (QueryText)
+import qualified Network.HTTP as HTTP
+import qualified Network.HTTP.Types as HTTP
 import qualified Data.AList as AList
 import Data.AList (AList)
 import Text.Ginger (Run, ToGVal (..), GVal)
 import Control.Monad.Writer (Writer)
+import qualified Data.Set as Set
 
 data RuleTarget p =
     TemplateTarget p |
@@ -29,12 +33,22 @@ data Rule =
         , ruleContextData :: AList Text BackendSpec
         , ruleTarget :: RuleTarget Replacement
         , ruleRequired :: Set Text
+        , ruleAcceptedMethods :: Set HTTP.Method
         }
         deriving (Show)
+
+orElse :: Monad m => m (Maybe a) -> m (Maybe a) -> m (Maybe a)
+orElse leftAction rightAction = do
+    leftAction >>= maybe rightAction (return . Just)
+
 
 instance FromJSON Rule where
     parseJSON (Object obj) = do
         pattern <- obj .: "pattern"
+        (methodsMay :: Maybe [Text]) <- obj .:? "methods"
+        (methodMay :: Maybe [Text]) <- fmap (:[]) <$> (obj .:? "method")
+        let methods = Set.fromList . map encodeUtf8 . fromMaybe [ "GET", "POST" ] $
+                methodsMay <|> methodMay
         contextData <- fromMaybe AList.empty <$> obj .:? "data"
         templateMay <- fmap TemplateTarget <$> (obj .:? "template")
         redirectMay <- fmap RedirectTarget <$> (obj .:? "redirect")
@@ -45,7 +59,7 @@ instance FromJSON Rule where
                     then StaticTarget staticChildPath
                     else (fromMaybe JSONTarget $ redirectMay <|> templateMay)
         required <- obj .:? "required" .!= []
-        return $ Rule pattern contextData target required
+        return $ Rule pattern contextData target required methods
     parseJSON x = fail $ "Expected rule, but found " <> show x
 
 expandRuleTarget :: HashMap Text (GVal (Run (Writer Text) Text)) -> RuleTarget Replacement -> RuleTarget Text
@@ -59,24 +73,36 @@ expandReplacementBackend :: HashMap Text (GVal (Run (Writer Text) Text))
                          -> BackendSpec
 expandReplacementBackend varMap = omap (maybeThrow . expandReplacementText varMap)
 
+matchMethod :: Set HTTP.Method -> HTTP.Method -> Maybe HTTP.Method
+matchMethod acceptedMethods method =
+    if method `elem` acceptedMethods
+        then Just method
+        else Nothing
+
+matchRule :: Rule -> HTTP.Method -> [Text] -> QueryText -> Maybe (HashMap Text Text)
+matchRule rule method path query = do
+    captures <- matchPattern (ruleRoutePattern rule) path query
+    matchMethod (ruleAcceptedMethods rule) method
+    return captures
+
 applyRule :: Rule
-          -> HashMap Text (GVal (Run (Writer Text) Text))
+          -> HTTP.Method
           -> [Text]
           -> QueryText
           -> Maybe ( Rule
                    , HashMap Text Text
                    )
-applyRule rule context path query = do
-    captures <- matchPattern (ruleRoutePattern rule) path query
+applyRule rule method path query = do
+    captures <- matchRule rule method path query
     return (rule, captures)
 
-applyRules :: [Rule]    
-           -> HashMap Text (GVal (Run (Writer Text) Text))
+applyRules :: [Rule]
+           -> HTTP.Method
            -> [Text]
            -> QueryText
            -> Maybe ( Rule
                     , HashMap Text Text
                     )
 applyRules [] _ _ _ = Nothing
-applyRules (rule:rules) context path query =
-    applyRule rule context path query <|> applyRules rules context path query
+applyRules (rule:rules) method path query =
+    applyRule rule method path query <|> applyRules rules method path query

@@ -130,10 +130,10 @@ handleRequest project request respond =
         go = do
             let path = Wai.pathInfo request
                 query = queryToQueryText . Wai.queryString $ request
-                context = mapFromList []
+                method = Wai.requestMethod request
             case applyRules
                     (pcRules . projectConfig $ project)
-                    context
+                    method
                     path
                     query of
                 Nothing ->

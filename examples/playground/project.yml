@@ -37,6 +37,7 @@ rules:
                 body: 'Start typing here'
       template: 'edit.html'
     - pattern: '/save'
+      method: 'POST'
       data:
         - form:
             type: 'post'
