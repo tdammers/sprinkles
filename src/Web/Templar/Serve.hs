@@ -8,6 +8,7 @@
 {-#LANGUAGE MultiParamTypeClasses #-}
 module Web.Templar.Serve
 ( serveProject
+, appFromProject
 )
 where
 

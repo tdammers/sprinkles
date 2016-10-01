@@ -6,8 +6,10 @@ module Web.Templar.Logger
 , newBufferedLogger
 , syslogLogger
 , nullLogger
+, tChanLogger
 , Logger (..)
 , LogLevel (..)
+, LogMessage (..)
 , writeLog
 )
 where
@@ -16,6 +18,7 @@ import ClassyPrelude
 import Control.Concurrent (forkIO)
 import Data.Aeson (FromJSON (..), Value (..), (.:))
 import qualified System.Posix.Syslog as Syslog
+import Data.Default (Default (..))
 
 data LogLevel = Debug
               | Notice
@@ -72,14 +75,19 @@ data Logger =
         { writeLogMessage :: LogMessage -> IO ()
         }
 
+instance Default Logger where
+    def = nullLogger
+
 nullLogger :: Logger
-nullLogger = Logger . const . return $ ()
+nullLogger = Logger
+    { writeLogMessage = const . return $ ()
+    }
 
 -- | A plain logger that logs directly to stdout. Since there is no buffer,
 -- having multiple threads write to this logger can cause unexpected behavior.
 stderrLogger :: LogLevel -> Logger
 stderrLogger level =
-    Logger go
+    def { writeLogMessage = go }
     where
         go msg =
             when
@@ -88,7 +96,8 @@ stderrLogger level =
 
 -- | A plain logger that logs to syslog.
 syslogLogger :: LogLevel -> Logger
-syslogLogger level = Logger go
+syslogLogger level =
+    def { writeLogMessage = go }
     where
         go msg =
             Syslog.withSyslog
@@ -104,7 +113,6 @@ syslogLogger level = Logger go
 newBufferedLogger :: Logger -> IO Logger
 newBufferedLogger inner = do
     channel <- newChan
-    logOpen <- newMVar ()
     let writeFn = writeChan channel
     forkIO . forever $
         -- TODO: This thread will currently keep running until the main
@@ -112,3 +120,12 @@ newBufferedLogger inner = do
         -- cleanup function that can be used in a bracket.
         readChan channel >>= writeLogMessage inner
     return $ Logger writeFn
+
+-- | A logger that writes to a 'TChan'. This implementation is for
+-- simulation-testing purposes; it is not possible to construct such
+-- a logger declaratively through configuration files, and it would
+-- be nonsensical anyway, because the main application does not provide
+-- any suitable TChans, nor any way of reading them out.
+tChanLogger :: TChan LogMessage -> Logger
+tChanLogger chan =
+    Logger (atomically . writeTChan chan)
