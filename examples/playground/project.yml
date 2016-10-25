@@ -86,3 +86,7 @@ rules:
             params: ['{{id}}']
             fetch: one
       redirect: '/{{form.slug}}'
+    - pattern: '/{{path:**}}'
+      data:
+        - path: 'literal://{{path[-1:]}}'
+      template: 'test.html'

@@ -71,6 +71,7 @@ import Web.Templar.Handlers.Common
        , handle500
        , handle404
        )
+import Web.Templar.MatchedText (MatchedText (..))
 
 serveProject :: ServerConfig -> Project -> IO ()
 serveProject config project = do
@@ -153,7 +154,7 @@ handleRequest project request respond =
                         request
                         respond
 
-handleRule :: Rule -> HashMap Text Text -> Project -> Wai.Application
+handleRule :: Rule -> HashMap Text MatchedText -> Project -> Wai.Application
 handleRule rule captures project request respond = do
     let cache = projectBackendCache project
         capturesG = fmap toGVal captures

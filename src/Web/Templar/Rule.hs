@@ -9,6 +9,7 @@ import ClassyPrelude
 import Web.Templar.Pattern
 import Web.Templar.Replacement
 import Web.Templar.Backends
+import Web.Templar.MatchedText
 import Data.Aeson as JSON
 import Control.MaybeEitherMonad
 import Network.HTTP.Types.URI (QueryText)
@@ -99,7 +100,7 @@ matchMethod acceptedMethods method =
         then Just method
         else Nothing
 
-matchRule :: Rule -> HTTP.Method -> [Text] -> QueryText -> Either NonMatchReason (HashMap Text Text)
+matchRule :: Rule -> HTTP.Method -> [Text] -> QueryText -> Either NonMatchReason (HashMap Text MatchedText)
 matchRule rule method path query = do
     captures <- maybe (Left PathNotMatched) Right $
         matchPattern (ruleRoutePattern rule) path query
@@ -114,7 +115,7 @@ applyRule :: Rule
           -> Either
                 NonMatchReason
                 ( Rule
-                , HashMap Text Text
+                , HashMap Text MatchedText
                 )
 applyRule rule method path query = do
     captures <- matchRule rule method path query
@@ -127,7 +128,7 @@ applyRules :: [Rule]
            -> Either
                  NonMatchReason
                  ( Rule
-                 , HashMap Text Text
+                 , HashMap Text MatchedText
                 )
 applyRules [] _ _ _ = Left PathNotMatched
 applyRules (rule:rules) method path query =

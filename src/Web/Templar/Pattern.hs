@@ -18,6 +18,8 @@ import Text.Regex.Base as RE
 import qualified Data.Array as Array
 import Control.MaybeEitherMonad
 import System.IO.Unsafe (unsafePerformIO)
+import Web.Templar.MatchedText
+
 
 data BasePatternItem =
     Exactly Text |
@@ -137,13 +139,13 @@ anonymousLiteralP = PatternPathItem Nothing <$> literalP <*> multiModifierP
 anonymousAnyP :: Parsec Text () PatternPathItem
 anonymousAnyP = PatternPathItem Nothing <$> anyP <*> multiModifierP
 
-matchPattern :: Pattern -> [Text] -> [(Text, Maybe Text)] -> Maybe (HashMap Text Text)
+matchPattern :: Pattern -> [Text] -> [(Text, Maybe Text)] -> Maybe (HashMap Text MatchedText)
 matchPattern (Pattern pathItems queryItems) path query = do
     pathMatches <- matchPatternPath pathItems path
-    queryMatches <- matchPatternQuery queryItems query
+    queryMatches <- fmap MatchedText <$> matchPatternQuery queryItems query
     return $ pathMatches <> queryMatches
 
-matchPatternPath :: [PatternPathItem] -> [Text] -> Maybe (HashMap Text Text)
+matchPatternPath :: [PatternPathItem] -> [Text] -> Maybe (HashMap Text MatchedText)
 matchPatternPath [] []= Just (mapFromList [])
 matchPatternPath [] _ = Nothing
 matchPatternPath (x:xs) query = do
@@ -153,14 +155,14 @@ matchPatternPath (x:xs) query = do
         Nothing -> rest
         Just name -> insertMap name value rest
 
-matchPatternPathItem :: PatternPathItem -> [Text] -> Maybe (Maybe Text, Text, [Text])
+matchPatternPathItem :: PatternPathItem -> [Text] -> Maybe (Maybe Text, MatchedText, [Text])
 matchPatternPathItem (PatternPathItem nameMay base MatchOne) [] = Nothing
 matchPatternPathItem (PatternPathItem nameMay base MatchOne) (query:remainder) = do
     value <- matchBaseItem base query
-    return (nameMay, value, remainder)
+    return (nameMay, MatchedText value, remainder)
 matchPatternPathItem (PatternPathItem nameMay base MatchMany) query = do
     let (values, remainder) = matchBaseItemMulti base query
-    return (nameMay, Text.intercalate "/" values, remainder)
+    return (nameMay, MatchedTexts values, remainder)
 
 matchPatternQuery :: [PatternQueryItem] -> [(Text, Maybe Text)] -> Maybe (HashMap Text Text)
 matchPatternQuery items q = matchPatternQuery' items (fromMaybe "" <$> mapFromList q)

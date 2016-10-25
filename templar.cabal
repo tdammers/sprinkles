@@ -44,6 +44,7 @@ library
                  , Web.Templar.Handlers.Redirect
                  , Web.Templar.Handlers.JSON
                  , Web.Templar.Handlers.Template
+                 , Web.Templar.MatchedText
                  , Web.Templar.PandocGVal
                  , Web.Templar.Rule
                  , Web.Templar.ProjectConfig
