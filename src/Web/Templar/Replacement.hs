@@ -35,15 +35,15 @@ newtype Replacement = Replacement Template
     deriving (Show)
 
 instance FromJSON Replacement where
-    parseJSON val = (maybe (fail "invalid replacement") return . parseReplacement) =<< parseJSON val
+    parseJSON val = (either fail return . parseReplacement) =<< parseJSON val
 
-expandReplacementText :: HashMap Text (GVal (Run (Writer Text) Text)) -> Text -> Maybe Text
+expandReplacementText :: HashMap Text (GVal (Run (Writer Text) Text)) -> Text -> Either String Text
 expandReplacementText variables input =
     expandReplacement variables <$> parseReplacement input
 
-parseReplacement :: Text -> Maybe Replacement
+parseReplacement :: Text -> Either String Replacement
 parseReplacement input =
-    either (const Nothing) (Just . Replacement) . runIdentity $
+    either (Left . show) (Right . Replacement) . runIdentity $
     parseGinger
         (const $ return Nothing)
         Nothing
