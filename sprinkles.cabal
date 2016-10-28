@@ -1,0 +1,149 @@
+name:                sprinkles
+version:             0.3.0.0
+synopsis:            JSON API to HTML website wrapper
+description:         Please see README.md
+homepage:            https://bitbucket.org/tdammers/sprinkles
+license:             BSD3
+license-file:        LICENSE
+author:              Author name here
+maintainer:          tdammers@gmail.com
+copyright:           2016 Tobias Dammers
+category:            Web
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs: src
+  exposed-modules: Web.Sprinkles
+                 , Web.Sprinkles.Logger
+                 , Web.Sprinkles.Exceptions
+                 , Web.Sprinkles.Databases
+                 , Web.Sprinkles.Cache
+                 , Web.Sprinkles.Cache.Filesystem
+                 , Web.Sprinkles.Cache.Memory
+                 , Web.Sprinkles.Cache.Memcached
+                 , Web.Sprinkles.Pattern
+                 , Web.Sprinkles.Replacement
+                 , Web.Sprinkles.Backends
+                 , Web.Sprinkles.Backends.Loader
+                 , Web.Sprinkles.Backends.Spec
+                 , Web.Sprinkles.Backends.Data
+                 , Web.Sprinkles.Backends.Parsers
+                 , Web.Sprinkles.Backends.Loader.SqlLoader
+                 , Web.Sprinkles.Backends.Loader.FileLoader
+                 , Web.Sprinkles.Backends.Loader.Type
+                 , Web.Sprinkles.Backends.Loader.HttpLoader
+                 , Web.Sprinkles.Backends.Loader.SubprocessLoader
+                 , Web.Sprinkles.Backends.Loader.RequestBodyLoader
+                 , Web.Sprinkles.Backends.Loader.LiteralLoader
+                 , Web.Sprinkles.Handlers
+                 , Web.Sprinkles.Handlers.Common
+                 , Web.Sprinkles.Handlers.Respond
+                 , Web.Sprinkles.Handlers.Static
+                 , Web.Sprinkles.Handlers.Redirect
+                 , Web.Sprinkles.Handlers.JSON
+                 , Web.Sprinkles.Handlers.Template
+                 , Web.Sprinkles.MatchedText
+                 , Web.Sprinkles.PandocGVal
+                 , Web.Sprinkles.Rule
+                 , Web.Sprinkles.ProjectConfig
+                 , Web.Sprinkles.ServerConfig
+                 , Web.Sprinkles.Project
+                 , Web.Sprinkles.Serve
+                 , Control.MaybeEitherMonad
+                 , Data.EmbedVersion
+                 , Data.AList
+                 , Data.Walk
+  build-depends: base >= 4.7 && < 5
+               , Cabal
+               , Glob
+               , HDBC
+               , HDBC-postgresql
+               , HDBC-sqlite3
+               , HDBC-mysql
+               , HTTP
+               , aeson
+               , aeson-pretty
+               , array
+               , bytestring
+               , case-insensitive
+               , cereal
+               , classy-prelude
+               , containers
+               , curl
+               , data-default
+               , directory
+               , filepath
+               , ginger
+               , hashable
+               , hsyslog
+               , http-types
+               , memcached-binary
+               , mime-types
+               , mtl
+               , network-uri
+               , pandoc
+               , pandoc-creole
+               , pandoc-types
+               , parsec
+               , process
+               , random-shuffle
+               , regex-base
+               , regex-pcre
+               , safe
+               , scientific
+               , system-locale
+               , template-haskell
+               , text
+               , time
+               , transformers
+               , unix-compat
+               , unordered-containers
+               , utf8-string
+               , vector
+               , wai
+               , wai-extra
+               , wai-handler-fastcgi
+               , warp
+               , yaml
+  default-language:    Haskell2010
+
+executable sprinkles
+  hs-source-dirs: app
+  main-is: Main.hs
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends: base
+               , sprinkles
+               , classy-prelude
+               , data-default
+               , safe
+               , parsec
+  default-language: Haskell2010
+
+test-suite sprinkles-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  other-modules: Web.Sprinkles.PatternTest
+               , Web.Sprinkles.ApplicationTest
+  build-depends: base
+               , sprinkles
+               , classy-prelude
+               , data-default
+               , directory
+               , filepath
+               , heredoc
+               , regex-base
+               , regex-pcre
+               , tasty
+               , tasty-hunit
+               , tasty-quickcheck
+               , temporary
+               , wai-extra
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://bitbucket.org/tdammers/sprinkles

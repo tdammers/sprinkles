@@ -4,7 +4,7 @@ function fail() {
     exit -1
 }
 
-BINARY=$(which templar) || fail "templar binary not found"
+BINARY=$(which sprinkles) || fail "sprinkles binary not found"
 if [ ! -e "$BINARY" ]
 then
     echo "Does not exist: $BINARY"
@@ -12,7 +12,7 @@ then
 fi
 
 RELEASEID=$(git describe --tags --always || git log --pretty='format:%h' -1)
-PREPDIR="release/templar"
+PREPDIR="release/sprinkles"
 mkdir -p "$PREPDIR"
 
 mkdir "$PREPDIR/bin"
@@ -22,10 +22,10 @@ cd "$PREPDIR"
 rm -rf examples/*/.cache
 cd ".."
 
-RELEASE_FILENAME="templar-$RELEASEID"
+RELEASE_FILENAME="sprinkles-$RELEASEID"
 echo "$RELEASE_FILENAME"
 
 rm -f "$RELEASE_FILENAME.zip"
-zip -r "$RELEASE_FILENAME.zip" templar
+zip -r "$RELEASE_FILENAME.zip" sprinkles
 rm -f "$RELEASE_FILENAME.tar.gz"
-tar cvzf "$RELEASE_FILENAME.tar.gz" templar
+tar cvzf "$RELEASE_FILENAME.tar.gz" sprinkles

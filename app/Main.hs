@@ -3,12 +3,12 @@
 {-#LANGUAGE TemplateHaskell #-}
 {-#LANGUAGE ScopedTypeVariables #-}
 
--- | CLI program that drives a Templar instance.
+-- | CLI program that drives a Sprinkles instance.
 module Main where
 
 import ClassyPrelude hiding ( (<|>), try )
-import Web.Templar
-import Web.Templar.Exceptions
+import Web.Sprinkles
+import Web.Sprinkles.Exceptions
 import Text.Read (read, readMaybe)
 import Data.Default (def)
 import Text.Parsec
@@ -102,7 +102,7 @@ argSpecs =
     , Flag "fcgi" (\config -> config { scDriver = FastCGIDriver })
     ]
 
-templarVersion = $(embedPackageVersionStr "templar.cabal")
+sprinklesVersion = $(embedPackageVersionStr "sprinkles.cabal")
 
 main :: IO ()
 main = runMain `catch` handleUncaughtExceptions
@@ -119,4 +119,4 @@ runMain = do
             project <- loadProject sconfig "."
             serveProject sconfig project
         DumpVersion -> do
-            putStrLn templarVersion
+            putStrLn sprinklesVersion

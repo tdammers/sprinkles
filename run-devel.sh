@@ -16,14 +16,14 @@ function watch_serve() {
     for ((;;))
     do
         sleep 1
-        pgrep -l templar
-        templar "$2" &
+        pgrep -l sprinkles
+        sprinkles "$2" &
         PID="$!"
         echo "$PID: $1 :$2"
-        pgrep -l templar
+        pgrep -l sprinkles
         inotifywait \
             -e attrib \
-            "$(which templar)" \
+            "$(which sprinkles)" \
             project.yml \
             templates/** \
             $(find -name static) \

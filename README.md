@@ -1,13 +1,13 @@
-# Templar
+# Sprinkles
 
 A minimalist website construction tool.
 
 ## What It Does
 
-Templar is a tool that provides HTML front-ends to diverse data backends, based
+Sprinkles is a tool that provides HTML front-ends to diverse data backends, based
 on a YAML configuration file, and a collection of templates and static files.
-With templar, you can turn a basic JSON API, or a collection of Markdown, YAML
-and JSON files, into a full-blown content-driven website. Templar can act as a
+With sprinkles, you can turn a basic JSON API, or a collection of Markdown, YAML
+and JSON files, into a full-blown content-driven website. Sprinkles can act as a
 UI layer for a complex web service, or as a front-end for a poor man's CMS, or
 as a drop-in replacement for a static site generator.
 
@@ -18,7 +18,7 @@ as a drop-in replacement for a static site generator.
 #### Binary Install (x64 Linux)
 
 On a reasonably modern x64 Linux system, this is the preferred way of
-installing templar.
+installing sprinkles.
 
 - Install the system dependencies; at the time of writing, those are:
     - `libfcgi` (for FCGI support)
@@ -28,15 +28,15 @@ installing templar.
     - `libpq5` (for the PostgreSQL backend)
     - `libmysqlclient` (for MySQL support)
 - Get the binary release tarball from
-  https://github.com/tdammers/templar/releases/latest (both zip file and
+  https://github.com/tdammers/sprinkles/releases/latest (both zip file and
   tarball are available, both contain the same files)
 - Unzip or untar
-- Copy the templar binary in `templar/bin/templar` to somewhere on your `$PATH`
+- Copy the sprinkles binary in `sprinkles/bin/sprinkles` to somewhere on your `$PATH`
   (the suggested location for single-user deployments is
-  `~/.local/bin/templar`, or `~/bin/templar`; for system-wide installation as
-  root, `/usr/local/bin/templar`).
-- Go to one of the example projects and start a templar server:
-  `cd examples/countryInfo; templar 5000`
+  `~/.local/bin/sprinkles`, or `~/bin/sprinkles`; for system-wide installation as
+  root, `/usr/local/bin/sprinkles`).
+- Go to one of the example projects and start a sprinkles server:
+  `cd examples/countryInfo; sprinkles 5000`
   Then point your browser at http://localhost:5000/.
 
 #### From Source
@@ -52,18 +52,18 @@ The easiest way to do that is to use
     - `libpcre` (for PCRE regex support)
     - `libmysqlclient` (for MySQL support)
 - Install stack
-- Clone the Templar repository:
-  `git clone https://bitbucket.org/tdammers/templar.git`
-- Go to the project directory: `cd templar`
-- Install the templar binary for your user: `stack install`
-- Go to one of the example projects and start a templar server:
-  `cd examples/countryInfo; templar 5000`
+- Clone the Sprinkles repository:
+  `git clone https://bitbucket.org/tdammers/sprinkles.git`
+- Go to the project directory: `cd sprinkles`
+- Install the sprinkles binary for your user: `stack install`
+- Go to one of the example projects and start a sprinkles server:
+  `cd examples/countryInfo; sprinkles 5000`
   Then point your browser at http://localhost:5000/.
 
 ## Project structure
 
-The core of every templar project is the `project.yml` file. (See
-http://yaml.org/ for details on YAML). When starting up, templar parses that
+The core of every sprinkles project is the `project.yml` file. (See
+http://yaml.org/ for details on YAML). When starting up, sprinkles parses that
 file and configures itself accordingly. The most important (and currently only)
 key in that file is `rules`, a list of routing rules.
 
@@ -80,7 +80,7 @@ A routing rule consists of the following keys:
   template file to use for this route. If none is given, the backend data is
   served as JSON, in raw form.
 - `static`, a boolean (`true` or `false`) that, if `true`, overrides the
-  template and causes Templar to serve the raw file found under the `data.file`
+  template and causes Sprinkles to serve the raw file found under the `data.file`
   key as-is.
 - `redirect`, defines a local URL to redirect to.
 - `required`, a list of backend data keys that need to be present. A missing
@@ -120,7 +120,7 @@ Apart from literally matching exact paths, the following are possible:
 ### Backends
 
 Backends are the things that pull data into your website. Such data can come
-from diverse sources, and in various content formats. Templar makes a best
+from diverse sources, and in various content formats. Sprinkles makes a best
 effort at normalizing things into a consistent model, such that your templates
 don't need to know whether the data they're handling was originally a local
 .docx file, a JSON document fetched from a RESTful API, or a result set from an
@@ -215,7 +215,7 @@ parameters, it follows that the shorthand doesn't support injecting captured
 variables.
 
 Because SQL result sets do not come in any particular file format by
-themselves, templar pretends they're JSON, and exposes them with a content type
+themselves, sprinkles pretends they're JSON, and exposes them with a content type
 of `text/json`, as a document containing a list of rows, each modelled as an
 object of column names to values.
 
@@ -260,7 +260,7 @@ Particular points of interests:
 
 #### Supported Content Types
 
-Templar detects the content type (file format) for backend data automatically
+Sprinkles detects the content type (file format) for backend data automatically
 in most cases, depending on the backend type (see above). All the supported
 MIME types are marshalled into the same format, but due to the diverse nature
 of the data, details may still differ. The following types are currently
@@ -303,7 +303,7 @@ supported:
 
 ### Templates
 
-Templates for templar are written in
+Templates for sprinkles are written in
 [Ginger](https://bitbucket.org/tdammers/ginger), a flavor of the
 [Jinja2](http://jinja.pocoo.org/) template language. Templates go into the
 `/templates` directory in your project and must have an extension of `.html`;

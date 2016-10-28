@@ -1,2 +1,2 @@
 #!/bin/sh
-templar -cgi
+sprinkles -cgi
