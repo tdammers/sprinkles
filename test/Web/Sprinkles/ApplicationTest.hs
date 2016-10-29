@@ -1,13 +1,13 @@
 {-#LANGUAGE OverloadedStrings #-}
 {-#LANGUAGE QuasiQuotes #-}
 {-#LANGUAGE NoImplicitPrelude #-}
-module Web.Templar.ApplicationTest
+module Web.Sprinkles.ApplicationTest
 where
 
 import ClassyPrelude
-import Web.Templar.Project (Project (..), loadProject)
-import Web.Templar.Serve (appFromProject)
-import Web.Templar.Logger (Logger (..), LogMessage (..), tChanLogger)
+import Web.Sprinkles.Project (Project (..), loadProject)
+import Web.Sprinkles.Serve (appFromProject)
+import Web.Sprinkles.Logger (Logger (..), LogMessage (..), tChanLogger)
 import System.Directory
 import System.FilePath
 import System.IO.Temp
@@ -45,7 +45,7 @@ runProjectSession action project =
 
 withFakeProject :: [(FilePath, ByteString)] -> (Project -> IO ()) -> IO ()
 withFakeProject files inner = do
-    withSystemTempDirectory "templar-fake-project-" $ \projectRoot ->
+    withSystemTempDirectory "sprinkles-fake-project-" $ \projectRoot ->
         bracket (acquire projectRoot) release go
     where
         acquire :: FilePath -> IO FilePath

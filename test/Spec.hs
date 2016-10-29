@@ -1,7 +1,7 @@
 import Test.Tasty
 
-import Web.Templar.PatternTest (patternTests)
-import Web.Templar.ApplicationTest (applicationTests)
+import Web.Sprinkles.PatternTest (patternTests)
+import Web.Sprinkles.ApplicationTest (applicationTests)
 
 main :: IO ()
 main = defaultMain allTests

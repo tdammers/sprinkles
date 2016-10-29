@@ -1,16 +1,16 @@
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
-module Web.Templar.PatternTest
+module Web.Sprinkles.PatternTest
 where
 
 import ClassyPrelude
-import Web.Templar.Pattern
+import Web.Sprinkles.Pattern
 import Test.Tasty
 import Test.Tasty.HUnit
 import qualified Text.Regex.PCRE as RE
 
 patternTests =
-    testGroup "Web.Templar.Pattern"
+    testGroup "Web.Sprinkles.Pattern"
         [ matchPatternTests
         , parsePatternTests
         ]
