@@ -25,15 +25,18 @@ import Data.Text (Text)
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import Data.Yaml as YAML
 import Data.AList (AList)
+import Data.Time (formatTime, addUTCTime, getCurrentTime)
 
 import Network.HTTP.Types
        (Status, status200, status302, status400, status404, status500)
 import Network.HTTP.Types.URI (queryToQueryText)
 import qualified Network.Wai as Wai
+import Network.Wai (Response (..), mapResponseHeaders)
 import qualified Network.Wai.Handler.CGI as CGI
 import qualified Network.Wai.Handler.FastCGI as FastCGI
 import qualified Network.Wai.Handler.SCGI as SCGI
 import qualified Network.Wai.Handler.Warp as Warp
+import Network.Wai.Middleware.Autohead (autohead)
 
 import System.Environment (lookupEnv)
 import System.Locale.Read (getLocale)
@@ -115,10 +118,17 @@ serveFastCGI :: Project -> IO ()
 serveFastCGI project = FastCGI.run (appFromProject project)
 
 appFromProject :: Project -> Wai.Application
-appFromProject project request respond =
-    handleRequest project request respond `catch` handleException
+appFromProject project =
+    middlewares go
     where
-        handleException (e :: SomeException) = do
+        middlewares :: Wai.Middleware
+        middlewares = autohead
+
+        go :: Wai.Application
+        go request respond =
+            handleRequest project request respond `catch` handleException respond
+
+        handleException respond (e :: SomeException) = do
             writeLog (projectLogger project) Logger.Error . formatException $  e
             respond $
                 Wai.responseLBS
@@ -163,6 +173,26 @@ handleRule rule captures project request respond = do
         target = expandRuleTarget capturesG . ruleTarget $ rule
         logger = projectLogger project
 
+    now <- getCurrentTime
+    let oneYear = 86400 * 365 -- good enough
+    let expiry = case ruleCaching rule of
+            NoCache -> now
+            CacheForever -> addUTCTime oneYear now
+            MaxAge seconds -> addUTCTime (fromInteger seconds) now
+
+    let respond' :: Wai.Response -> IO Wai.ResponseReceived
+        respond' = respond . addExpiryHeader
+        addExpiryHeader :: Wai.Response -> Wai.Response
+        addExpiryHeader =
+            let expiryHeader =
+                    ( "Expires"
+                    , fromString $ formatTime
+                        defaultTimeLocale
+                        "%a, %d %b %Y %T GMT"
+                        expiry
+                    )
+            in mapResponseHeaders (expiryHeader:)
+
     backendData :: HashMap Text (Items (BackendData IO Html))
                 <- loadBackendDict
                         (writeLog logger)
@@ -194,4 +224,4 @@ handleRule rule captures project request respond = do
         backendData
         project
         request
-        respond
+        respond'

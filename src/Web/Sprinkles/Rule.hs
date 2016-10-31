@@ -2,6 +2,7 @@
 {-#LANGUAGE OverloadedStrings #-}
 {-#LANGUAGE OverloadedLists #-}
 {-#LANGUAGE ScopedTypeVariables #-}
+{-#LANGUAGE LambdaCase #-}
 module Web.Sprinkles.Rule
 where
 
@@ -28,6 +29,21 @@ data RuleTarget p =
     JSONTarget
     deriving (Eq, Show)
 
+type Seconds = Integer
+
+data ClientCacheSetting =
+    NoCache |
+    CacheForever |
+    MaxAge Seconds
+    deriving (Eq, Show)
+
+instance FromJSON ClientCacheSetting where
+    parseJSON = \case
+        String "no-cache" -> return NoCache
+        String "forever" -> return CacheForever
+        String x -> fail $ "Invalid cache expiry: " ++ show x
+        Number n -> return $ MaxAge (floor n)
+
 data Rule =
     Rule
         { ruleRoutePattern :: Pattern
@@ -35,6 +51,7 @@ data Rule =
         , ruleTarget :: RuleTarget Replacement
         , ruleRequired :: Set Text
         , ruleAcceptedMethods :: Set HTTP.Method
+        , ruleCaching :: ClientCacheSetting
         }
         deriving (Show)
 
@@ -60,7 +77,8 @@ instance FromJSON Rule where
                     then StaticTarget staticChildPath
                     else (fromMaybe JSONTarget $ redirectMay <|> templateMay)
         required <- obj .:? "required" .!= []
-        return $ Rule pattern contextData target required methods
+        caching <- obj .:? "cache" .!= CacheForever
+        return $ Rule pattern contextData target required methods caching
     parseJSON x = fail $ "Expected rule, but found " <> show x
 
 expandRuleTarget :: HashMap Text (GVal (Run (Writer Text) Text)) -> RuleTarget Replacement -> RuleTarget Text

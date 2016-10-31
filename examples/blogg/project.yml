@@ -20,6 +20,7 @@ rules:
         order: random
     - page: 'file://./data/pages/{{settings.site["start-page"]}}.*'
   template: 'home.html'
+  cache: 'no-cache'
 - pattern: '/echo/{{message:*}}'
   data:
     page:
