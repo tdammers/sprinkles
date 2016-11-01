@@ -23,8 +23,10 @@ import Text.Ginger ( Template
                    , GVal (..)
                    , Run
                    )
+import qualified Text.Ginger as Ginger
 import Data.Default
 import Control.Monad.Writer (Writer)
+import Web.Sprinkles.Exceptions (formatException)
 
 data ReplacementItem =
     Literal Text |
@@ -35,15 +37,17 @@ newtype Replacement = Replacement Template
     deriving (Show)
 
 instance FromJSON Replacement where
-    parseJSON val = (either fail return . parseReplacement) =<< parseJSON val
+    parseJSON val = (either (fail . unpack . formatException) return . parseReplacement) =<< parseJSON val
 
-expandReplacementText :: HashMap Text (GVal (Run (Writer Text) Text)) -> Text -> Either String Text
+expandReplacementText :: HashMap Text (GVal (Run (Writer Text) Text))
+                      -> Text
+                      -> Either SomeException Text
 expandReplacementText variables input =
     expandReplacement variables <$> parseReplacement input
 
-parseReplacement :: Text -> Either String Replacement
+parseReplacement :: Text -> Either SomeException Replacement
 parseReplacement input =
-    either (Left . show) (Right . Replacement) . runIdentity $
+    either (Left . toException) (Right . Replacement) . runIdentity $
     parseGinger
         (const $ return Nothing)
         Nothing

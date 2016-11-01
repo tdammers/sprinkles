@@ -90,7 +90,7 @@ expandRuleTarget varMap (RedirectTarget p) = RedirectTarget $ expandReplacement 
 expandReplacementBackend :: HashMap Text (GVal (Run (Writer Text) Text))
                          -> BackendSpec
                          -> BackendSpec
-expandReplacementBackend varMap = omap (eitherThrowS . expandReplacementText varMap)
+expandReplacementBackend varMap = omap (eitherThrow . expandReplacementText varMap)
 
 data NonMatchReason =
     PathNotMatched | MethodNotMatched

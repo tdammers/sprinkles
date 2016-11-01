@@ -9,6 +9,7 @@ module Web.Sprinkles.Exceptions
 , TemplateNotFoundException (..)
 , handleUncaughtExceptions
 , withSourceContext
+, overrideSourceContext
 )
 where
 
@@ -51,13 +52,24 @@ data TemplateNotFoundException = TemplateNotFoundException Text
 instance Exception TemplateNotFoundException
 
 data SourceContextException =
-    WithSourceContext Text SomeException
+    WithSourceContext { sourceContext ::  Text, withoutSourceContext :: SomeException }
     deriving (Show, Generic)
 
 instance Exception SourceContextException where
 
+class HasSourceContext a where
+    overrideSourceContext :: Text -> a -> a
+
+instance HasSourceContext SourceContextException where
+    overrideSourceContext = \source e ->
+        WithSourceContext source (withoutSourceContext e)
+
+instance HasSourceContext Ginger.ParserError where
+    overrideSourceContext = \s e -> e { peSourceName = Just . unpack $ s }
+
 withSourceContext :: Exception e => Text -> e -> SomeException
-withSourceContext context = toException . WithSourceContext context . toException
+withSourceContext context =
+    toException . WithSourceContext context . toException
 
 -- * Exception formatting
 

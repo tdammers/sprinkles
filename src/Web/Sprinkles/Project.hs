@@ -46,10 +46,10 @@ data Project =
 loadProject :: ServerConfig -> FilePath -> IO Project
 loadProject sconfig dir = do
     pconfig <- loadProjectConfig dir
-    templates <- preloadTemplates dir
+    logger <- createLogger $ fromMaybe (StdioLog Warning) (scLogger sconfig)
+    templates <- preloadTemplates logger dir
     caches <- sequence $ fmap (createCache dir) (scBackendCache sconfig)
     let cache = mconcat caches
-    logger <- createLogger $ fromMaybe (StdioLog Warning) (scLogger sconfig)
     return $ Project pconfig templates cache logger
 
 
@@ -100,8 +100,8 @@ isTemplateFile fp = do
     isFile <- doesFileExist fp
     return $ extensionMatches && isFile
 
-preloadTemplates :: FilePath -> IO TemplateCache
-preloadTemplates dir = do
+preloadTemplates :: Logger -> FilePath -> IO TemplateCache
+preloadTemplates logger dir = do
     prefix <- makeAbsolute $ dir </> "templates"
     allFilenames <- findFilesR isTemplateFile prefix
     filenames <- findFiles isTemplateFile prefix

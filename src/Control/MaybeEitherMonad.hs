@@ -42,6 +42,9 @@ eitherThrowS = either (throw . LeftException) id
 eitherThrow :: Exception err => Either err a -> a
 eitherThrow = either throw id
 
+eitherThrowWith :: Exception err => (x -> err) -> Either x a -> a
+eitherThrowWith f = either (throw . f) id
+
 -- | @optionally f v@ executes the @f@ action on 'Just' the value of @v@, or
 -- does nothing if @v@ is 'Nothing'.
 optionally :: Monad m => (a -> m ()) -> Maybe a -> m ()
