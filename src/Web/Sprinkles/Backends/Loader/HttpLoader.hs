@@ -38,6 +38,7 @@ instance Exception HttpError where
 
 curlLoader :: Text -> HttpBackendOptions -> Loader
 curlLoader uriText options writeLog _ fetchMode fetchOrder = do
+    let accepts = intercalate "," . map (unpack . decodeUtf8) $ httpAcceptedContentTypes options
     writeLog Debug $ "cURL " <> uriText
     Curl.initialize >>= \curl -> do
         response <- Curl.curlGetResponse_
@@ -46,6 +47,8 @@ curlLoader uriText options writeLog _ fetchMode fetchOrder = do
             , Curl.CurlPostRedirect True
             , Curl.CurlFailOnError False
             , Curl.CurlUserAgent "sprinkles https://sprinkles.tobiasdammers.nl/"
+            , Curl.CurlHttpHeaders
+                [ "Accept: " ++ accepts ]
             ]
         let headersL = Curl.respHeaders response
             headers :: HashMap Text Text

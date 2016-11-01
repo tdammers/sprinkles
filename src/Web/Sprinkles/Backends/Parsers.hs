@@ -22,6 +22,10 @@ import Web.Sprinkles.Backends.Data
         , toBackendData
         , addBackendDataChildren
         )
+import Web.Sprinkles.Backends.Spec
+        ( parserTypes
+        , ParserType (..)
+        )
 import Text.Pandoc (Pandoc)
 import qualified Text.Pandoc as Pandoc
 import qualified Text.Pandoc.MediaBag as Pandoc
@@ -55,60 +59,26 @@ parsersTable = mapFromList . mconcat $
 parsers :: (Monad m, Monad n)
         => [([MimeType], BackendSource -> m (BackendData n h))]
 parsers =
-    [ ( [ "application/json", "text/json" ]
-      , json
-      )
-    , ( [ "text/plain" ]
-      , plainText
-      )
-    , ( [ "application/x-yaml"
-        , "text/x-yaml"
-        , "application/yaml"
-        , "text/yaml"
-        ]
-      , yaml
-      )
-    , ( [ "application/x-www-form-urlencoded"
-        ]
-      , urlencodedForm
-      )
-    , ( [ "application/x-markdown"
-        , "text/x-markdown"
-        ]
-      , pandoc (Pandoc.readMarkdown Pandoc.def)
-      )
-    , ( [ "application/x-creole"
-        , "text/x-creole"
-        ]
-      , pandoc (Pandoc.readCreole Pandoc.def)
-      )
-    , ( [ "application/x-textile"
-        , "text/x-textile"
-        ]
-      , pandoc (Pandoc.readTextile Pandoc.def)
-      )
-    , ( [ "application/x-rst"
-        , "text/x-rst"
-        ]
-      , pandoc (Pandoc.readRST Pandoc.def)
-      )
-    , ( [ "application/x-latex"
-        , "text/x-latex"
-        , "application/x-tex"
-        , "text/x-tex"
-        ]
-      , pandoc (Pandoc.readLaTeX Pandoc.def)
-      )
-    , ( [ "application/html"
-        , "text/html"
-        ]
-      , pandoc (Pandoc.readHtml Pandoc.def)
-      )
-    , ( [ "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        ]
-      , pandocWithMedia (Pandoc.readDocx Pandoc.def)
-      )
-    ]
+    [ (types, getParser p) | (types, p) <- parserTypes ]
+
+getParser :: (Monad m, Monad n)
+          => ParserType
+          -> (BackendSource -> m (BackendData n h))
+getParser ParserJSON = json
+getParser ParserYAML = yaml
+getParser ParserFormUrlencoded = urlencodedForm
+getParser ParserMarkdown = pandoc (Pandoc.readMarkdown Pandoc.def)
+getParser ParserCreole = pandoc (Pandoc.readCreole Pandoc.def)
+getParser ParserTextile = pandoc (Pandoc.readTextile Pandoc.def)
+getParser ParserRST = pandoc (Pandoc.readRST Pandoc.def)
+getParser ParserLaTeX = pandoc (Pandoc.readLaTeX Pandoc.def)
+getParser ParserDocX = pandocWithMedia (Pandoc.readDocx Pandoc.def)
+getParser ParserText = plainText
+getParser ParserHtml = pandoc (Pandoc.readHtml Pandoc.def)
+
+-- | All the content types we know how to parse
+knownContentTypes :: [MimeType]
+knownContentTypes = concatMap fst parserTypes
 
 -- | Parser for raw data (used for static files); this is also the default
 -- fallback for otherwise unsupported file types.

@@ -23,6 +23,8 @@ module Web.Sprinkles.Backends.Spec
 , HttpBackendOptions (..)
 , CachePolicy (..)
 , HasCachePolicy (..)
+, ParserType (..)
+, parserTypes
 )
 where
 
@@ -343,6 +345,7 @@ data HttpBackendOptions =
     HttpBackendOptions
         { httpCredentials :: Credentials
         , httpHttpMethods :: HttpMethod
+        , httpAcceptedContentTypes :: [MimeType]
         }
         deriving (Show, Generic)
 
@@ -367,9 +370,13 @@ instance FromJSON HttpBackendOptions where
         HttpBackendOptions
             <$> (o .:? "credentials" .!= AnonymousCredentials)
             <*> (o .:? "method" .!= GET)
+            <*> pure knownContentTypes
 
 instance Default HttpBackendOptions where
-    def = HttpBackendOptions AnonymousCredentials GET
+    def = HttpBackendOptions
+            AnonymousCredentials
+            GET
+            knownContentTypes
 
 data CachePolicy = CacheForever
                  | NoCaching
@@ -384,3 +391,78 @@ instance HasCachePolicy BackendType where
     cachePolicy = \case
         RequestBodyBackend -> NoCaching
         _ -> CacheForever
+
+data ParserType = ParserText
+                | ParserJSON
+                | ParserYAML
+                | ParserFormUrlencoded
+                | ParserMarkdown
+                | ParserCreole
+                | ParserTextile
+                | ParserRST
+                | ParserLaTeX
+                | ParserDocX
+                | ParserHtml
+                deriving (Show, Read)
+
+-- | The parsers we know, by mime types.
+parserTypes :: [([MimeType], ParserType)]
+parserTypes =
+    [ ( [ "application/json", "text/json" ]
+      , ParserJSON
+      )
+    , ( [ "application/x-yaml"
+        , "text/x-yaml"
+        , "application/yaml"
+        , "text/yaml"
+        ]
+      , ParserYAML
+      )
+    , ( [ "application/x-www-form-urlencoded"
+        ]
+      , ParserFormUrlencoded
+      )
+    , ( [ "application/x-markdown"
+        , "text/x-markdown"
+        ]
+      , ParserMarkdown
+      )
+    , ( [ "application/x-creole"
+        , "text/x-creole"
+        ]
+      , ParserCreole
+      )
+    , ( [ "application/x-textile"
+        , "text/x-textile"
+        ]
+      , ParserTextile
+      )
+    , ( [ "application/x-rst"
+        , "text/x-rst"
+        ]
+      , ParserRST
+      )
+    , ( [ "application/x-latex"
+        , "text/x-latex"
+        , "application/x-tex"
+        , "text/x-tex"
+        ]
+      , ParserLaTeX
+      )
+    , ( [ "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        ]
+      , ParserDocX
+      )
+    , ( [ "text/plain" ]
+      , ParserText
+      )
+    , ( [ "application/html"
+        , "text/html"
+        ]
+      , ParserHtml
+      )
+    ]
+
+-- | All the content types we know how to parse
+knownContentTypes :: [MimeType]
+knownContentTypes = concatMap fst parserTypes
