@@ -28,12 +28,18 @@ import Web.Sprinkles.Backends.Loader.Type
 
 literalLoader :: JSON.Value -> Loader
 literalLoader body writeLog _ fetchMode fetchOrder = do
-    let json = JSON.encode body
-        meta = BackendMeta
-            { bmMimeType = "application/json"
+    let (mimeType, rawBody) = case body of
+            String txt -> ( "text/plain;charset=utf8"
+                          , fromStrict (encodeUtf8 txt)
+                          )
+            _ -> ( "application/json"
+                 , JSON.encode body
+                 )
+    let meta = BackendMeta
+            { bmMimeType = mimeType
             , bmMTime = Nothing
             , bmName = "literal"
             , bmPath = "literal"
-            , bmSize = Just . fromIntegral $ length json
+            , bmSize = Just . fromIntegral $ length rawBody
             }
-    return [ BackendSource meta json ]
+    return [ BackendSource meta rawBody ]
