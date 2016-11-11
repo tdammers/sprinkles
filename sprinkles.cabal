@@ -75,7 +75,7 @@ library
                , data-default
                , directory
                , filepath
-               , ginger >=0.3.6.0 && <0.4
+               , ginger >=0.3.7.1 && <0.4
                , hashable
                , hsyslog
                , http-types

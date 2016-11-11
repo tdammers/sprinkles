@@ -7,9 +7,11 @@ resolver: lts-6.12
 # Local packages, usually specified by relative directory name
 packages:
 - '.'
-- location:
-    git: https://git@bitbucket.org/tdammers/ginger
-    commit: '0.3.6.0'
+# Pull ginger directly from github; enable in favor of extra-deps
+# if installing from Hackage fails.
+# - location:
+#     git: https://git@github.com/tdammers/ginger
+#     commit: '0.3.7.1'
 - location:
     git: 'https://git@github.com/tdammers/pandoc-creole.git'
     commit: '0.1.0.0'
@@ -21,6 +23,7 @@ extra-deps:
   - wai-handler-fastcgi-3.0.0.2
   - system-locale-0.1.0.0
   - megaparsec-5.0.1
+  - ginger-0.3.7.1
 
 # Override default flag values for local packages and extra-deps
 flags: {}
