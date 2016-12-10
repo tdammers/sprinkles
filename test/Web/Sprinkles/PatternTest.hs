@@ -119,6 +119,7 @@ parsePatternTests =
         , parseSimpleAnyMultiTest
         , parseNamedAnyMultiTest
         , parseShorthandAnyMultiTest
+        , parseNamedWithUnderscore
         , parseRealWorldExampleTest1
         ]
 
@@ -211,6 +212,17 @@ parseNamedAnyMultiTest =
                         []
             actual = parsePattern src
         assertEqual "" expected actual
+
+parseNamedWithUnderscore =
+    testCase "parse named Any" $ do
+        let src = "/{{who_is:*}}"
+            expected = Right $ Pattern
+                        [ PatternPathItem (Just "who_is") Any MatchOne
+                        ]
+                        []
+            actual = parsePattern src
+        assertEqual "" expected actual
+
 
 parseRealWorldExampleTest1 =
     testCase "parse real world example 1" $ do

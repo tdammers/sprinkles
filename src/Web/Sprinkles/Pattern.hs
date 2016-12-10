@@ -91,10 +91,12 @@ doubleBraced :: Parsec Text () a -> Parsec Text () a
 doubleBraced inner =
     string "{{" *> inner <* string "}}"
 
+nameP :: Parsec Text () Text
+nameP = fmap pack . some $ alphaNum <|> oneOf "_-"
 
 namedPathItemP :: Parsec Text () PatternPathItem
 namedPathItemP = doubleBraced $ do
-    name <- optionMaybe $ fmap pack (some alphaNum <* char ':')
+    name <- optionMaybe $ nameP <* char ':'
     base <- baseItemP
     multi <- multiModifierP
     return $ PatternPathItem name base multi
@@ -104,7 +106,7 @@ multiModifierP = (char '*' >> return MatchMany) <|> return MatchOne
 
 namedQueryItemP :: Parsec Text () (Maybe Text, BasePatternItem)
 namedQueryItemP = doubleBraced $ do
-    name <- optionMaybe $ fmap pack (some alphaNum <* char ':')
+    name <- optionMaybe $ nameP <* char ':'
     base <- baseItemP
     return (name, base)
 
