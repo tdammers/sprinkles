@@ -1,14 +1,17 @@
+data:
+- geonames_account: 'file://./geonames-account.yml'
+- username: 'literal://{{geonames_account.username|default("demo")}}'
 rules:
 - pattern: '/country?code={{country:*}}'
   redirect: '/country/full/{{country}}'
 - pattern: '/country/full/{{country:*}}'
   data:
-    countries: 'http://api.geonames.org/countryInfoJSON?lang=en&country={{country}}&username=demo&style=full'
+    countries: 'http://api.geonames.org/countryInfoJSON?lang=en&country={{country}}&username={{username}}&style=full'
   template: 'country.html'
 - pattern: '/country/full/{{country:*}}/json'
   data:
-    countries: 'http://api.geonames.org/countryInfoJSON?lang=en&country={{country}}&username=demo&style=full'
+    countries: 'http://api.geonames.org/countryInfoJSON?lang=en&country={{country}}&username={{username}}&style=full'
 - pattern: '/'
   data:
-    countries: 'http://api.geonames.org/countryInfoJSON?username=demo'
+    countries: 'http://api.geonames.org/countryInfoJSON?username={{username}}'
   template: 'countryList.html'

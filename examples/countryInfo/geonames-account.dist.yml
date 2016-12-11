@@ -1,0 +1,5 @@
+---
+# Head over to http://www.geonames.org/ to register a username,
+# register it for the free webservices, and change the username below
+# to your geonames username. Then rename this file to geonames-account.yml.
+username: 'YOUR_USERNAME_HERE'
