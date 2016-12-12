@@ -181,7 +181,19 @@ handleRule rule captures project request respond = do
             MaxAge seconds -> addUTCTime (fromInteger seconds) now
 
     let respond' :: Wai.Response -> IO Wai.ResponseReceived
-        respond' = respond . addExpiryHeader
+        respond' = respond . addExpiryHeader . overrideContentType
+
+        overrideContentType :: Wai.Response -> Wai.Response
+        overrideContentType =
+            case ruleContentTypeOverride rule of
+                Nothing -> id
+                Just t ->
+                    mapResponseHeaders (map $
+                        \case
+                            ("Content-type", _) -> ("Content-type", t)
+                            x -> x
+                    )
+
         addExpiryHeader :: Wai.Response -> Wai.Response
         addExpiryHeader =
             let expiryHeader =
@@ -218,7 +230,6 @@ handleRule rule captures project request respond = do
 
             TemplateTarget templateName ->
                 handleTemplateTarget
-                    (ruleContentTypeOverride rule)
                     templateName
 
     handle

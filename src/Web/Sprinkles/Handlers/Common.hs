@@ -79,7 +79,6 @@ handleHttpError status templateName message project request respond =
             respondTemplateHtml
                 project
                 status
-                Nothing
                 templateName
                 backendData
                 request

@@ -26,9 +26,8 @@ import Web.Sprinkles.Backends.Loader.Type
 import Data.AList (AList)
 import qualified Data.AList as AList
 
-handleTemplateTarget :: Maybe ByteString -> Text -> ContextualHandler
-handleTemplateTarget contentTypeOverride
-                     templateName
+handleTemplateTarget :: Text -> ContextualHandler
+handleTemplateTarget templateName
                      backendData
                      project
                      request
@@ -36,7 +35,6 @@ handleTemplateTarget contentTypeOverride
     respondTemplateHtml
         project
         status200
-        contentTypeOverride
         templateName
         backendData
         request

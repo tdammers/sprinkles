@@ -84,18 +84,16 @@ decodeCI = decodeUtf8 . CI.original
 respondTemplateHtml :: ToGVal (Ginger.Run IO Html) a
                     => Project
                     -> Status
-                    -> Maybe ByteString
                     -> Text
                     -> HashMap Text a
                     -> Wai.Application
 respondTemplateHtml project
                     status
-                    contentTypeOverride
                     templateName
                     contextMap
                     request
                     respond = do
-    let contentType = fromMaybe  "text/html;charset=utf8" contentTypeOverride
+    let contentType = "text/html;charset=utf8"
         contextLookup = mkContextLookup request project contextMap
         headers = [("Content-type", contentType)]
     template <- getTemplate project templateName
@@ -109,18 +107,16 @@ respondTemplateHtml project
 respondTemplateText :: ToGVal (Ginger.Run IO Text) a
                     => Project
                     -> Status
-                    -> Maybe ByteString
                     -> Text
                     -> HashMap Text a
                     -> Wai.Application
 respondTemplateText project
                     status
-                    contentTypeOverride
                     templateName
                     contextMap
                     request
                     respond = do
-    let contentType = fromMaybe "text/plain;charset=utf8" contentTypeOverride
+    let contentType = "text/plain;charset=utf8"
         contextLookup = mkContextLookup request project contextMap
         headers = [("Content-type", contentType)]
     template <- getTemplate project templateName
