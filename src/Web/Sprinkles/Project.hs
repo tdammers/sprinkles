@@ -96,9 +96,9 @@ isHiddenFile = ("." `isPrefixOf`) . takeFileName
 
 isTemplateFile :: FilePath -> IO Bool
 isTemplateFile fp = do
-    let extensionMatches = takeExtension fp == ".html"
     isFile <- doesFileExist fp
-    return $ extensionMatches && isFile
+    let isHidden = "." `isPrefixOf` (takeBaseName fp)
+    return $ not isHidden && isFile
 
 preloadTemplates :: Logger -> FilePath -> IO TemplateCache
 preloadTemplates logger dir = do

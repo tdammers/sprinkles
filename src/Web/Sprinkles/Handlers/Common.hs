@@ -39,7 +39,9 @@ data MethodNotAllowedException = MethodNotAllowedException
 instance Exception MethodNotAllowedException where
 
 type ContextualHandler =
-    HashMap Text (Items (BackendData IO Html)) -> Project -> Wai.Application
+    HashMap Text (Items (BackendData IO Html)) ->
+    Project ->
+    Wai.Application
 
 handleNotFound :: Project -> Wai.Request -> (Wai.Response -> IO Wai.ResponseReceived) -> NotFoundException -> IO Wai.ResponseReceived
 handleNotFound project request respond _ = do
@@ -77,6 +79,7 @@ handleHttpError status templateName message project request respond =
             respondTemplateHtml
                 project
                 status
+                Nothing
                 templateName
                 backendData
                 request

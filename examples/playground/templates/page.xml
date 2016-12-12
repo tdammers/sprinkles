@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xml>
+    <page>
+        <title>{{ page.title }}</title>
+        <body>{{- page.body|markdown|str -}}</body>
+        <slug>{{ page.slug }}</slug>
+        <link rel="self" href="/{{ page.slug }}"/>
+        {%- for page in pages -%}
+        <link rel="other" href="/{{ page.slug }}" name="{{ page.title }}"/>
+        {%- endfor -%}
+    </page>
+</xml>

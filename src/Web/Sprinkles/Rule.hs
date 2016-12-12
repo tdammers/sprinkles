@@ -52,6 +52,7 @@ data Rule =
         , ruleRequired :: Set Text
         , ruleAcceptedMethods :: Set HTTP.Method
         , ruleCaching :: ClientCacheSetting
+        , ruleContentTypeOverride :: Maybe ByteString
         }
         deriving (Show)
 
@@ -78,7 +79,17 @@ instance FromJSON Rule where
                     else (fromMaybe JSONTarget $ redirectMay <|> templateMay)
         required <- obj .:? "required" .!= []
         caching <- obj .:? "cache" .!= CacheForever
-        return $ Rule pattern contextData target required methods caching
+        contentTypeOverride <-
+            (fmap encodeUtf8) <$>
+                (obj .:? "content-type")
+        return $ Rule
+            pattern
+            contextData
+            target
+            required
+            methods
+            caching
+            contentTypeOverride
     parseJSON x = fail $ "Expected rule, but found " <> show x
 
 expandRuleTarget :: HashMap Text (GVal (Run (Writer Text) Text)) -> RuleTarget Replacement -> RuleTarget Text

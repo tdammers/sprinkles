@@ -81,10 +81,23 @@ instance ToGVal m Wai.Request where
 decodeCI :: CI.CI ByteString -> Text
 decodeCI = decodeUtf8 . CI.original
 
-respondTemplateHtml :: ToGVal (Ginger.Run IO Html) a => Project -> Status -> Text -> HashMap Text a -> Wai.Application
-respondTemplateHtml project status templateName contextMap request respond = do
-    let contextLookup = mkContextLookup request project contextMap
-        headers = [("Content-type", "text/html;charset=utf8")]
+respondTemplateHtml :: ToGVal (Ginger.Run IO Html) a
+                    => Project
+                    -> Status
+                    -> Maybe ByteString
+                    -> Text
+                    -> HashMap Text a
+                    -> Wai.Application
+respondTemplateHtml project
+                    status
+                    contentTypeOverride
+                    templateName
+                    contextMap
+                    request
+                    respond = do
+    let contentType = fromMaybe  "text/html;charset=utf8" contentTypeOverride
+        contextLookup = mkContextLookup request project contextMap
+        headers = [("Content-type", contentType)]
     template <- getTemplate project templateName
     respond . Wai.responseStream status headers $ \write flush -> do
         let writeHtml = write . stringUtf8 . unpack . htmlSource
@@ -93,10 +106,23 @@ respondTemplateHtml project status templateName contextMap request respond = do
         runGingerT context template
         flush
 
-respondTemplateText :: ToGVal (Ginger.Run IO Text) a => Project -> Status -> Text -> HashMap Text a -> Wai.Application
-respondTemplateText project status templateName contextMap request respond = do
-    let contextLookup = mkContextLookup request project contextMap
-        headers = [("Content-type", "text/plain;charset=utf8")]
+respondTemplateText :: ToGVal (Ginger.Run IO Text) a
+                    => Project
+                    -> Status
+                    -> Maybe ByteString
+                    -> Text
+                    -> HashMap Text a
+                    -> Wai.Application
+respondTemplateText project
+                    status
+                    contentTypeOverride
+                    templateName
+                    contextMap
+                    request
+                    respond = do
+    let contentType = fromMaybe "text/plain;charset=utf8" contentTypeOverride
+        contextLookup = mkContextLookup request project contextMap
+        headers = [("Content-type", contentType)]
     template <- getTemplate project templateName
     respond . Wai.responseStream status headers $ \write flush -> do
         let writeText = write . stringUtf8 . unpack

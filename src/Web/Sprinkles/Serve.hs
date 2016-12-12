@@ -218,6 +218,7 @@ handleRule rule captures project request respond = do
 
             TemplateTarget templateName ->
                 handleTemplateTarget
+                    (ruleContentTypeOverride rule)
                     templateName
 
     handle
