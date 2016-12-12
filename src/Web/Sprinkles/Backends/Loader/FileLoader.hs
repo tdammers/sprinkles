@@ -19,6 +19,8 @@ import Web.Sprinkles.Backends.Data
         , BackendSource (..)
         , Items (..)
         , reduceItems
+        , RawBytes (..)
+        , rawFromLBS, rawToLBS
         )
 import System.FilePath (takeFileName, takeBaseName)
 import System.FilePath.Glob (glob)
@@ -35,6 +37,8 @@ import Network.Mime
             , FileName
             )
 import System.PosixCompat.Files
+import System.IO (withBinaryFile, IOMode (..), hSeek, SeekMode (..))
+import Data.ByteString (hGet)
 
 fileLoader :: Text -> Loader
 fileLoader filepath writeLog _ fetchMode fetchOrder =
@@ -64,17 +68,30 @@ fileLoader filepath writeLog _ fetchMode fetchOrder =
                 `catchIOError` \err -> do
                     writeLog Notice $ tshow err
                     return ""
-            mkFileBackendSource mimeType candidate contents
+            mkFileBackendSource mimeType candidate (rawFromLBS contents)
 
         fetchAsFile candidate = do
             let mimeType = mimeLookup . pack $ candidate
-            contents <- readFile candidate
-                `catchIOError` \err -> do
-                    writeLog Notice $ tshow err
-                    return ""
+                contents = rawFromFile writeLog candidate
             mkFileBackendSource mimeType candidate contents
 
-mkFileBackendSource :: MimeType -> FilePath -> LByteString -> IO BackendSource
+silenceIO :: (LogLevel -> Text -> IO ()) -> a -> IO a -> IO a
+silenceIO writeLog defVal action =
+    action
+        `catchIOError` \err -> do
+            writeLog Notice $ tshow err
+            return defVal
+
+rawFromFile :: (LogLevel -> Text -> IO ()) -> FilePath -> RawBytes
+rawFromFile writeLog candidate =
+    let getSize = silenceIO writeLog 0 $ fromIntegral . fileSize <$> getFileStatus candidate
+        getRange start end = silenceIO writeLog "" $ do
+            withBinaryFile candidate ReadMode $ \h -> do
+                hSeek h AbsoluteSeek start
+                fromStrict <$> hGet h (fromIntegral end)
+    in RawBytes getSize getRange
+
+mkFileBackendSource :: MimeType -> FilePath -> RawBytes -> IO BackendSource
 mkFileBackendSource mimeType candidate contents = do
     status <- getFileStatus candidate
     let mtimeUnix = modificationTime status

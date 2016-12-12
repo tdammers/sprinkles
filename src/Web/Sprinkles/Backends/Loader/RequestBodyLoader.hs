@@ -19,6 +19,7 @@ import Web.Sprinkles.Backends.Data
         , BackendSource (..)
         , Items (..)
         , reduceItems
+        , rawFromLBS
         )
 import Web.Sprinkles.Logger (LogLevel (..))
 import Web.Sprinkles.Backends.Loader.Type
@@ -34,7 +35,7 @@ import Network.Mime
 
 requestBodyLoader :: Loader
 requestBodyLoader writeLog pbs fetchMode fetchOrder = do
-    contents <- loadPost pbs
+    contents <- rawFromLBS <$> loadPost pbs
     let meta = BackendMeta
                 { bmMimeType = contentType pbs
                 , bmMTime = Nothing

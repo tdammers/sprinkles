@@ -21,6 +21,7 @@ import Web.Sprinkles.Backends.Data
         , BackendSource (..)
         , toBackendData
         , addBackendDataChildren
+        , rawToLBS, rawFromLBS
         )
 import Web.Sprinkles.Backends.Spec
         ( parserTypes
@@ -41,7 +42,7 @@ import Web.Sprinkles.PandocGVal
 import Network.HTTP.Types (parseQuery, queryToQueryText)
 
 -- | Parse raw backend data source into a structured backend data record.
-parseBackendData :: (Monad m, Monad n)
+parseBackendData :: (MonadIO m, Monad m, Monad n)
                  => BackendSource
                  -> m (BackendData n h)
 parseBackendData item@(BackendSource meta body) = do
@@ -50,18 +51,18 @@ parseBackendData item@(BackendSource meta body) = do
     parse item
 
 -- | Lookup table of mime types to parsers.
-parsersTable :: (Monad m, Monad n)
+parsersTable :: (MonadIO m, Monad m, Monad n)
              => HashMap MimeType (BackendSource -> m (BackendData n h))
 parsersTable = mapFromList . mconcat $
     [ zip mimeTypes (repeat parser) | (mimeTypes, parser) <- parsers ]
 
 -- | The parsers we know, by mime types.
-parsers :: (Monad m, Monad n)
+parsers :: (MonadIO m, Monad m, Monad n)
         => [([MimeType], BackendSource -> m (BackendData n h))]
 parsers =
     [ (types, getParser p) | (types, p) <- parserTypes ]
 
-getParser :: (Monad m, Monad n)
+getParser :: (MonadIO m, Monad m, Monad n)
           => ParserType
           -> (BackendSource -> m (BackendData n h))
 getParser ParserJSON = json
@@ -93,56 +94,61 @@ parseRawData (BackendSource meta body) =
         }
 
 -- | Parser for (utf-8) plaintext documents.
-plainText :: Monad m => BackendSource -> m (BackendData n h)
+plainText :: (MonadIO m, Monad m) => BackendSource -> m (BackendData n h)
 plainText item@(BackendSource meta body) = do
-    let textBody = toStrict $ decodeUtf8 body
+    textBody <- liftIO $ toStrict . decodeUtf8 <$> rawToLBS body
     return $ toBackendData item textBody
 
 -- | Parser for JSON source data.
-json :: Monad m => BackendSource -> m (BackendData n h)
-json item@(BackendSource meta body) =
-    case JSON.eitherDecode body of
-        Left err -> fail $ err ++ "\n" ++ show body
+json :: (MonadIO m, Monad m) => BackendSource -> m (BackendData n h)
+json item@(BackendSource meta body) = do
+    bodyBytes <- liftIO $ rawToLBS body
+    case JSON.eitherDecode bodyBytes of
+        Left err -> fail $ err ++ "\n" ++ show bodyBytes
         Right json -> return . toBackendData item $ (json :: JSON.Value)
 
 -- | Parser for YAML source data.
-yaml :: Monad m => BackendSource -> m (BackendData n h)
-yaml item@(BackendSource meta body) =
-    case YAML.decodeEither (toStrict body) of
-        Left err -> fail $ err ++ "\n" ++ show body
+yaml :: (MonadIO m, Monad m) => BackendSource -> m (BackendData n h)
+yaml item@(BackendSource meta body) = do
+    bodyBytes <- liftIO $ rawToLBS body
+    case YAML.decodeEither (toStrict bodyBytes) of
+        Left err -> fail $ err ++ "\n" ++ show bodyBytes
         Right json -> return . toBackendData item $ (json :: JSON.Value)
 
-urlencodedForm :: Monad m => BackendSource -> m (BackendData n h)
-urlencodedForm item@(BackendSource meta body) =
+urlencodedForm :: (MonadIO m, Monad m) => BackendSource -> m (BackendData n h)
+urlencodedForm item@(BackendSource meta body) = do
+    bodyBytes <- liftIO $ rawToLBS body
     return .
         toBackendData item .
         asTextHashMap .
         mapFromList .
         queryToQueryText .
         parseQuery .
-        toStrict $ body
+        toStrict $ bodyBytes
     where
         asTextHashMap :: HashMap Text (Maybe Text) -> HashMap Text (Maybe Text)
         asTextHashMap = id
 
 -- | Parser for Pandoc-supported formats that are read from 'LByteString's.
-pandocBS :: (Monad m, Monad n)
+pandocBS :: (MonadIO m, Monad m, Monad n)
          => (LByteString -> Either PandocError Pandoc)
          -> BackendSource
          -> m (BackendData n h)
-pandocBS reader input@(BackendSource meta body) =
-    case reader body of
+pandocBS reader input@(BackendSource meta body) = do
+    bodyBytes <- liftIO $ rawToLBS body
+    case reader bodyBytes of
         Left err -> fail . show $ err
         Right pandoc -> return $ toBackendData input pandoc
 
 -- | Parser for Pandoc-supported formats that are read from 'LByteString's, and
 -- return a 'Pandoc' document plus a 'MediaBag'.
-pandocWithMedia :: (Monad m, Monad n)
+pandocWithMedia :: (MonadIO m, Monad m, Monad n)
                 => (LByteString -> Either PandocError (Pandoc, Pandoc.MediaBag))
                 -> BackendSource
                 -> m (BackendData n h)
-pandocWithMedia reader input@(BackendSource meta body) =
-    case reader body of
+pandocWithMedia reader input@(BackendSource meta body) = do
+    bodyBytes <- liftIO $ rawToLBS body
+    case reader bodyBytes of
         Left err -> fail . show $ err
         Right (pandoc, mediaBag) -> do
             -- TODO: marshal mediaBag to backend data item children
@@ -150,7 +156,7 @@ pandocWithMedia reader input@(BackendSource meta body) =
             children <- mapFromList <$> mediaBagToBackendData mediaBag
             return $ addBackendDataChildren children base
 
-mediaBagToBackendData :: (Monad m, Monad n)
+mediaBagToBackendData :: (MonadIO m, Monad m, Monad n)
                       => Pandoc.MediaBag
                       -> m [(Text, BackendData n h)]
 mediaBagToBackendData bag = do
@@ -168,10 +174,10 @@ mediaBagToBackendData bag = do
                     , bmPath = pack path
                     , bmSize = Just $ fromIntegral contentLength
                     }
-        (pack path,) <$> parseBackendData (BackendSource meta body)
+        (pack path,) <$> parseBackendData (BackendSource meta (rawFromLBS body))
 
 -- | Parser for Pandoc-supported formats that are read from 'String's.
-pandoc :: (Monad m, Monad n)
+pandoc :: (MonadIO m, Monad m, Monad n)
        => (String -> Either PandocError Pandoc)
        -> BackendSource
        -> m (BackendData n h)

@@ -41,8 +41,9 @@ handleStaticTarget childPathMay
         Just path -> case lookup path (bdChildren backendItemBase) of
             Nothing -> throwM NotFoundException
             Just item -> return item
+    responseBytes <- rawToLBS (bdRaw backendItem)
     respond $ Wai.responseLBS
         status200
         [("Content-type", bmMimeType . bdMeta $ backendItem)]
-        (bdRaw backendItem)
+        responseBytes
 

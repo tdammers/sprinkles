@@ -12,10 +12,15 @@ module Web.Sprinkles.Backends.Data
 ( BackendData (..)
 , BackendMeta (..)
 , BackendSource (..)
+, RawBytes (..)
 , toBackendData
 , Items (..)
 , reduceItems
 , addBackendDataChildren
+, rawToLBS
+, rawFromLBS
+, serializeBackendSource
+, deserializeBackendSource
 )
 where
 
@@ -67,12 +72,34 @@ instance ToJSON a => ToJSON (Items a) where
     toJSON (SingleItem x) = toJSON x
     toJSON (MultiItem xs) = toJSON xs
 
+data RawBytes =
+    RawBytes
+        { rbLength :: IO Integer
+        , rbGetRange :: Integer -> Integer -> IO LByteString
+        }
+
+rawFromLBS :: LByteString -> RawBytes
+rawFromLBS b =
+    RawBytes
+        { rbLength = return . fromIntegral $ length b
+        , rbGetRange = \start len ->
+            return
+                . take (fromIntegral len)
+                . drop (fromIntegral start)
+                $ b
+        }
+
+rawToLBS :: RawBytes -> IO LByteString
+rawToLBS r = do
+    len <- rbLength r
+    rbGetRange r 0 len
+
 -- | A parsed record from a query result.
 data BackendData m h =
     BackendData
         { bdJSON :: JSON.Value -- ^ Result body as JSON
         , bdGVal :: GVal (Run m h) -- ^ Result body as GVal
-        , bdRaw :: LByteString -- ^ Raw result body source
+        , bdRaw :: RawBytes -- ^ Raw result body source
         , bdMeta :: BackendMeta -- ^ Meta-information
         , bdChildren :: HashMap Text (BackendData m h) -- ^ Child documents
         }
@@ -81,11 +108,27 @@ data BackendData m h =
 data BackendSource =
     BackendSource
         { bsMeta :: BackendMeta
-        , bsSource :: LByteString
+        , bsSource :: RawBytes
         }
         deriving (Generic)
 
-instance Serialize BackendSource where
+data SerializableBackendSource =
+    SerializableBackendSource
+        { sbsMeta :: BackendMeta
+        , sbsSource :: LByteString
+        }
+        deriving (Generic)
+
+instance Serialize SerializableBackendSource where
+
+serializeBackendSource :: BackendSource -> IO SerializableBackendSource
+serializeBackendSource bs = do
+    srcBytes <- rawToLBS . bsSource $ bs
+    return $ SerializableBackendSource (bsMeta bs) srcBytes
+
+deserializeBackendSource :: SerializableBackendSource -> BackendSource
+deserializeBackendSource sbs =
+    BackendSource (sbsMeta sbs) (rawFromLBS $ sbsSource sbs)
 
 -- | Wrap a parsed backend value in a 'BackendData' structure. The original
 -- raw 'BackendSource' value is needed alongside the parsed value, because the

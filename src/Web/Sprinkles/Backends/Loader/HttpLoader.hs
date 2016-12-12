@@ -22,6 +22,7 @@ import Web.Sprinkles.Backends.Data
         , BackendSource (..)
         , Items (..)
         , reduceItems
+        , rawFromLBS
         )
 import Web.Sprinkles.Logger (LogLevel (..))
 import Web.Sprinkles.Backends.Loader.Type
@@ -68,7 +69,8 @@ curlLoader uriText options writeLog _ fetchMode fetchOrder = do
                 writeLog Warning $ "HTTP error: " <> uriText <> " - " <> pack (Curl.respStatusLine response)
                 return []
             else do
-                let body = Curl.respBody response
+                -- TODO: support Range requests on the backend
+                let body = rawFromLBS $ Curl.respBody response
                     meta = BackendMeta
                             { bmMimeType = mimeType
                             , bmMTime = Nothing

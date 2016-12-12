@@ -18,6 +18,8 @@ module Web.Sprinkles.Backends
 , Items (..)
 , loadBackendData
 , RawBackendCache
+, rawToLBS
+, rawFromLBS
 )
 where
 
@@ -49,6 +51,10 @@ import Web.Sprinkles.Backends.Data
         , BackendSource (..)
         , Items (..)
         , reduceItems
+        , serializeBackendSource
+        , deserializeBackendSource
+        , rawFromLBS
+        , rawToLBS
         )
 import Web.Sprinkles.Backends.Loader
 import Web.Sprinkles.Backends.Loader.Type (PostBodySource)
@@ -92,8 +98,8 @@ wrapBackendCache =
     transformCache
         Cereal.encode
         (eitherFailS . Cereal.decode)
-        (return . Just . Cereal.encode)
-        (fmap Just . eitherFailS . Cereal.decode)
+        (fmap (Just . Cereal.encode) . mapM serializeBackendSource)
+        (fmap Just . fmap (map deserializeBackendSource) . eitherFailS . Cereal.decode)
 
 -- | Fetch raw backend data from a backend source, with caching.
 fetchBackendData :: (LogLevel -> Text -> IO ()) -> PostBodySource -> RawBackendCache -> BackendSpec -> IO [BackendSource]

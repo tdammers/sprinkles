@@ -19,6 +19,7 @@ import Web.Sprinkles.Backends.Data
         , BackendSource (..)
         , Items (..)
         , reduceItems
+        , rawFromLBS
         )
 import qualified Database.HDBC as HDBC
 import qualified Web.Sprinkles.Databases as DB
@@ -56,4 +57,4 @@ sqlLoader dsn query params writeLog _ fetchMode fetchOrder = do
                         , bmPath = "SQL"
                         , bmSize = Just . fromIntegral $ length json
                         }
-            in BackendSource meta json
+            in BackendSource meta (rawFromLBS json)
