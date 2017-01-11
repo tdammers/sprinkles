@@ -13,6 +13,7 @@ fi
 
 RELEASEID=$(git describe --tags --always || git log --pretty='format:%h' -1)
 PREPDIR="release/sprinkles"
+ARCH=$(uname -m)
 mkdir -p "$PREPDIR"
 
 mkdir "$PREPDIR/bin"
@@ -22,7 +23,7 @@ cd "$PREPDIR"
 rm -rf examples/*/.cache
 cd ".."
 
-RELEASE_FILENAME="sprinkles-$RELEASEID"
+RELEASE_FILENAME="sprinkles-$RELEASEID-$ARCH"
 echo "$RELEASE_FILENAME"
 
 rm -f "$RELEASE_FILENAME.zip"
