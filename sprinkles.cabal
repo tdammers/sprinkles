@@ -67,6 +67,7 @@ library
                , aeson-pretty
                , array
                , bytestring
+               , bcrypt
                , case-insensitive
                , cereal
                , classy-prelude

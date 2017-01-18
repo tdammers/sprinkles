@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+    <body>
+        <h1>Login</h1>
+        <form action="/login"
+              method="POST"
+              type="application/x-www-form-urlencoded">
+            <p><input type="text" name="username" value="" /></p>
+            <p><input type="password" name="password" value="" /></p>
+            <p><button type="submit">Log In</button></p>
+            <input type="hidden" name="returnURL" value="{{ request.headers.Referer }}" />
+        </form>
+        {%- if error -%}
+        <div class="error">
+            {%- switch error -%}
+                {%- case 'no-auth' -%}
+                    Invalid username or password.
+                {%- endcase -%}
+                {%- default -%}
+                    Something went wrong ({{ error }})
+                {%- enddefault -%}
+            {%- endswitch -%}
+        </div>
+        {%- endif -%}
+    </body>
+</html>

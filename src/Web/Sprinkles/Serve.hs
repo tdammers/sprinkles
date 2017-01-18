@@ -71,8 +71,10 @@ import Web.Sprinkles.Handlers.Common
        ( loadBackendDict
        , NotFoundException (..)
        , MethodNotAllowedException (..)
+       , LoginRequiredException (..)
        , handle500
        , handle404
+       , handleLoginRequired
        )
 import Web.Sprinkles.MatchedText (MatchedText (..))
 
@@ -140,6 +142,7 @@ handleRequest :: Project -> Wai.Application
 handleRequest project request respond =
     go `catch` handleNotFound project request respond
        `catch` handleMethodNotAllowed project request respond
+       `catch` handleLoginRequired project request respond
        `catch` \e -> handle500 e project request respond
     where
         go = do
@@ -172,6 +175,9 @@ handleRule rule captures project request respond = do
         backendSpecs = ruleContextData $ rule
         target = expandRuleTarget capturesG . ruleTarget $ rule
         logger = projectLogger project
+
+    when (ruleRequireAuth rule == AuthRequired) $
+        throwM LoginRequiredException
 
     now <- getCurrentTime
     let oneYear = 86400 * 365 -- good enough

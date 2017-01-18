@@ -44,6 +44,22 @@ instance FromJSON ClientCacheSetting where
         String x -> fail $ "Invalid cache expiry: " ++ show x
         Number n -> return $ MaxAge (floor n)
 
+data RequireAuth = AuthRequired
+                 | AuthNotRequired
+                 deriving (Show, Eq, Enum, Ord)
+
+instance FromJSON RequireAuth where
+    parseJSON = \case
+        Bool True -> return AuthRequired
+        Bool False -> return AuthNotRequired
+        Null -> return AuthNotRequired
+        Number 0 -> return AuthNotRequired
+        Number _ -> return AuthRequired
+        String "yes" -> return AuthRequired
+        String "required" -> return AuthRequired
+        String "no" -> return AuthNotRequired
+        _ -> fail "Invalid auth-required value"
+
 data Rule =
     Rule
         { ruleRoutePattern :: Pattern
@@ -53,6 +69,7 @@ data Rule =
         , ruleAcceptedMethods :: Set HTTP.Method
         , ruleCaching :: ClientCacheSetting
         , ruleContentTypeOverride :: Maybe ByteString
+        , ruleRequireAuth :: RequireAuth
         }
         deriving (Show)
 
@@ -82,6 +99,7 @@ instance FromJSON Rule where
         contentTypeOverride <-
             (fmap encodeUtf8) <$>
                 (obj .:? "content-type")
+        authReq <- obj .:? "require-auth" .!= AuthNotRequired
         return $ Rule
             pattern
             contextData
@@ -90,6 +108,7 @@ instance FromJSON Rule where
             methods
             caching
             contentTypeOverride
+            authReq
     parseJSON x = fail $ "Expected rule, but found " <> show x
 
 expandRuleTarget :: HashMap Text (GVal (Run (Writer Text) Text)) -> RuleTarget Replacement -> RuleTarget Text
