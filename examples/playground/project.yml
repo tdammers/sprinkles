@@ -1,126 +1,104 @@
-# vim: sw=2 expandtab
 definitions:
-  - &main_db
-    driver: 'sqlite'
-    dsn: './db.sqlite'
+    - &main_db
+      driver: 'sqlite'
+      dsn: './db.sqlite'
 data:
-  - test:
-      type: 'literal'
-      body:
-          message: 'hello!'
-  - pages:
-      type: 'sql'
-      connection: *main_db
-      query: "SELECT id, slug, title FROM pages ORDER BY title"
-      fetch: all
-rules:
-  - pattern: '/'
-    method: 'GET'
-    redirect: '/hello'
-  - pattern: '/{{slug:/^[a-z0-9][-a-z0-9_]*$/}}/edit'
-    method: 'GET'
-    data:
-      page:
-        type: 'sql'
-        connection: *main_db
-        query: "SELECT id, slug, title, body FROM pages WHERE slug = ?"
-        params: ['{{slug}}']
-        fetch: one
-    required: ['page']
-    template: 'edit.html'
-  - pattern: '/boom'
-    method: 'GET'
-    template: 'invalid.html'
-  - pattern: '/login?error={{error:*}}?'
-    method: 'GET'
-    data:
-      error: 'literal://{{ error }}'
-    template: 'login.html'
-  - pattern: '/login'
-    method: 'POST'
-    data:
-      - form:
-          type: 'post'
-      - returnURL: 'literal://{{ form.returnURL }}'
-        username: 'literal://{{ form.username }}'
-        password: 'literal://{{ form.password }}'
-      - user:
-          type: 'sql'
-          connection: *main_db
-          query: "SELECT username FROM users WHERE username = ?"
-          params: [ '{{ username }}' ]
-          fetch: one
-    redirect: '{%- if user -%}{{ returnURL|d("/") }}{%- else -%}/login?error=no-auth{%- endif -%}'
-  - pattern: '/new'
-    method: 'GET'
-    data:
-      page:
+    - test:
         type: 'literal'
         body:
-          title: 'Enter Page Title'
-          slug: 'choose-a-good-slug'
-          body: 'Start typing here'
-    template: 'edit.html'
-  - pattern: '/_save'
-    method: 'POST'
-    require-auth: true
-    data:
-      - form:
-          type: 'post'
-      - inserted:
-          type: 'sql'
-          connection: *main_db
-          query: "INSERT INTO pages (slug, title, body) VALUES (?, ?, ?); SELECT last_insert_rowid() AS id"
-          params: ['{{form.slug}}', '{{form.title}}', '{{form.body}}']
-          fetch: one
-      - page:
-          type: 'sql'
-          connection: *main_db
-          query: "SELECT slug FROM pages WHERE id = ?"
-          params: ['{{inserted.id}}']
-          fetch: one
-    redirect: '/{{page.slug}}'
-  - pattern: '/{{slug:/^[a-z0-9][-a-z0-9_]*$/}}.xml'
-    method: 'GET'
-    data:
-      page:
+            message: 'hello!'
+    - pages:
         type: 'sql'
         connection: *main_db
-        query: "SELECT id, slug, title, body FROM pages WHERE slug = ?"
-        params: ['{{slug}}']
-        fetch: one
-    required: ['page']
-    template: 'page.xml'
-    content-type: 'application/xml'
-  - pattern: '/{{slug:/^[a-z0-9][-a-z0-9_]*$/}}'
-    method: 'GET'
-    data:
-      page:
-        type: 'sql'
-        connection: *main_db
-        query: "SELECT id, slug, title, body FROM pages WHERE slug = ?"
-        params: ['{{slug}}']
-        fetch: one
-    required: ['page']
-    template: 'page.html'
-  - pattern: '/_save/{{id:/^[1-9][0-9]*$/}}'
-    method: 'POST'
-    data:
-      - form: 'post:'
-      - inserted:
-          type: 'sql'
-          connection: *main_db
-          query: "UPDATE pages SET slug = ?, title = ?, body = ? WHERE id = ?"
-          params: ['{{form.slug}}', '{{form.title}}', '{{form.body}}', '{{id}}']
-          fetch: one
-      - page:
-          type: 'sql'
-          connection: *main_db
-          query: "SELECT id, slug, title, body FROM pages WHERE id = ?"
-          params: ['{{id}}']
-          fetch: one
-    redirect: '/{{form.slug}}'
-  - pattern: '/{{path:**}}'
-    data:
-      - path: 'literal://{{path[-1:]}}'
-    template: 'test.html'
+        query: "SELECT id, slug, title FROM pages ORDER BY title"
+        fetch: all
+rules:
+    - pattern: '/'
+      method: 'GET'
+      redirect: '/hello'
+    - pattern: '/{{slug:/^[a-z0-9][-a-z0-9_]*$/}}/edit'
+      method: 'GET'
+      data:
+        page:
+            type: 'sql'
+            connection: *main_db
+            query: "SELECT id, slug, title, body FROM pages WHERE slug = ?"
+            params: ['{{slug}}']
+            fetch: one
+      required: ['page']
+      template: 'edit.html'
+    - pattern: '/boom'
+      method: 'GET'
+      template: 'invalid.html'
+    - pattern: '/new'
+      method: 'GET'
+      data:
+        page:
+            type: 'literal'
+            body:
+                title: 'Enter Page Title'
+                slug: 'choose-a-good-slug'
+                body: 'Start typing here'
+      template: 'edit.html'
+    - pattern: '/_save'
+      method: 'POST'
+      data:
+        - form:
+            type: 'post'
+        - inserted:
+            type: 'sql'
+            connection: *main_db
+            query: "INSERT INTO pages (slug, title, body) VALUES (?, ?, ?); SELECT last_insert_rowid() AS id"
+            params: ['{{form.slug}}', '{{form.title}}', '{{form.body}}']
+            fetch: one
+        - page:
+            type: 'sql'
+            connection: *main_db
+            query: "SELECT slug FROM pages WHERE id = ?"
+            params: ['{{inserted.id}}']
+            fetch: one
+      redirect: '/{{page.slug}}'
+    - pattern: '/{{slug:/^[a-z0-9][-a-z0-9_]*$/}}.xml'
+      method: 'GET'
+      data:
+        page:
+            type: 'sql'
+            connection: *main_db
+            query: "SELECT id, slug, title, body FROM pages WHERE slug = ?"
+            params: ['{{slug}}']
+            fetch: one
+      required: ['page']
+      template: 'page.xml'
+      content-type: 'application/xml'
+    - pattern: '/{{slug:/^[a-z0-9][-a-z0-9_]*$/}}'
+      method: 'GET'
+      data:
+        page:
+            type: 'sql'
+            connection: *main_db
+            query: "SELECT id, slug, title, body FROM pages WHERE slug = ?"
+            params: ['{{slug}}']
+            fetch: one
+      required: ['page']
+      template: 'page.html'
+    - pattern: '/_save/{{id:/^[1-9][0-9]*$/}}'
+      method: 'POST'
+      data:
+        - form: 'post:'
+        - inserted:
+            type: 'sql'
+            connection: *main_db
+            query: "UPDATE pages SET slug = ?, title = ?, body = ? WHERE id = ?"
+            params: ['{{form.slug}}', '{{form.title}}', '{{form.body}}', '{{id}}']
+            fetch: one
+        - page:
+            type: 'sql'
+            connection: *main_db
+            query: "SELECT id, slug, title, body FROM pages WHERE id = ?"
+            params: ['{{id}}']
+            fetch: one
+      redirect: '/{{form.slug}}'
+    - pattern: '/{{path:**}}'
+      data:
+        - path: 'literal://{{path[-1:]}}'
+      template: 'test.html'

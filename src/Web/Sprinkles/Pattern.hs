@@ -19,9 +19,7 @@ import qualified Data.Array as Array
 import Control.MaybeEitherMonad
 import System.IO.Unsafe (unsafePerformIO)
 import Web.Sprinkles.MatchedText
-import qualified Control.Applicative as Applicative
 
-orElse = (Applicative.<|>)
 
 data BasePatternItem =
     Exactly Text |
@@ -182,10 +180,8 @@ matchPatternQuery' (x:xs) query = do
 
 matchPatternQueryItem :: PatternQueryItem -> HashMap Text Text -> Maybe (Maybe Text, Text, HashMap Text Text)
 matchPatternQueryItem (PatternQueryItem nameMay key valP required) query = do
-    let defVal = if required then Nothing else Just ""
-    value <- do
-        candidateValue <- lookup key query `orElse` defVal
-        matchBaseItem valP candidateValue
+    candidateValue <- lookup key query
+    value <- matchBaseItem valP candidateValue
     return (nameMay, value, deleteMap key query)
 
 matchBaseItemMulti :: BasePatternItem -> [Text] -> ([Text], [Text])

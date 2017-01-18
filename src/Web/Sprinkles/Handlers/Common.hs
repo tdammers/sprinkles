@@ -38,11 +38,6 @@ data MethodNotAllowedException = MethodNotAllowedException
 
 instance Exception MethodNotAllowedException where
 
-data LoginRequiredException = LoginRequiredException
-    deriving (Show)
-
-instance Exception LoginRequiredException where
-
 type ContextualHandler =
     HashMap Text (Items (BackendData IO Html)) ->
     Project ->
@@ -61,13 +56,6 @@ handleMethodNotAllowed project request respond _ = do
         project
         request
         respond
-
-handleLoginRequired :: Project -> Wai.Request -> (Wai.Response -> IO Wai.ResponseReceived) -> LoginRequiredException -> IO Wai.ResponseReceived
-handleLoginRequired project request respond _ = do
-    respond $ Wai.responseLBS
-        status302
-        [("Location", "/login")]
-        "Login required"
 
 handleHttpError :: Status
                 -> Text
