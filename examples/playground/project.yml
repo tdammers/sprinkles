@@ -16,6 +16,9 @@ rules:
     - pattern: '/'
       method: 'GET'
       redirect: '/hello'
+    - pattern: '/new-session'
+      session: new
+      redirect: '/hello'
     - pattern: '/{{slug:/^[a-z0-9][-a-z0-9_]*$/}}/edit'
       method: 'GET'
       data:
@@ -31,6 +34,7 @@ rules:
       method: 'GET'
       template: 'invalid.html'
     - pattern: '/new'
+      session: require
       method: 'GET'
       data:
         page:

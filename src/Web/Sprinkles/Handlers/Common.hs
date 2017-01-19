@@ -38,6 +38,11 @@ data MethodNotAllowedException = MethodNotAllowedException
 
 instance Exception MethodNotAllowedException where
 
+data NotAllowedException = NotAllowedException
+    deriving (Show)
+
+instance Exception NotAllowedException where
+
 type ContextualHandler =
     HashMap Text (Items (BackendData IO Html)) ->
     Project ->
@@ -56,6 +61,13 @@ handleMethodNotAllowed project request respond _ = do
         project
         request
         respond
+
+handleNotAllowed :: Project -> Wai.Request -> (Wai.Response -> IO Wai.ResponseReceived) -> NotAllowedException -> IO Wai.ResponseReceived
+handleNotAllowed project request respond _ = do
+    respond $ Wai.responseLBS
+        status400
+        [("Content-type", "text/plain")]
+        "Not allowed"
 
 handleHttpError :: Status
                 -> Text

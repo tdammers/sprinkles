@@ -73,8 +73,10 @@ import Web.Sprinkles.Handlers.Common
        ( loadBackendDict
        , NotFoundException (..)
        , MethodNotAllowedException (..)
+       , NotAllowedException (..)
        , handle500
        , handle404
+       , handleNotAllowed
        )
 import Web.Sprinkles.MatchedText (MatchedText (..))
 
@@ -142,6 +144,7 @@ handleRequest :: Project -> Wai.Application
 handleRequest project request respond =
     go `catch` handleNotFound project request respond
        `catch` handleMethodNotAllowed project request respond
+       `catch` handleNotAllowed project request respond
        `catch` \e -> handle500 e project request respond
     where
         go = do
@@ -175,6 +178,14 @@ handleRule rule captures project request respond = do
         target = expandRuleTarget capturesG . ruleTarget $ rule
         logger = projectLogger project
 
+    session <- case ruleSessionDirective rule of
+        IgnoreSession -> return Nothing
+        AcceptSession -> resumeSession project request
+        RequireSession -> resumeSession project request >>= \case
+            Nothing -> throwM NotAllowedException
+            Just s -> return $ Just s
+        CreateNewSession -> newSession project request
+
     now <- getCurrentTime
     let oneYear = 86400 * 365 -- good enough
     let expiry = case ruleCaching rule of
@@ -183,7 +194,7 @@ handleRule rule captures project request respond = do
             MaxAge seconds -> addUTCTime (fromInteger seconds) now
 
     let respond' :: Wai.Response -> IO Wai.ResponseReceived
-        respond' = respond . addExpiryHeader . overrideContentType
+        respond' = respond . addCookie . addExpiryHeader . overrideContentType
 
         overrideContentType :: Wai.Response -> Wai.Response
         overrideContentType =
@@ -195,6 +206,9 @@ handleRule rule captures project request respond = do
                             ("Content-type", _) -> ("Content-type", t)
                             x -> x
                     )
+
+        addCookie :: Wai.Response -> Wai.Response
+        addCookie = maybe id (setSessionCookie project request) session
 
         addExpiryHeader :: Wai.Response -> Wai.Response
         addExpiryHeader =

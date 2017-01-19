@@ -54,7 +54,7 @@ loadProject sconfig dir = do
     templates <- preloadTemplates logger dir
     caches <- sequence $ fmap (createCache dir) (scBackendCache sconfig)
     let cache = mconcat caches
-    sessionStore <- sqlSessionStore (DSN SqliteDriver ":memory:")
+    sessionStore <- sqlSessionStore (DSN SqliteDriver "sessions.sqlite")
     let sessionConfig = scSessions sconfig
     return $ Project pconfig templates cache logger sessionStore sessionConfig
 

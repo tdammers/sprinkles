@@ -44,6 +44,20 @@ instance FromJSON ClientCacheSetting where
         String x -> fail $ "Invalid cache expiry: " ++ show x
         Number n -> return $ MaxAge (floor n)
 
+-- | Describes if and how to initialize a session for a request.
+data SessionDirective = AcceptSession -- ^ Accept if given, but do not require
+                      | IgnoreSession -- ^ Ignore all sessions
+                      | CreateNewSession -- ^ Always create a new session
+                      | RequireSession -- ^ Require a session, fail if none exists
+    deriving (Eq, Show)
+
+instance FromJSON SessionDirective where
+    parseJSON = \case
+        String "ignore" -> return IgnoreSession
+        String "new" -> return CreateNewSession
+        String "accept" -> return AcceptSession
+        String "require" -> return RequireSession
+
 data Rule =
     Rule
         { ruleRoutePattern :: Pattern
@@ -53,6 +67,7 @@ data Rule =
         , ruleAcceptedMethods :: Set HTTP.Method
         , ruleCaching :: ClientCacheSetting
         , ruleContentTypeOverride :: Maybe ByteString
+        , ruleSessionDirective :: SessionDirective
         }
         deriving (Show)
 
@@ -82,6 +97,7 @@ instance FromJSON Rule where
         contentTypeOverride <-
             (fmap encodeUtf8) <$>
                 (obj .:? "content-type")
+        sessionDirective <- obj .:? "session" .!= AcceptSession
         return $ Rule
             pattern
             contextData
@@ -90,6 +106,7 @@ instance FromJSON Rule where
             methods
             caching
             contentTypeOverride
+            sessionDirective
     parseJSON x = fail $ "Expected rule, but found " <> show x
 
 expandRuleTarget :: HashMap Text (GVal (Run (Writer Text) Text)) -> RuleTarget Replacement -> RuleTarget Text

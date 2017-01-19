@@ -7,7 +7,13 @@
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE MultiParamTypeClasses #-}
 module Web.Sprinkles.Sessions
-(
+( SessionHandle
+, sessionID
+, sessionGet
+, sessionPut
+, resumeSession
+, newSession
+, setSessionCookie
 )
 where
 
@@ -21,6 +27,7 @@ import Network.Wai
 import qualified Data.ByteString.Char8 as Char8
 import Data.Char (isSpace)
 import qualified Crypto.Nonce as Nonce
+import Text.Printf (printf)
 
 data SessionHandle =
     SessionHandle
@@ -28,6 +35,17 @@ data SessionHandle =
         , sessionGet :: Text -> IO (Maybe Text)
         , sessionPut :: Text -> Text -> IO ()
         }
+
+setSessionCookie :: Project -> Request -> SessionHandle -> Response -> Response
+setSessionCookie project request session =
+    let sessionConfig = projectSessionConfig project
+        cookieValue = mconcat [ (sessCookieName sessionConfig)
+                              , "="
+                              , (sessionID session)
+                              ]
+        cookieHeader = ("Set-Cookie", cookieValue)
+    in mapResponseHeaders (cookieHeader:)
+
 
 resumeSession :: Project -> Request -> IO (Maybe SessionHandle)
 resumeSession project request = do

@@ -41,6 +41,7 @@ sdbSetup dsn =
                 CREATE TABLE IF NOT EXISTS sessions
                     ( ssid VARCHAR NOT NULL
                     ) |]
+        HDBC.withTransaction conn $ \conn -> do
             HDBC.runRaw conn [here|
                 CREATE TABLE IF NOT EXISTS session_data
                     ( ssid VARCHAR NOT NULL
