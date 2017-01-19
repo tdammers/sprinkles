@@ -51,10 +51,12 @@ import qualified Text.Pandoc.Readers.Creole as Pandoc
 import Web.Sprinkles.Exceptions
 import Web.Sprinkles.Backends
 import Web.Sprinkles.Cache
+import Web.Sprinkles.SessionStore
 import Web.Sprinkles.Logger as Logger
 import Web.Sprinkles.Project
 import Web.Sprinkles.ProjectConfig
 import Web.Sprinkles.Rule
+import Web.Sprinkles.Sessions
 import Web.Sprinkles.ServerConfig
 import Web.Sprinkles.Backends.Loader.Type
        (PostBodySource (..), pbsFromRequest, pbsInvalid)

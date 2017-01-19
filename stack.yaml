@@ -12,6 +12,7 @@ packages:
 - location:
     git: https://git@github.com/tdammers/ginger
     commit: '0.3.8.0'
+  extra-dep: true
 - location:
     git: 'https://git@github.com/tdammers/pandoc-creole.git'
     commit: '0.1.0.0'
@@ -24,6 +25,7 @@ extra-deps:
   - system-locale-0.1.0.0
   - megaparsec-5.0.1
   - ginger-0.3.8.0
+  - yeshql-2.2.0.0
 
 # Override default flag values for local packages and extra-deps
 flags: {}

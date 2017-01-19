@@ -102,11 +102,41 @@ instance FromJSON LoggerConfig where
 
     parseJSON _ = fail "Invalid logger config"
 
+data SessionExpiration = NeverExpire 
+                       | SlidingExpiration Integer
+                       deriving (Show)
+
+instance FromJSON SessionExpiration where
+    parseJSON = \case
+        Number n -> return . SlidingExpiration . floor $ n
+        Null -> return NeverExpire
+        String "never" -> return NeverExpire
+        _ -> fail "Invalid session expiration"
+
+data SessionConfig =
+    SessionConfig
+        { sessCookieName :: ByteString
+        , sessCookieSecure :: Bool
+        , sessExpiration :: SessionExpiration
+        }
+        deriving (Show)
+
+instance FromJSON SessionConfig where
+    parseJSON (Object obj) = do
+        cookieName <- encodeUtf8 <$> obj .:? "cookie-name" .!= "ssid"
+        expiration <- obj .:? "expiration" .!= NeverExpire
+        secure <- obj .:? "secure" .!= True -- secure default
+        return $ SessionConfig cookieName secure expiration
+
+instance Default SessionConfig where
+    def = SessionConfig "ssid" True NeverExpire
+
 data ServerConfig =
     ServerConfig
         { scBackendCache :: [BackendCacheConfig]
         , scDriver :: ServerDriver
         , scLogger :: Maybe LoggerConfig
+        , scSessions :: SessionConfig
         }
         deriving (Show)
 
@@ -115,6 +145,7 @@ instance Default ServerConfig where
             { scBackendCache = def
             , scDriver = def
             , scLogger = Nothing
+            , scSessions = def
             }
 
 instance Monoid ServerConfig where
@@ -130,10 +161,12 @@ instance FromJSON ServerConfig where
         driver <- fromMaybe def
                     <$> ( obj .:? "driver" )
         logger <- obj .:? "log"
+        sessions <- obj .:? "sessions" .!= def
         return ServerConfig
             { scBackendCache = caches
             , scDriver = driver
             , scLogger = logger
+            , scSessions = sessions
             }
     parseJSON _ = fail "Invalid server config"
 
@@ -147,6 +180,7 @@ scAppend a b =
             if scDriver b == DefaultDriver
                 then scDriver a
                 else scDriver b
+        , scSessions = scSessions b
         }
 
 firstNonNull :: [a] -> [a] -> [a]

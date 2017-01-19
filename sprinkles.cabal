@@ -23,6 +23,9 @@ library
                  , Web.Sprinkles.Cache.Filesystem
                  , Web.Sprinkles.Cache.Memory
                  , Web.Sprinkles.Cache.Memcached
+                 , Web.Sprinkles.Sessions
+                 , Web.Sprinkles.SessionStore
+                 , Web.Sprinkles.SessionStore.Database
                  , Web.Sprinkles.Pattern
                  , Web.Sprinkles.Replacement
                  , Web.Sprinkles.Backends
@@ -77,12 +80,14 @@ library
                , filepath
                , ginger >=0.3.8.0 && <0.4
                , hashable
+               , heredoc
                , hsyslog
                , http-types
                , memcached-binary
                , mime-types
                , mtl
                , network-uri
+               , nonce
                , pandoc
                , pandoc-creole
                , pandoc-types
@@ -107,6 +112,7 @@ library
                , wai-handler-fastcgi
                , warp
                , yaml
+               , yeshql
   default-language:    Haskell2010
 
 executable sprinkles

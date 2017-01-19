@@ -32,6 +32,8 @@ import Web.Sprinkles.Cache
 import Web.Sprinkles.Cache.Filesystem (filesystemCache)
 import Web.Sprinkles.Cache.Memory (memCache)
 import Web.Sprinkles.Cache.Memcached (memcachedCache)
+import Web.Sprinkles.SessionStore
+import Web.Sprinkles.SessionStore.Database (sqlSessionStore, DSN (..), SqlDriver (SqliteDriver))
 
 newtype TemplateCache = TemplateCache (HashMap Text Template)
 
@@ -41,6 +43,8 @@ data Project =
         , projectTemplates :: TemplateCache
         , projectBackendCache :: Cache ByteString ByteString
         , projectLogger :: Logger
+        , projectSessionStore :: SessionStore
+        , projectSessionConfig :: SessionConfig
         }
 
 loadProject :: ServerConfig -> FilePath -> IO Project
@@ -50,7 +54,9 @@ loadProject sconfig dir = do
     templates <- preloadTemplates logger dir
     caches <- sequence $ fmap (createCache dir) (scBackendCache sconfig)
     let cache = mconcat caches
-    return $ Project pconfig templates cache logger
+    sessionStore <- sqlSessionStore (DSN SqliteDriver ":memory:")
+    let sessionConfig = scSessions sconfig
+    return $ Project pconfig templates cache logger sessionStore sessionConfig
 
 
 createLogger :: LoggerConfig -> IO Logger
