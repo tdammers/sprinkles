@@ -3,3 +3,4 @@
 tags
 .cache
 /release
+sessions.sqlite

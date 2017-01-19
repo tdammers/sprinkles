@@ -89,7 +89,7 @@ withConnection :: DSN -> (HDBC.ConnWrapper -> IO a) -> IO a
 withConnection dsn inner = do
     conn <- connect dsn
     inner conn
-    
+
 connect :: DSN -> IO HDBC.ConnWrapper
 connect (DSN driver details) =
     case driver of

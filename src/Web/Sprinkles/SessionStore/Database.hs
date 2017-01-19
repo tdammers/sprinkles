@@ -22,38 +22,39 @@ import Database.YeshQL
 
 sqlSessionStore :: DSN -> IO SessionStore
 sqlSessionStore dsn = do
-    sdbSetup dsn
+    conn <- sdbSetup dsn
     return SessionStore
-        { ssGet = sdbGet dsn
-        , ssGetAll = sdbGetAll dsn
-        , ssList = sdbList dsn
-        , ssPut = sdbPut dsn
-        , ssCreateSession = sdbCreate dsn
-        , ssDropSession = sdbDrop dsn
-        , ssDoesSessionExist = sdbExists dsn
+        { ssGet = sdbGet conn
+        , ssGetAll = sdbGetAll conn
+        , ssList = sdbList conn
+        , ssPut = sdbPut conn
+        , ssCreateSession = sdbCreate conn
+        , ssDropSession = sdbDrop conn
+        , ssDoesSessionExist = sdbExists conn
         }
 
-sdbSetup :: DSN -> IO ()
-sdbSetup dsn =
-    DB.withConnection dsn $ \conn -> do
-        HDBC.withTransaction conn $ \conn -> do
-            HDBC.runRaw conn [here|
-                CREATE TABLE IF NOT EXISTS sessions
-                    ( ssid VARCHAR NOT NULL
-                    ) |]
-        HDBC.withTransaction conn $ \conn -> do
-            HDBC.runRaw conn [here|
-                CREATE TABLE IF NOT EXISTS session_data
-                    ( ssid VARCHAR NOT NULL
-                    , skey VARCHAR NOT NULL
-                    , sval VARCHAR NOT NULL
-                    , PRIMARY KEY (ssid, skey)
-                    , FOREIGN KEY (ssid)
-                        REFERENCES sessions (ssid)
-                        ON DELETE CASCADE
-                        ON UPDATE CASCADE
-                    );
-                |]
+sdbSetup :: DSN -> IO HDBC.ConnWrapper
+sdbSetup dsn = do
+    conn <- DB.connect dsn
+    HDBC.withTransaction conn $ \conn -> do
+        HDBC.runRaw conn [here|
+            CREATE TABLE IF NOT EXISTS sessions
+                ( ssid VARCHAR NOT NULL
+                ) |]
+    HDBC.withTransaction conn $ \conn -> do
+        HDBC.runRaw conn [here|
+            CREATE TABLE IF NOT EXISTS session_data
+                ( ssid VARCHAR NOT NULL
+                , skey VARCHAR NOT NULL
+                , sval VARCHAR NOT NULL
+                , PRIMARY KEY (ssid, skey)
+                , FOREIGN KEY (ssid)
+                    REFERENCES sessions (ssid)
+                    ON DELETE CASCADE
+                    ON UPDATE CASCADE
+                );
+            |]
+    return conn
 
 [yesh|
     -- name:get :: (Text)
@@ -110,43 +111,43 @@ sdbSetup dsn =
     SELECT COUNT(1) FROM sessions WHERE ssid = :ssid
 |]
 
-withDB :: DSN
+withDB :: HDBC.ConnWrapper
        -> (HDBC.ConnWrapper -> IO a)
        -> IO a
-withDB dsn inner =
-    DB.withConnection dsn $ \conn ->
-        (HDBC.withTransaction conn $ inner)
+withDB conn inner = do
+    conn' <- HDBC.clone conn
+    HDBC.withTransaction conn' inner
 
-sdbGet :: DSN -> SessionID -> Text -> IO (Maybe Text)
-sdbGet dsn ssid skey =
-    withDB dsn $ get ssid skey
+sdbGet :: HDBC.ConnWrapper -> SessionID -> Text -> IO (Maybe Text)
+sdbGet conn ssid skey =
+    withDB conn $ get ssid skey
 
-sdbList :: DSN -> SessionID -> IO [Text]
-sdbList dsn ssid =
-    withDB dsn $ listKeys ssid
+sdbList :: HDBC.ConnWrapper -> SessionID -> IO [Text]
+sdbList conn ssid =
+    withDB conn $ listKeys ssid
 
-sdbGetAll :: DSN -> SessionID -> IO [(Text, Text)]
-sdbGetAll dsn ssid =
-    withDB dsn $ getAll ssid
+sdbGetAll :: HDBC.ConnWrapper -> SessionID -> IO [(Text, Text)]
+sdbGetAll conn ssid =
+    withDB conn $ getAll ssid
 
-sdbPut :: DSN -> SessionID -> Text -> Text -> IO ()
-sdbPut dsn ssid skey sval =
-    (withDB dsn $ put ssid skey sval) >>= \case
+sdbPut :: HDBC.ConnWrapper -> SessionID -> Text -> Text -> IO ()
+sdbPut conn ssid skey sval =
+    (withDB conn $ put ssid skey sval) >>= \case
         1 -> return ()
         0 -> throwM SessionNotFoundException
         _ -> error "More than one session with the same key. This is strange."
 
-sdbCreate :: DSN -> SessionID -> SessionExpiry -> IO ()
-sdbCreate dsn ssid expiry =
-    (withDB dsn $ createSession ssid) >>= \case
+sdbCreate :: HDBC.ConnWrapper -> SessionID -> SessionExpiry -> IO ()
+sdbCreate conn ssid expiry =
+    (withDB conn $ createSession ssid) >>= \case
         1 -> return ()
         0 -> error "Session creation failed"
         _ -> error "More than one session created. This is strange."
 
-sdbDrop :: DSN -> SessionID -> IO ()
-sdbDrop dsn ssid =
-    (withDB dsn $ dropSession ssid) >> return ()
+sdbDrop :: HDBC.ConnWrapper -> SessionID -> IO ()
+sdbDrop conn ssid =
+    (withDB conn $ dropSession ssid) >> return ()
 
-sdbExists :: DSN -> SessionID -> IO Bool
-sdbExists dsn ssid =
-    fmap (fromMaybe False) . withDB dsn $ sessionExists ssid
+sdbExists :: HDBC.ConnWrapper -> SessionID -> IO Bool
+sdbExists conn ssid =
+    fmap (fromMaybe False) . withDB conn $ sessionExists ssid
