@@ -19,6 +19,11 @@ data SessionNotFoundException = SessionNotFoundException
 
 instance Exception SessionNotFoundException where
 
+data SessionSupportDisabled = SessionSupportDisabled
+    deriving (Show)
+
+instance Exception SessionSupportDisabled where
+
 -- | Common interface for session store backends.
 data SessionStore =
     SessionStore
@@ -41,4 +46,15 @@ data SessionStore =
         -- -- ^ Shift a session's expiry timestamp to current time + expiry
         -- , ssVacuum :: IO ()
         -- -- ^ Drop all expired sessions
+        }
+
+nullSessionStore =
+    SessionStore
+        { ssGet = const . const $ return Nothing
+        , ssList = const $ return []
+        , ssGetAll = const $ return []
+        , ssPut = const . const . const $ return ()
+        , ssCreateSession = const . const $ throwM SessionSupportDisabled
+        , ssDropSession = const $ return ()
+        , ssDoesSessionExist = const $ return False
         }

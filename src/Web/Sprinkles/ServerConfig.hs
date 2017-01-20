@@ -22,6 +22,7 @@ import Data.Scientific (Scientific)
 import Data.Time.Clock.POSIX (POSIXTime)
 import Web.Sprinkles.Logger (LogLevel (..))
 import Web.Sprinkles.Exceptions
+import Web.Sprinkles.Databases (DSN (..), SqlDriver (..))
 
 data BackendCacheConfig =
     FilesystemCache FilePath POSIXTime |
@@ -113,11 +114,32 @@ instance FromJSON SessionExpiration where
         String "never" -> return NeverExpire
         _ -> fail "Invalid session expiration"
 
+data SessionDriver = NoSessionDriver
+                   | InProcSessionDriver
+                   | SqlSessionDriver DSN
+                   deriving (Show)
+
+instance FromJSON SessionDriver where
+    parseJSON = \case
+        Null -> return NoSessionDriver
+        String "inproc" -> return InProcSessionDriver
+        String "sql" -> return $ SqlSessionDriver (DSN SqliteDriver "sessions.sqlite")
+        Object obj -> do
+            ty <- obj .: "type"
+            case (ty :: Text) of
+                "inproc" ->
+                    return InProcSessionDriver
+                "sql" -> do
+                    SqlSessionDriver <$>
+                        obj .:? "connection" .!= DSN SqliteDriver "sessions.sqlite"
+        _ -> fail "Invalid session driver"
+
 data SessionConfig =
     SessionConfig
         { sessCookieName :: ByteString
         , sessCookieSecure :: Bool
         , sessExpiration :: SessionExpiration
+        , sessDriver :: SessionDriver
         }
         deriving (Show)
 
@@ -126,10 +148,14 @@ instance FromJSON SessionConfig where
         cookieName <- encodeUtf8 <$> obj .:? "cookie-name" .!= "ssid"
         expiration <- obj .:? "expiration" .!= NeverExpire
         secure <- obj .:? "secure" .!= True -- secure default
-        return $ SessionConfig cookieName secure expiration
+        driver <- obj .:? "driver" .!= InProcSessionDriver
+        return $ SessionConfig cookieName secure expiration driver
+    parseJSON x = do
+        driver <- parseJSON x
+        return $ SessionConfig "ssid" True NeverExpire driver
 
 instance Default SessionConfig where
-    def = SessionConfig "ssid" True NeverExpire
+    def = SessionConfig "ssid" True NeverExpire NoSessionDriver
 
 data ServerConfig =
     ServerConfig
@@ -180,7 +206,10 @@ scAppend a b =
             if scDriver b == DefaultDriver
                 then scDriver a
                 else scDriver b
-        , scSessions = scSessions b
+        , scSessions =
+            case sessDriver (scSessions b) of
+                NoSessionDriver -> scSessions a
+                _ -> scSessions b
         }
 
 firstNonNull :: [a] -> [a] -> [a]

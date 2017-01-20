@@ -26,6 +26,7 @@ library
                  , Web.Sprinkles.Sessions
                  , Web.Sprinkles.SessionStore
                  , Web.Sprinkles.SessionStore.Database
+                 , Web.Sprinkles.SessionStore.InProc
                  , Web.Sprinkles.Pattern
                  , Web.Sprinkles.Replacement
                  , Web.Sprinkles.Backends
@@ -98,6 +99,7 @@ library
                , regex-pcre
                , safe
                , scientific
+               , stm
                , system-locale
                , template-haskell
                , text
