@@ -29,6 +29,7 @@ library
                  , Web.Sprinkles.SessionStore.InProc
                  , Web.Sprinkles.Pattern
                  , Web.Sprinkles.Replacement
+                 , Web.Sprinkles.TemplateContext
                  , Web.Sprinkles.Backends
                  , Web.Sprinkles.Backends.Loader
                  , Web.Sprinkles.Backends.Spec
