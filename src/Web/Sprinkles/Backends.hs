@@ -57,7 +57,7 @@ import Web.Sprinkles.Backends.Data
         , rawToLBS
         )
 import Web.Sprinkles.Backends.Loader
-import Web.Sprinkles.Backends.Loader.Type (PostBodySource)
+import Web.Sprinkles.Backends.Loader.Type (RequestContext)
 
 -- | Cache for raw backend data, stored as bytestrings.
 type RawBackendCache = Cache ByteString ByteString
@@ -68,7 +68,7 @@ type BackendCache = Cache BackendSpec [BackendSource]
 -- | Execute a backend query, with caching.
 loadBackendData :: Monad m
                 => (LogLevel -> Text -> IO ())
-                -> PostBodySource
+                -> RequestContext
                 -> RawBackendCache
                 -> BackendSpec
                 -> IO (Items (BackendData m h))
@@ -102,7 +102,7 @@ wrapBackendCache =
         (fmap Just . fmap (map deserializeBackendSource) . eitherFailS . Cereal.decode)
 
 -- | Fetch raw backend data from a backend source, with caching.
-fetchBackendData :: (LogLevel -> Text -> IO ()) -> PostBodySource -> RawBackendCache -> BackendSpec -> IO [BackendSource]
+fetchBackendData :: (LogLevel -> Text -> IO ()) -> RequestContext -> RawBackendCache -> BackendSpec -> IO [BackendSource]
 fetchBackendData writeLog loadPost rawCache spec =
     cacheWrap (fetchBackendData' writeLog loadPost) spec
     where
@@ -113,7 +113,7 @@ fetchBackendData writeLog loadPost rawCache spec =
         cache = wrapBackendCache rawCache
 
 -- | Fetch raw backend data from a backend source, without caching.
-fetchBackendData' :: (LogLevel -> Text -> IO ()) -> PostBodySource -> BackendSpec -> IO [BackendSource]
+fetchBackendData' :: (LogLevel -> Text -> IO ()) -> RequestContext -> BackendSpec -> IO [BackendSource]
 fetchBackendData'
         writeLog
         loadPost

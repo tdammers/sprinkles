@@ -24,6 +24,7 @@ library
                  , Web.Sprinkles.Cache.Memory
                  , Web.Sprinkles.Cache.Memcached
                  , Web.Sprinkles.Sessions
+                 , Web.Sprinkles.SessionHandle
                  , Web.Sprinkles.SessionStore
                  , Web.Sprinkles.SessionStore.Database
                  , Web.Sprinkles.SessionStore.InProc

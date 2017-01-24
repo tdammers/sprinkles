@@ -12,6 +12,9 @@ data:
         connection: *main_db
         query: "SELECT id, slug, title FROM pages ORDER BY title"
         fetch: all
+    - counter:
+        type: 'literal'
+        body: 'Count: {{ session.put("count", session.get("count")|default(0) + 1) }}{{ session.get("count") }}'
 rules:
     - pattern: '/'
       method: 'GET'
@@ -62,7 +65,7 @@ rules:
             params: ['{{inserted.id}}']
             fetch: one
       redirect: '/{{page.slug}}'
-    - pattern: '/{{slug:/^[a-z0-9][-a-z0-9_]*$/}}.xml'
+    - pattern: '/{{slug:/^[a-z0-9][-a-z0-9_]*$/}}/xml'
       method: 'GET'
       data:
         page:

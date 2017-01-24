@@ -59,7 +59,7 @@ import Web.Sprinkles.Rule
 import Web.Sprinkles.Sessions
 import Web.Sprinkles.ServerConfig
 import Web.Sprinkles.Backends.Loader.Type
-       (PostBodySource (..), pbsFromRequest, pbsInvalid)
+       (RequestContext (..), pbsFromRequest, pbsInvalid)
 import Web.Sprinkles.Handlers
        ( handleStaticTarget
        , handleNotFound
@@ -224,7 +224,7 @@ handleRule rule captures project request respond = do
     backendData :: HashMap Text (Items (BackendData IO Html))
                 <- loadBackendDict
                         (writeLog logger)
-                        (pbsFromRequest request)
+                        (pbsFromRequest request $ return session)
                         cache
                         (globalBackendSpecs <> backendSpecs)
                         (ruleRequired rule)
@@ -232,6 +232,7 @@ handleRule rule captures project request respond = do
 
     let handle :: HashMap Text (Items (BackendData IO Html))
                -> Project
+               -> Maybe SessionHandle
                -> Wai.Application
         handle = case target of
             RedirectTarget redirectPath ->
@@ -251,5 +252,6 @@ handleRule rule captures project request respond = do
     handle
         backendData
         project
+        session
         request
         respond'

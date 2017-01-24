@@ -21,6 +21,7 @@ import Web.Sprinkles.Project
 import Web.Sprinkles.ProjectConfig
 import Web.Sprinkles.Exceptions
 import Web.Sprinkles.TemplateContext
+import Web.Sprinkles.SessionHandle
 
 import Text.Ginger
        (parseGinger, Template, runGingerT, GingerContext, GVal(..), ToGVal(..),
@@ -47,7 +48,7 @@ import Network.HTTP.Types
 import Network.HTTP.Types.URI (queryToQueryText)
 
 import Web.Sprinkles.Backends.Loader.Type
-       (PostBodySource (..), pbsFromRequest, pbsInvalid)
+       (RequestContext (..), pbsFromRequest, pbsInvalid)
 
 instance ToGVal m ByteString where
     toGVal = toGVal . UTF8.toString
@@ -57,6 +58,7 @@ instance ToGVal m (CI.CI ByteString) where
 
 respondTemplateHtml :: ToGVal (Ginger.Run IO Html) a
                     => Project
+                    -> Maybe SessionHandle
                     -> Status
                     -> Text
                     -> HashMap Text a
@@ -73,6 +75,7 @@ respondTemplateHtml =
 
 respondTemplateText :: ToGVal (Ginger.Run IO Text) a
                     => Project
+                    -> Maybe SessionHandle
                     -> Status
                     -> Text
                     -> HashMap Text a
@@ -99,6 +102,7 @@ respondTemplate :: ToGVal (Ginger.Run IO h) a
                    -> GingerContext IO h
                    )
                 -> Project
+                -> Maybe SessionHandle
                 -> Status
                 -> Text
                 -> HashMap Text a
@@ -107,12 +111,13 @@ respondTemplate contentType
                 writeText
                 makeContext
                 project
+                session
                 status
                 templateName
                 contextMap
                 request
                 respond = do
-    let contextLookup = mkContextLookup request project contextMap
+    let contextLookup = mkContextLookup request project session contextMap
         headers = [("Content-type", contentType)]
     template <- getTemplate project templateName
     respond . Wai.responseStream status headers $ \write flush -> do
@@ -123,14 +128,15 @@ respondTemplate contentType
 mkContextLookup :: (ToGVal (Ginger.Run IO h) a)
                 => Wai.Request
                 -> Project
+                -> Maybe SessionHandle
                 -> HashMap Text a
                 -> Text
                 -> Ginger.Run IO h (GVal (Ginger.Run IO h))
-mkContextLookup request project contextMap key = do
+mkContextLookup request project session contextMap key = do
     let cache = projectBackendCache project
         logger = projectLogger project
         contextMap' =
             fmap toGVal contextMap <>
-            sprinklesGingerContext cache request logger
+            sprinklesGingerContext cache request session logger
     return . fromMaybe def $ lookup key contextMap'
 

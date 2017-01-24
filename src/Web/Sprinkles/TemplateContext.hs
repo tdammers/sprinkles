@@ -35,16 +35,23 @@ import Web.Sprinkles.Backends
 import Web.Sprinkles.Exceptions
 import Web.Sprinkles.Logger as Logger
 import Web.Sprinkles.Backends.Loader.Type
-       (PostBodySource (..), pbsFromRequest, pbsInvalid)
+       (RequestContext (..), pbsFromRequest, pbsInvalid)
+import Web.Sprinkles.SessionHandle
 
-sprinklesGingerContext :: RawBackendCache -> Wai.Request -> Logger -> HashMap Text (GVal (Ginger.Run IO h))
-sprinklesGingerContext cache request logger =
+sprinklesGingerContext :: RawBackendCache
+                       -> Wai.Request
+                       -> Maybe SessionHandle
+                       -> Logger
+                       -> HashMap Text (GVal (Ginger.Run IO h))
+sprinklesGingerContext cache request session logger =
     mapFromList
         [ "request" ~> request
+        , "session" ~> session
         , ("load", Ginger.fromFunction (gfnLoadBackendData (writeLog logger) cache))
         ] <> baseGingerContext logger
 
-baseGingerContext :: Logger -> HashMap Text (GVal (Ginger.Run IO h))
+baseGingerContext :: Logger
+                  -> HashMap Text (GVal (Ginger.Run IO h))
 baseGingerContext logger =
     mapFromList
         [ ("ellipse", Ginger.fromFunction gfnEllipse)

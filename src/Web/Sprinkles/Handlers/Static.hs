@@ -20,7 +20,7 @@ import Web.Sprinkles.Handlers.Common
 import Network.HTTP.Types
        (Status, status200, status206, status302, status400, status404, status500)
 import Web.Sprinkles.Backends.Loader.Type
-       (PostBodySource (..), pbsFromRequest, pbsInvalid)
+       (RequestContext (..), pbsFromRequest, pbsInvalid)
 import Web.Sprinkles.Backends.Data
        (RawBytes (..))
 import Data.AList (AList)
@@ -34,6 +34,7 @@ handleStaticTarget :: Maybe Text -> ContextualHandler
 handleStaticTarget childPathMay
                    backendData
                    project
+                   session
                    request
                    respond = do
     backendItemBase <- case lookup "file" backendData of

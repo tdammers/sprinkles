@@ -21,12 +21,13 @@ import Network.HTTP.Types
 import Web.Sprinkles.Handlers.Respond
 import Text.Ginger.Html (Html, htmlSource)
 import Web.Sprinkles.Backends.Loader.Type
-       (PostBodySource (..), pbsFromRequest, pbsInvalid)
+       (RequestContext (..), pbsFromRequest, pbsInvalid)
 import Web.Sprinkles.Rule (expandReplacementBackend)
 import Data.AList (AList)
 import qualified Data.AList as AList
 import Text.Ginger (GVal, ToGVal (..), Run, marshalGVal)
 import Control.Monad.Writer (Writer)
+import Web.Sprinkles.SessionHandle
 
 data NotFoundException = NotFoundException
     deriving (Show)
@@ -46,6 +47,7 @@ instance Exception NotAllowedException where
 type ContextualHandler =
     HashMap Text (Items (BackendData IO Html)) ->
     Project ->
+    Maybe SessionHandle ->
     Wai.Application
 
 handleNotFound :: Project -> Wai.Request -> (Wai.Response -> IO Wai.ResponseReceived) -> NotFoundException -> IO Wai.ResponseReceived
@@ -83,13 +85,14 @@ handleHttpError status templateName message project request respond =
         respondNormally = do
             backendData <- loadBackendDict
                                 (writeLog logger)
-                                (pbsFromRequest request)
+                                (pbsFromRequest request (return Nothing))
                                 cache
                                 backendPaths
                                 (setFromList [])
                                 (mapFromList [])
             respondTemplateHtml
                 project
+                Nothing
                 status
                 templateName
                 backendData
@@ -118,7 +121,7 @@ handle500 err project request respond = do
         message = "Something went pear-shaped. The problem seems to be on our side."
 
 loadBackendDict :: (LogLevel -> Text -> IO ())
-                -> PostBodySource
+                -> RequestContext
                 -> RawBackendCache
                 -> AList Text BackendSpec
                 -> Set Text

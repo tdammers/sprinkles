@@ -19,6 +19,7 @@ where
 
 import ClassyPrelude
 import Web.Sprinkles.SessionStore
+import Web.Sprinkles.SessionHandle
 import Web.Sprinkles.Logger as Logger
 import Web.Sprinkles.Project
 import Web.Sprinkles.ProjectConfig
@@ -28,13 +29,6 @@ import qualified Data.ByteString.Char8 as Char8
 import Data.Char (isSpace)
 import qualified Crypto.Nonce as Nonce
 import Text.Printf (printf)
-
-data SessionHandle =
-    SessionHandle
-        { sessionID :: SessionID
-        , sessionGet :: Text -> IO (Maybe Text)
-        , sessionPut :: Text -> Text -> IO ()
-        }
 
 setSessionCookie :: Project -> Request -> SessionHandle -> Response -> Response
 setSessionCookie project request session =
@@ -82,11 +76,3 @@ loadSession ss ssid = do
             return . Just $ makeSessionHandle ss ssid
         else
             return Nothing
-
-makeSessionHandle :: SessionStore -> SessionID -> SessionHandle
-makeSessionHandle ss ssid =
-    SessionHandle
-        { sessionID = ssid
-        , sessionGet = ssGet ss ssid
-        , sessionPut = ssPut ss ssid
-        }
