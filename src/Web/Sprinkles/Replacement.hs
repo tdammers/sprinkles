@@ -15,9 +15,9 @@ import ClassyPrelude
 import Data.Aeson as JSON
 import Data.Aeson.TH as JSON
 import Text.Ginger ( Template
-                   , runGinger
+                   , runGingerT
                    , parseGinger
-                   , makeContextText
+                   , makeContextTextM
                    , ToGVal
                    , toGVal
                    , GVal (..)
@@ -27,6 +27,7 @@ import qualified Text.Ginger as Ginger
 import Data.Default
 import Control.Monad.Writer (Writer)
 import Web.Sprinkles.Exceptions (formatException)
+import Data.Text.Lazy.Builder as TextBuilder
 
 data ReplacementItem =
     Literal Text |
@@ -39,11 +40,11 @@ newtype Replacement = Replacement Template
 instance FromJSON Replacement where
     parseJSON val = (either (fail . unpack . formatException) return . parseReplacement) =<< parseJSON val
 
-expandReplacementText :: HashMap Text (GVal (Run (Writer Text) Text))
+expandReplacementText :: HashMap Text (GVal (Run IO Text))
                       -> Text
-                      -> Either SomeException Text
+                      -> IO Text
 expandReplacementText variables input =
-    expandReplacement variables <$> parseReplacement input
+    expandReplacement variables =<< either throwM return (parseReplacement input)
 
 parseReplacement :: Text -> Either SomeException Replacement
 parseReplacement input =
@@ -53,9 +54,12 @@ parseReplacement input =
         Nothing
         (unpack input)
 
-expandReplacement :: HashMap Text (GVal (Run (Writer Text) Text)) -> Replacement -> Text
-expandReplacement variables (Replacement template) =
-    runGinger context template
-    where
-        context = makeContextText lookupFn
-        lookupFn varName = fromMaybe def $ lookup varName variables
+expandReplacement :: HashMap Text (GVal (Run IO Text)) -> Replacement -> IO Text
+expandReplacement variables (Replacement template) = do
+    output <- newIORef (TextBuilder.fromText "")
+    let emit :: Text -> IO ()
+        emit t = modifyIORef' output (<> TextBuilder.fromText t)
+        context = makeContextTextM lookupFn emit
+        lookupFn varName = return . fromMaybe def $ lookup varName variables
+    runGingerT context template
+    toStrict . TextBuilder.toLazyText <$> readIORef output

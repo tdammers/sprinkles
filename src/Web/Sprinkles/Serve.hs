@@ -79,6 +79,7 @@ import Web.Sprinkles.Handlers.Common
        , handleNotAllowed
        )
 import Web.Sprinkles.MatchedText (MatchedText (..))
+import Web.Sprinkles.TemplateContext (sprinklesGingerContext)
 
 serveProject :: ServerConfig -> Project -> IO ()
 serveProject config project = do
@@ -171,13 +172,6 @@ handleRequest project request respond =
 
 handleRule :: Rule -> HashMap Text MatchedText -> Project -> Wai.Application
 handleRule rule captures project request respond = do
-    let cache = projectBackendCache project
-        capturesG = fmap toGVal captures
-        globalBackendSpecs = pcContextData . projectConfig $ project
-        backendSpecs = ruleContextData $ rule
-        target = expandRuleTarget capturesG . ruleTarget $ rule
-        logger = projectLogger project
-
     session <- case ruleSessionDirective rule of
         IgnoreSession -> return Nothing
         AcceptSession -> resumeSession project request
@@ -185,6 +179,14 @@ handleRule rule captures project request respond = do
             Nothing -> throwM NotAllowedException
             Just s -> return $ Just s
         CreateNewSession -> newSession project request
+
+    let cache = projectBackendCache project
+        capturesG = fmap toGVal captures
+        globalBackendSpecs = pcContextData . projectConfig $ project
+        backendSpecs = ruleContextData $ rule
+        logger = projectLogger project
+        context = capturesG <> sprinklesGingerContext cache request session logger
+    target <- expandRuleTarget context . ruleTarget $ rule
 
     now <- getCurrentTime
     let oneYear = 86400 * 365 -- good enough
@@ -224,11 +226,11 @@ handleRule rule captures project request respond = do
     backendData :: HashMap Text (Items (BackendData IO Html))
                 <- loadBackendDict
                         (writeLog logger)
-                        (pbsFromRequest request $ return session)
+                        (pbsFromRequest request session)
                         cache
                         (globalBackendSpecs <> backendSpecs)
                         (ruleRequired rule)
-                        capturesG
+                        context
 
     let handle :: HashMap Text (Items (BackendData IO Html))
                -> Project

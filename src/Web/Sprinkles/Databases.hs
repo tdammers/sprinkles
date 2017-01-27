@@ -19,14 +19,13 @@ import Database.HDBC.Sqlite3 (connectSqlite3)
 import Database.HDBC.MySQL (connectMySQL, MySQLConnectInfo (..))
 import qualified Data.Serialize as Cereal
 import Data.Serialize (Serialize)
+import Data.Expandable
 
 data DSN = DSN { dsnDriver :: SqlDriver, dsnDetails :: Text }
     deriving (Show, Generic)
 
-type instance Element DSN = Text
-
-instance MonoFunctor DSN where
-    omap f (DSN driver details) = DSN driver (f details)
+instance ExpandableM Text DSN where
+    expandM f (DSN driver details) = DSN driver <$> f details
 
 data SqlDriver = SqliteDriver
                | PostgreSQLDriver

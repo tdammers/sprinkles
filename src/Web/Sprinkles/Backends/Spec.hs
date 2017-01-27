@@ -40,7 +40,7 @@ import qualified Data.Serialize as Cereal
 import Data.Serialize (Serialize)
 import Web.Sprinkles.Databases (DSN (..), sqlDriverFromID)
 import Web.Sprinkles.Logger (LogLevel (..))
-import Data.Walk (walk)
+import Data.Expandable (ExpandableM (..), expand)
 
 -- | A type of backend.
 data BackendType = HttpBackend Text HttpBackendOptions -- ^ Fetch data over HTTP(S)
@@ -89,16 +89,19 @@ instance Serialize BackendType where
                     (fromMaybe JSON.Null . JSON.decode <$> Cereal.get)
             x -> fail $ "Invalid backend type identifier: " <> show x
 
-type instance Element BackendType = Text
-
-instance MonoFunctor BackendType where
-    omap f (HttpBackend t c) = HttpBackend (f t) c
-    omap f (FileBackend t) = FileBackend (f t)
-    omap f (SqlBackend dsn query params) = SqlBackend (omap f dsn) query (map f params)
-    omap f (SubprocessBackend cmd args t) = SubprocessBackend cmd (map f args) t
-    omap _ RequestBodyBackend = RequestBodyBackend
-    omap f (LiteralBackend b) =
-        LiteralBackend (walk f b)
+instance ExpandableM Text BackendType where
+    expandM f (HttpBackend t c) =
+        HttpBackend <$> f t <*> pure c
+    expandM f (FileBackend t) =
+        FileBackend <$> f t
+    expandM f (SqlBackend dsn query params) =
+        SqlBackend <$> expandM f dsn <*> pure query <*> expandM f params
+    expandM f (SubprocessBackend cmd args t) =
+        SubprocessBackend cmd <$> expandM f args <*> pure t
+    expandM _ RequestBodyBackend =
+        pure RequestBodyBackend
+    expandM f (LiteralBackend b) =
+        LiteralBackend <$> expandM f b
 
 -- | A specification of a backend query.
 data BackendSpec =
@@ -113,10 +116,12 @@ data BackendSpec =
 
 instance Serialize BackendSpec
 
-type instance Element BackendSpec = Text
-
-instance MonoFunctor BackendSpec where
-    omap f (BackendSpec t m o mto) = BackendSpec (omap f t) m o mto
+instance ExpandableM Text BackendSpec where
+    expandM f (BackendSpec t m o mto) =
+        BackendSpec <$> expandM f t
+                    <*> pure m
+                    <*> pure o
+                    <*> pure mto
 
 -- | The JSON shape of a backend spec is:
 --

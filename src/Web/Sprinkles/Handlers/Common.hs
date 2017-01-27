@@ -85,7 +85,7 @@ handleHttpError status templateName message project request respond =
         respondNormally = do
             backendData <- loadBackendDict
                                 (writeLog logger)
-                                (pbsFromRequest request (return Nothing))
+                                (pbsFromRequest request Nothing)
                                 cache
                                 backendPaths
                                 (setFromList [])
@@ -125,17 +125,17 @@ loadBackendDict :: (LogLevel -> Text -> IO ())
                 -> RawBackendCache
                 -> AList Text BackendSpec
                 -> Set Text
-                -> HashMap Text (GVal (Run (Writer Text) Text))
+                -> HashMap Text (GVal (Run IO Text))
                 -> IO (HashMap Text (Items (BackendData IO Html)))
 loadBackendDict writeLog postBodySrc cache backendPaths required globalContext = do
     mapFromList <$> go globalContext (AList.toList backendPaths)
     where
-        go :: HashMap Text (GVal (Run (Writer Text) Text))
+        go :: HashMap Text (GVal (Run IO Text))
            -> [(Text, BackendSpec)]
            -> IO [(Text, Items (BackendData IO Html))]
         go _ [] = return []
         go context ((key, backendSpec):specs) = do
-            let expBackendSpec = (expandReplacementBackend context backendSpec)
+            expBackendSpec <- expandReplacementBackend context backendSpec
             bd :: Items (BackendData IO Html)
                <- loadBackendData
                     writeLog
@@ -150,7 +150,7 @@ loadBackendDict writeLog postBodySrc cache backendPaths required globalContext =
                 _ -> return (key, bd)
             let bdG :: GVal (Run IO Html)
                 bdG = toGVal bd
-                bdGP :: GVal (Run (Writer Text) Text)
+                bdGP :: GVal (Run IO Text)
                 bdGP = marshalGVal bdG
                 context' = insertMap key bdGP context
             remainder <- go context' specs

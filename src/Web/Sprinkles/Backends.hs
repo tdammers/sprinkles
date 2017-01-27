@@ -10,7 +10,7 @@
 module Web.Sprinkles.Backends
 (
 -- * Defining backends
-  BackendSpec
+  BackendSpec (..)
 , parseBackendURI
 -- * Fetching backend data
 , BackendData (..)
@@ -58,6 +58,7 @@ import Web.Sprinkles.Backends.Data
         )
 import Web.Sprinkles.Backends.Loader
 import Web.Sprinkles.Backends.Loader.Type (RequestContext)
+import Data.Expandable
 
 -- | Cache for raw backend data, stored as bytestrings.
 type RawBackendCache = Cache ByteString ByteString

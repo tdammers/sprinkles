@@ -21,6 +21,7 @@ import Data.AList (AList)
 import Text.Ginger (Run, ToGVal (..), GVal)
 import Control.Monad.Writer (Writer)
 import qualified Data.Set as Set
+import Data.Expandable
 
 data RuleTarget p =
     TemplateTarget p |
@@ -109,16 +110,22 @@ instance FromJSON Rule where
             sessionDirective
     parseJSON x = fail $ "Expected rule, but found " <> show x
 
-expandRuleTarget :: HashMap Text (GVal (Run (Writer Text) Text)) -> RuleTarget Replacement -> RuleTarget Text
-expandRuleTarget _ JSONTarget = JSONTarget
-expandRuleTarget varMap (StaticTarget pMay) = StaticTarget $ fmap (expandReplacement varMap) pMay
-expandRuleTarget varMap (TemplateTarget p) = TemplateTarget $ expandReplacement varMap p
-expandRuleTarget varMap (RedirectTarget p) = RedirectTarget $ expandReplacement varMap p
+expandRuleTarget :: HashMap Text (GVal (Run IO Text)) -> RuleTarget Replacement -> IO (RuleTarget Text)
+expandRuleTarget _ JSONTarget =
+     return JSONTarget
+expandRuleTarget varMap (StaticTarget pMay) =
+     StaticTarget <$> mapM (expandReplacement varMap) pMay
+expandRuleTarget varMap (TemplateTarget p) =
+     TemplateTarget <$> expandReplacement varMap p
+expandRuleTarget varMap (RedirectTarget p) =
+     RedirectTarget <$> expandReplacement varMap p
 
-expandReplacementBackend :: HashMap Text (GVal (Run (Writer Text) Text))
+expandReplacementBackend :: HashMap Text (GVal (Run IO Text))
                          -> BackendSpec
-                         -> BackendSpec
-expandReplacementBackend varMap = omap (eitherThrow . expandReplacementText varMap)
+                         -> IO BackendSpec
+expandReplacementBackend varMap spec = do
+    bsType' <- expandM (expandReplacementText varMap) (bsType spec)
+    return $ spec { bsType = bsType' }
 
 data NonMatchReason =
     PathNotMatched | MethodNotMatched
