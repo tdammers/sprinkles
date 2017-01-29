@@ -30,6 +30,7 @@ import Data.ByteString.Builder (stringUtf8)
 import qualified Network.Wai as Wai
 import qualified Data.CaseInsensitive as CI
 import Network.HTTP.Types.URI (queryToQueryText)
+import qualified Crypto.BCrypt as BCrypt
 
 import Web.Sprinkles.Backends
 import Web.Sprinkles.Exceptions
@@ -63,7 +64,48 @@ baseGingerContext logger =
         , ("textile", Ginger.fromFunction (gfnPandocAlias "textile" (writeLog logger)))
         , ("rst", Ginger.fromFunction (gfnPandocAlias "rst" (writeLog logger)))
         , ("creole", Ginger.fromFunction (gfnPandocAlias "creole" (writeLog logger)))
+        , ("bcrypt", gnsBCrypt)
         ]
+
+gnsBCrypt :: GVal (Ginger.Run IO h)
+gnsBCrypt =
+    Ginger.dict
+        [ ("hash", Ginger.fromFunction gfnBCryptHash)
+        , ("validate", Ginger.fromFunction gfnBCryptValidate)
+        ]
+
+gfnBCryptHash :: Ginger.Function (Ginger.Run IO h)
+gfnBCryptHash args = do
+    let argSpec :: [(Text, Ginger.GVal (Ginger.Run IO h))]
+        argSpec = [ ("password", def)
+                  , ("cost", toGVal (4 :: Int))
+                  , ("algorithm", toGVal ("$2y$" :: Text))
+                  ]
+    case Ginger.extractArgsDefL argSpec args of
+        Right [passwordG, costG, algorithmG] -> do
+            let password = encodeUtf8 . Ginger.asText $ passwordG
+                algorithm = encodeUtf8 . Ginger.asText $ algorithmG
+            cost <- maybe
+                        (throwM $ GingerInvalidFunctionArgs "bcrypt.hash" "int cost")
+                        (return . ceiling)
+                        (asNumber costG)
+            let policy = BCrypt.HashingPolicy cost algorithm
+            hash <- liftIO $ BCrypt.hashPasswordUsingPolicy policy password
+            return . toGVal . fmap decodeUtf8 $ hash
+        _ -> throwM $ GingerInvalidFunctionArgs "bcrypt.hash" "string password, int cost, string algorithm"
+
+gfnBCryptValidate :: Ginger.Function (Ginger.Run IO h)
+gfnBCryptValidate args = do
+    let argSpec :: [(Text, Ginger.GVal (Ginger.Run IO h))]
+        argSpec = [ ("hash", def)
+                  , ("password", def)
+                  ]
+    case Ginger.extractArgsDefL argSpec args of
+        Right [hashG, passwordG] -> do
+            let hash = encodeUtf8 . Ginger.asText $ hashG
+                password = encodeUtf8 . Ginger.asText $ passwordG
+            return . toGVal $ BCrypt.validatePassword hash password
+        _ -> throwM $ GingerInvalidFunctionArgs "bcrypt.validate" "string password, int cost, string algorithm"
 
 gfnPandoc :: forall h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run IO h)
 gfnPandoc writeLog args = liftIO . catchToGinger writeLog $

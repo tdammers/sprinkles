@@ -72,6 +72,8 @@ library
                , aeson
                , aeson-pretty
                , array
+               , base64-bytestring
+               , bcrypt
                , bytestring
                , case-insensitive
                , cereal

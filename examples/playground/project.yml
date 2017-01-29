@@ -21,6 +21,10 @@ rules:
       redirect: '/hello'
     - pattern: '/new-session'
       session: new
+    - pattern: '/hashtest/{{password:*}}'
+      data:
+      - hashed: 'literal://{{bcrypt.hash(password, cost=5)}}'
+      - valid: 'literal://{{bcrypt.validate(hashed, password)}}'
     - pattern: '/{{slug:/^[a-z0-9][-a-z0-9_]*$/}}/edit'
       method: 'GET'
       data:
