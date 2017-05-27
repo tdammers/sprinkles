@@ -19,6 +19,7 @@ import Web.Sprinkles.Databases (DSN (..), SqlDriver (..))
 import Web.Sprinkles.SessionStore
 import Text.Heredoc (here)
 import Database.YeshQL
+import Text.Printf (printf)
 
 sqlSessionStore :: DSN -> IO SessionStore
 sqlSessionStore dsn = do
@@ -87,7 +88,7 @@ sdbSetup dsn = do
     -- :ssid :: ByteString
     -- :skey :: Text
     -- :sval :: Text
-    INSERT INTO session_data (ssid, skey, sval)
+    INSERT OR REPLACE INTO session_data (ssid, skey, sval)
         SELECT ssid, :skey, :sval
             FROM sessions WHERE ssid = :ssid
 
@@ -138,7 +139,8 @@ sdbPut conn ssid skey sval =
         _ -> error "More than one session with the same key. This is strange."
 
 sdbCreate :: HDBC.ConnWrapper -> SessionID -> SessionExpiry -> IO ()
-sdbCreate conn ssid expiry =
+sdbCreate conn ssid expiry = do
+    printf "Creating session %s" (decodeUtf8 ssid)
     (withDB conn $ createSession ssid) >>= \case
         1 -> return ()
         0 -> error "Session creation failed"

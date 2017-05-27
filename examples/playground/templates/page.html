@@ -10,6 +10,10 @@
             {% endfor %}
             <li><a href="/new">new page</a></li>
         </ul>
-        <footer>ssid: {{ session.id }}; {{ counter }}</footer>
+        <footer>
+            ssid: {{ session.id }};
+            counter: {{ counter }};
+            user: <pre>{{ users[session.get("username")]|yaml }}</pre>
+        </footer>
     </body>
 </html>

@@ -15,16 +15,44 @@ data:
     - counter:
         type: 'literal'
         body: 'Count: {{ session.put("count", session.get("count")|default(0) + 1) }}{{ session.get("count") }}'
+    - users: 'file://./users.yaml'
 rules:
     - pattern: '/'
       method: 'GET'
       redirect: '/hello'
-    - pattern: '/new-session'
+
+    - pattern: '/login'
+      method: 'GET'
+      template: 'login.html'
+
+    - pattern: '/login'
+      method: 'POST'
       session: new
+      data:
+      - post:
+          type: 'post'
+      - '_':
+          type: 'literal'
+          body: |
+            {% script %}
+                set username = post.username;
+                set password = post.password;
+                set user = users[username];
+                if (bcrypt.validate(user.password, password)) {
+                    session.put("username", username);
+                }
+                else {
+                    session.put("username", null);
+                }
+            {% endscript %}
+      - 'valid': 'literal://{{ session.get("username") }}'
+      required: ['valid']
+      redirect: '/'
     - pattern: '/hashtest/{{password:*}}'
       data:
       - hashed: 'literal://{{bcrypt.hash(password, cost=5)}}'
       - valid: 'literal://{{bcrypt.validate(hashed, password)}}'
+
     - pattern: '/{{slug:/^[a-z0-9][-a-z0-9_]*$/}}/edit'
       method: 'GET'
       data:
@@ -36,9 +64,7 @@ rules:
             fetch: one
       required: ['page']
       template: 'edit.html'
-    - pattern: '/boom'
-      method: 'GET'
-      template: 'invalid.html'
+
     - pattern: '/new'
       session: require
       method: 'GET'
@@ -50,6 +76,7 @@ rules:
                 slug: 'choose-a-good-slug'
                 body: 'Start typing here'
       template: 'edit.html'
+
     - pattern: '/_save'
       method: 'POST'
       data:
@@ -68,6 +95,7 @@ rules:
             params: ['{{inserted.id}}']
             fetch: one
       redirect: '/{{page.slug}}'
+
     - pattern: '/{{slug:/^[a-z0-9][-a-z0-9_]*$/}}/xml'
       method: 'GET'
       data:
@@ -80,6 +108,7 @@ rules:
       required: ['page']
       template: 'page.xml'
       content-type: 'application/xml'
+
     - pattern: '/{{slug:/^[a-z0-9][-a-z0-9_]*$/}}'
       method: 'GET'
       data:
@@ -91,6 +120,7 @@ rules:
             fetch: one
       required: ['page']
       template: 'page.html'
+
     - pattern: '/_save/{{id:/^[1-9][0-9]*$/}}'
       method: 'POST'
       data:
@@ -108,6 +138,7 @@ rules:
             params: ['{{id}}']
             fetch: one
       redirect: '/{{form.slug}}'
+
     - pattern: '/{{path:**}}'
       data:
         - path: 'literal://{{path[-1:]}}'

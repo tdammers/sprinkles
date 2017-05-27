@@ -1,2 +1,2 @@
 sessions:
-  type: inproc
+  driver: sql

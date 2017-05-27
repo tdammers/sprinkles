@@ -83,7 +83,7 @@ library
                , data-default
                , directory
                , filepath
-               , ginger >=0.3.8.0 && <0.4
+               , ginger >=0.3.11.1 && <0.4
                , hashable
                , heredoc
                , hsyslog
