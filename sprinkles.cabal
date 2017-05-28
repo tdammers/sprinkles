@@ -80,6 +80,7 @@ library
                , cereal
                , classy-prelude
                , containers
+               , css-syntax
                , curl
                , data-default
                , directory

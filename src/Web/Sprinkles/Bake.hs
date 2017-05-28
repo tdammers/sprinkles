@@ -30,6 +30,7 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString as BS
 import Data.Char (ord)
 import Text.HTML.TagSoup (parseTags, Tag (..), Attribute)
+import qualified Data.CSS.Syntax.Tokens as CSS
 
 data BakeState
     = BakeState
@@ -95,20 +96,26 @@ bakePath fp = do
                 200 -> do
                     let ty = fromMaybe "application/octet-stream" $ lookup "content-type" (simpleHeaders rp)
                         rawTy = BS.takeWhile (/= fromIntegral (ord ';')) ty
+                        rawTySplit = BS.split (fromIntegral . ord $ '/') rawTy
+
                     liftIO $ printf "%s\n" (decodeUtf8 ty)
-                    case rawTy of
-                        "text/html" -> do
-                            let body = LBS.toStrict $ simpleBody rp
-                                soup = parseTags (decodeUtf8 body)
-                                linkUrls = extractLinkedUrls soup
-                            liftIO $ do
-                                createDirectoryIfMissing True dstFile
-                                BS.writeFile (dstFile </> "index.html") body
-                            bsTodo %= (++ map Text.unpack linkUrls)
-                        _ -> do
-                            liftIO $ do
-                                createDirectoryIfMissing True dstDir
-                                LBS.writeFile dstFile (simpleBody rp)
+                    let (linkUrls, dstDir', dstFile') = case rawTySplit of
+                            ["text", "html"] ->
+                                let body = LBS.toStrict $ simpleBody rp
+                                    soup = parseTags (decodeUtf8 body)
+                                    linkUrls = map Text.unpack $ extractLinkedUrls soup
+                                in (linkUrls, dstFile, dstFile </> "index.html")
+                            [_, "css"] ->
+                                let body = decodeUtf8 . LBS.toStrict $ simpleBody rp
+                                    tokens = either error id $ CSS.tokenize body
+                                    linkUrls = map Text.unpack $ extractCssUrls tokens
+                                in (linkUrls, dstDir, dstFile)
+                            _ ->
+                                ([], dstDir, dstFile)
+                    liftIO $ do
+                        createDirectoryIfMissing True dstDir'
+                        LBS.writeFile dstFile' (simpleBody rp)
+                    bsTodo <>= linkUrls
                 _ -> liftIO $ putStrLn "skip"
 
 extractLinkedUrls :: [Tag Text] -> [Text]
@@ -136,3 +143,11 @@ isLocalUrl :: Text -> Bool
 isLocalUrl url =
     "/" `Text.isPrefixOf` url &&
     not ("//" `Text.isPrefixOf` url)
+
+extractCssUrls :: [CSS.Token] -> [Text]
+extractCssUrls tokens = filter isLocalUrl $ go tokens
+    where
+        go [] = []
+        go (CSS.Url url:xs) = url:go xs
+        go (CSS.Function "url":CSS.String _ url:xs) = url:go xs
+        go (x:xs) = go xs
