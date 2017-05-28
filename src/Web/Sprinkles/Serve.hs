@@ -92,6 +92,7 @@ serveProject config project = do
             CGIDriver -> serveCGI
             SCGIDriver -> serveSCGI
             FastCGIDriver -> serveFastCGI
+            BakeDriver -> serveWarp Nothing
         vacuum = forever $ do
             itemsCleared <- cacheVacuum (projectBackendCache project)
             when (itemsCleared > 0) $

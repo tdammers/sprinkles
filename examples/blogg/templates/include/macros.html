@@ -1,31 +1,31 @@
-{# A collection of macros used throughout the site. #}
+{#- A collection of macros used throughout the site. -#}
 
-{# The renderMenu macro recursively iterates through a menu data structure
-   and renders it as a nested menu. For example, the following YAML structure:
-
-       label: Main
-       sub:
-       - label: Sub1
-         url: "http://example.org/sub"
-       - label: Sub2
-         url: "http://example.org/something-else"
-
-    ...renders as:
-
-    <span>Main</span>
-    <menu>
-        <li>
-            <a href="http://example.org/sub">
-                <span>Sub1</span>
-            </a>
-        </li>
-        <li>
-            <a href="http://example.org/something-else">
-                <span>Sub2</span>
-            </a>
-        </li>
-    </menu>
- #}
+{#- The renderMenu macro recursively iterates through a menu data structure
+    and renders it as a nested menu. For example, the following YAML structure:
+ 
+        label: Main
+        sub:
+        - label: Sub1
+          url: "http://example.org/sub"
+        - label: Sub2
+          url: "http://example.org/something-else"
+ 
+     ...renders as:
+ 
+     <span>Main</span>
+     <menu>
+         <li>
+             <a href="http://example.org/sub">
+                 <span>Sub1</span>
+             </a>
+         </li>
+         <li>
+             <a href="http://example.org/something-else">
+                 <span>Sub2</span>
+             </a>
+         </li>
+     </menu>
+-#}
 {%- macro renderMenu(menu) -%}
     {%- if menu.url -%}<a href="{{ menu.url }}">{%- endif -%}
     <span>{{ menu.label }}</span>
@@ -41,26 +41,26 @@
     {%- endif -%}
 {%- endmacro -%}
 
-{# If the first top-level element of the given page is a level-1 heading,
-   return its text content.
- #}
+{#- If the first top-level element of the given page is a level-1 heading,
+    return its text content.
+-#}
 {%- set extractPageHeading = (page) ->
     page.body[0].type == 'h1'
         ? page.body[0]
         : null
 -%}
 
-{# If the first top-level element of the given page is a level-1 heading,
-   remove it, and return the remaining body; otherwise, return the body
-   unchanged.
- #}
+{#- If the first top-level element of the given page is a level-1 heading,
+    remove it, and return the remaining body; otherwise, return the body
+    unchanged.
+-#}
 {%- set removePageHeading = (page) ->
     (page.body[0].type == 'h1'
         ? page.body|slice(1)
         : page.body)|default(page|str)
 -%}
 
-{# Get a suitable title for the page. #}
+{#- Get a suitable title for the page. -#}
 {%- set pageTitle = (page) ->
         (page.meta.title ? page.meta.title|str : null)
           |default(extractPageHeading(page))
@@ -69,9 +69,9 @@
           |default("<nameless page>")
 -%}
 
-{# Render a page preview: title as text, clipped to max. 22 characters, and
-   excerpt, taken from meta or derived from the body.
- #}
+{#- Render a page preview: title as text, clipped to max. 22 characters, and
+    excerpt, taken from meta or derived from the body.
+-#}
 {%- macro pagePreview(page) -%}
 <section class="page-preview">
     <h1>

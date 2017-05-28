@@ -55,6 +55,7 @@ data ServerDriver = WarpDriver (Maybe Int)
                   | CGIDriver
                   | SCGIDriver
                   | FastCGIDriver
+                  | BakeDriver
                   | DefaultDriver
     deriving (Show, Read, Eq)
 
@@ -72,6 +73,8 @@ instance FromJSON ServerDriver where
         return FastCGIDriver
     parseJSON (String "scgi") =
         return SCGIDriver
+    parseJSON (String "bake") =
+        return BakeDriver
     parseJSON (String "default") =
         return def
     parseJSON (Object o) = do
@@ -82,6 +85,7 @@ instance FromJSON ServerDriver where
             "fcgi" -> return FastCGIDriver
             "fastcgi" -> return FastCGIDriver
             "scgi" -> return SCGIDriver
+            "bake" -> return BakeDriver
 
 data LoggerConfig =
     DiscardLog |

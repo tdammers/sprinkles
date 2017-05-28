@@ -57,6 +57,7 @@ library
                  , Web.Sprinkles.ServerConfig
                  , Web.Sprinkles.Project
                  , Web.Sprinkles.Serve
+                 , Web.Sprinkles.Bake
                  , Control.MaybeEitherMonad
                  , Data.EmbedVersion
                  , Data.AList
@@ -88,6 +89,7 @@ library
                , heredoc
                , hsyslog
                , http-types
+               , lens
                , memcached-binary
                , mime-types
                , mtl
@@ -105,6 +107,7 @@ library
                , scientific
                , stm
                , system-locale
+               , tagsoup
                , template-haskell
                , text
                , time

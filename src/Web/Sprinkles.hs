@@ -5,6 +5,7 @@ module Web.Sprinkles
 , ServerConfig (..)
 , loadServerConfig
 , ServerDriver (..)
+, bakeProject
 )
 where
 
@@ -12,4 +13,5 @@ import ClassyPrelude
 import Web.Sprinkles.Project
 import Web.Sprinkles.ServerConfig
 import Web.Sprinkles.Serve
+import Web.Sprinkles.Bake
 

@@ -8,6 +8,7 @@ module Main where
 
 import ClassyPrelude hiding ( (<|>), try )
 import Web.Sprinkles
+import Web.Sprinkles.Project (Project)
 import Web.Sprinkles.Exceptions
 import Text.Read (read, readMaybe)
 import Data.Default (def)
@@ -100,6 +101,7 @@ argSpecs =
     , Flag "cgi" (\config -> config { scDriver = CGIDriver })
     , Flag "scgi" (\config -> config { scDriver = SCGIDriver })
     , Flag "fcgi" (\config -> config { scDriver = FastCGIDriver })
+    , Flag "bake" (\config -> config { scDriver = BakeDriver })
     ]
 
 sprinklesVersion = $(embedPackageVersionStr "sprinkles.cabal")
@@ -107,16 +109,23 @@ sprinklesVersion = $(embedPackageVersionStr "sprinkles.cabal")
 main :: IO ()
 main = runMain `catch` handleUncaughtExceptions
 
+prepareProject :: ServerConfig -> IO (ServerConfig, Project)
+prepareProject sconfigA = do
+    sconfigF <- loadServerConfig "."
+    let sconfig = sconfigF `mappend` sconfigA
+
+    project <- loadProject sconfig "."
+    return (sconfig, project)
+
 runMain :: IO ()
 runMain = do
     args <- getArgs
     opts <- parseArgs args
     case opts of
         ServeProject sconfigA -> do
-            sconfigF <- loadServerConfig "."
-            let sconfig = sconfigF `mappend` sconfigA
-
-            project <- loadProject sconfig "."
-            serveProject sconfig project
+            prepareProject sconfigA >>= \(sconfig, project) -> do
+                if scDriver sconfigA == BakeDriver
+                    then bakeProject "./baked" project
+                    else serveProject sconfig project
         DumpVersion -> do
             putStrLn sprinklesVersion

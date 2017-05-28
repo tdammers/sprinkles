@@ -4,3 +4,4 @@ tags
 .cache
 /release
 sessions.sqlite
+baked
