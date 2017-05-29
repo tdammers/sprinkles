@@ -140,10 +140,11 @@ extractLinkedUrls tags = filter isLocalUrl $ do
         _ -> []
 
 isLocalUrl :: Text -> Bool
-isLocalUrl url =
-    not ("http://" `Text.isPrefixOf` url) &&
-    not ("https://" `Text.isPrefixOf` url) &&
-    not ("//" `Text.isPrefixOf` url)
+isLocalUrl url = not
+    (  ("//" `Text.isPrefixOf` url)
+    || ("http://" `Text.isPrefixOf` url)
+    || ("https://" `Text.isPrefixOf` url)
+    )
 
 extractCssUrls :: [CSS.Token] -> [Text]
 extractCssUrls tokens = filter isLocalUrl $ go tokens
