@@ -61,7 +61,6 @@ loadProject sconfig dir = do
 
 createSessionStore :: SessionConfig -> IO SessionStore
 createSessionStore config = do
-    print config
     case sessDriver config of
         SqlSessionDriver dsn -> sqlSessionStore dsn
         InProcSessionDriver -> inProcSessionStore
