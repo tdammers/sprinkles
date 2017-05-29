@@ -103,12 +103,12 @@ bakePath fp = do
                             ["text", "html"] ->
                                 let body = LBS.toStrict $ simpleBody rp
                                     soup = parseTags (decodeUtf8 body)
-                                    linkUrls = map Text.unpack $ extractLinkedUrls soup
+                                    linkUrls = map (fp </>) . map Text.unpack $ extractLinkedUrls soup
                                 in (linkUrls, dstFile, dstFile </> "index.html")
                             [_, "css"] ->
                                 let body = decodeUtf8 . LBS.toStrict $ simpleBody rp
                                     tokens = either error id $ CSS.tokenize body
-                                    linkUrls = map Text.unpack $ extractCssUrls tokens
+                                    linkUrls = map (takeDirectory fp </>) . map Text.unpack $ extractCssUrls tokens
                                 in (linkUrls, dstDir, dstFile)
                             _ ->
                                 ([], dstDir, dstFile)
@@ -141,7 +141,8 @@ extractLinkedUrls tags = filter isLocalUrl $ do
 
 isLocalUrl :: Text -> Bool
 isLocalUrl url =
-    "/" `Text.isPrefixOf` url &&
+    not ("http://" `Text.isPrefixOf` url) &&
+    not ("https://" `Text.isPrefixOf` url) &&
     not ("//" `Text.isPrefixOf` url)
 
 extractCssUrls :: [CSS.Token] -> [Text]
