@@ -53,10 +53,12 @@ loadProject sconfig dir = do
     pconfig <- loadProjectConfig dir
     logger <- createLogger $ fromMaybe (StdioLog Warning) (scLogger sconfig)
     templates <- preloadTemplates logger dir
-    caches <- sequence $ fmap (createCache dir) (scBackendCache sconfig)
-    let cache = mconcat caches
-    sessionStore <- createSessionStore (scSessions sconfig)
+    cache <- fmap mconcat
+               . sequence
+               . fmap (createCache dir)
+               $ scBackendCache sconfig
     let sessionConfig = scSessions sconfig
+    sessionStore <- createSessionStore sessionConfig
     return $ Project pconfig templates cache logger sessionStore sessionConfig
 
 createSessionStore :: SessionConfig -> IO SessionStore

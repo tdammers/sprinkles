@@ -28,7 +28,6 @@ import Network.Wai
 import qualified Data.ByteString.Char8 as Char8
 import Data.Char (isSpace)
 import qualified Crypto.Nonce as Nonce
-import Text.Printf (printf)
 
 setSessionCookie :: Project -> Request -> SessionHandle -> Response -> Response
 setSessionCookie project request session =
