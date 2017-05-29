@@ -134,6 +134,7 @@ executable sprinkles
                , classy-prelude
                , data-default
                , safe
+               , text
                , parsec
   default-language: Haskell2010
 

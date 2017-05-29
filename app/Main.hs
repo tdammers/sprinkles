@@ -14,9 +14,11 @@ import Text.Read (read, readMaybe)
 import Data.Default (def)
 import Text.Parsec
 import Data.EmbedVersion
+import qualified Data.Text as Text
 
 data CliOptions =
     ServeProject ServerConfig |
+    BakeProject FilePath ServerConfig |
     DumpVersion
 
 parseArgs :: [Text] -> IO CliOptions
@@ -35,7 +37,7 @@ data ArgSpec a = Flag Text a
                | Bare (Text -> Maybe a)
 
 argsP :: ArgsP CliOptions
-argsP = versionP <|> serveArgsP
+argsP = versionP <|> bakeArgsP <|> serveArgsP
 
 versionP :: ArgsP CliOptions
 versionP =
@@ -45,8 +47,14 @@ versionP =
 
 serveArgsP :: ArgsP CliOptions
 serveArgsP = do
-    pipeline <- Text.Parsec.many $ choice (map (Text.Parsec.try . argP) argSpecs)
+    pipeline <- Text.Parsec.many $ choice (map (Text.Parsec.try . argP) serveArgSpecs)
     return . ServeProject $ foldr ($) def pipeline
+
+bakeArgsP :: ArgsP CliOptions
+bakeArgsP = do
+    try $ tExactly "-bake"
+    dirname <- Text.unpack <$> option "./baked" bareArgP
+    return $ BakeProject dirname def
 
 tSatisfy :: (Show t, Stream s m t) => (t -> Bool) -> ParsecT s u m t
 tSatisfy cond = do
@@ -70,23 +78,26 @@ argP (Flag str x) = do
     return x
 argP (Optional str f) = do
     tExactly ("-" <> str)
-    paramMay <- optionMaybe (tSatisfy isNotFlag)
+    paramMay <- optionMaybe bareArgP
     maybe
         (fail "invalid parameter")
         return
         (f paramMay)
 argP (Required str f) = do
     tExactly ("-" <> str)
-    param <- tSatisfy isNotFlag
+    param <- bareArgP
     maybe
         (fail "invalid parameter")
         return
         (f param)
 argP (Bare f) =
-    (f <$> tSatisfy isNotFlag) >>= maybe (fail "invalid bare argument") return
+    (f <$> bareArgP) >>= maybe (fail "invalid bare argument") return
 
-argSpecs :: [ArgSpec (ServerConfig -> ServerConfig)]
-argSpecs =
+bareArgP :: ArgsP Text
+bareArgP = tSatisfy isNotFlag
+
+serveArgSpecs :: [ArgSpec (ServerConfig -> ServerConfig)]
+serveArgSpecs =
     [ Optional
         "warp"
         (maybe
@@ -101,7 +112,6 @@ argSpecs =
     , Flag "cgi" (\config -> config { scDriver = CGIDriver })
     , Flag "scgi" (\config -> config { scDriver = SCGIDriver })
     , Flag "fcgi" (\config -> config { scDriver = FastCGIDriver })
-    , Flag "bake" (\config -> config { scDriver = BakeDriver })
     ]
 
 sprinklesVersion = $(embedPackageVersionStr "sprinkles.cabal")
@@ -123,9 +133,10 @@ runMain = do
     opts <- parseArgs args
     case opts of
         ServeProject sconfigA -> do
-            prepareProject sconfigA >>= \(sconfig, project) -> do
-                if scDriver sconfigA == BakeDriver
-                    then bakeProject "./baked" project
-                    else serveProject sconfig project
+            prepareProject sconfigA >>= \(sconfig, project) ->
+                serveProject sconfig project
+        BakeProject path sconfigA -> do
+            prepareProject sconfigA >>= \(sconfig, project) ->
+                bakeProject path project
         DumpVersion -> do
             putStrLn sprinklesVersion
