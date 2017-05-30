@@ -21,9 +21,10 @@ import Control.Monad.State
 import Control.Lens
 import Control.Lens.TH (makeLenses)
 import Text.Printf (printf)
-import Network.HTTP.Types (Status (..))
+import Network.HTTP.Types (Status (..), status200)
 import Network.Wai.Test
 import Network.Wai (Application, Request (..))
+import qualified Network.Wai as Wai
 import Web.Sprinkles.Serve (appFromProject)
 import Web.Sprinkles.Project
 import qualified Data.ByteString.Lazy as LBS
@@ -43,7 +44,15 @@ data BakeState
 makeLenses ''BakeState
 
 defBakeState :: BakeState
-defBakeState = BakeState [] Set.empty "." undefined
+defBakeState = BakeState [] Set.empty "." defaultApplication
+
+defaultApplication :: Application
+defaultApplication rq respond =
+    respond $
+        Wai.responseLBS
+            status200
+            [("Content-type", "text/plain;charset=utf8")]
+            "Hello, world!"
 
 type Bake = StateT BakeState IO
 
