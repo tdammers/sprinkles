@@ -61,7 +61,14 @@ bakeProject destDir project = do
     putStrLn $ "Baking project into " <> pack destDir
     createDirectoryIfMissing True destDir
     let app = appFromProject project
-    runBake destDir ["/"] app bakeApp
+    runBake destDir entryPoints app bakeApp
+    where
+        entryPoints =
+            [ "/"
+            , "/sitemap.xml"
+            , "/favicon.ico"
+            , "/robots.txt"
+            ]
 
 runBake :: FilePath -> [FilePath] -> Application -> Bake a -> IO a
 runBake baseDir entryPoints app a =
