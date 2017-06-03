@@ -61,7 +61,9 @@ bakeProject destDir project = do
     putStrLn $ "Baking project into " <> pack destDir
     createDirectoryIfMissing True destDir
     let app = appFromProject project
-    runBake destDir entryPoints app bakeApp
+    runBake destDir entryPoints app $ do
+        bake404
+        bakeApp
     where
         entryPoints =
             [ "/"
@@ -92,47 +94,64 @@ bakeApp = do
 bakePath :: FilePath -> Bake ()
 bakePath fp = do
     done <- use bsDone
-    unless (fp `Set.member` done) go
-    where
-        go :: Bake ()
-        go = do
-            let fn = case fp of
-                    '/':x -> x
-            app <- use bsApp
-            basedir <- use bsBasedir
-            let dstFile = basedir </> fn
-                dstDir = takeDirectory dstFile
-            let session = do
-                    let rq = setPath defaultRequest (fromString fp)
-                    request rq
-            rp <- liftIO $ runSession session app
-            let status = simpleStatus rp
-            liftIO $ printf "GET %s %i %s\n" ("/" </> fp) (statusCode status) (decodeUtf8 $ statusMessage status)
-            case statusCode status of
-                200 -> do
-                    let ty = fromMaybe "application/octet-stream" $ lookup "content-type" (simpleHeaders rp)
-                        rawTy = BS.takeWhile (/= fromIntegral (ord ';')) ty
-                        rawTySplit = BS.split (fromIntegral . ord $ '/') rawTy
+    unless (fp `Set.member` done) $
+        bakePage CreateIndexHtml [200] fp (dropLeadingSlash fp)
 
-                    liftIO $ printf "%s\n" (decodeUtf8 ty)
-                    let (linkUrls, dstDir', dstFile') = case rawTySplit of
-                            ["text", "html"] ->
-                                let body = LBS.toStrict $ simpleBody rp
-                                    soup = parseTags (decodeUtf8 body)
-                                    linkUrls = map (fp </>) . map Text.unpack $ extractLinkedUrls soup
-                                in (linkUrls, dstFile, dstFile </> "index.html")
-                            [_, "css"] ->
-                                let body = decodeUtf8 . LBS.toStrict $ simpleBody rp
-                                    tokens = either error id $ CSS.tokenize body
-                                    linkUrls = map (takeDirectory fp </>) . map Text.unpack $ extractCssUrls tokens
-                                in (linkUrls, dstDir, dstFile)
-                            _ ->
-                                ([], dstDir, dstFile)
-                    liftIO $ do
-                        createDirectoryIfMissing True dstDir'
-                        LBS.writeFile dstFile' (simpleBody rp)
-                    bsTodo <>= linkUrls
-                _ -> liftIO $ putStrLn "skip"
+data HtmlMappingMode = MapHtmlDirect | CreateIndexHtml
+
+bake404 :: Bake ()
+bake404 = do
+    bakePage MapHtmlDirect [404] nonsensicalPath "_errors/404"
+    where
+        nonsensicalPath = "/123087408972309872109873012984709218371209847123" 
+
+dropLeadingSlash :: FilePath -> FilePath
+dropLeadingSlash = \case
+    '/':x -> x
+    x -> x
+
+bakePage :: HtmlMappingMode -> [Int] -> FilePath -> FilePath -> Bake ()
+bakePage htmlMode expectedStatuses fp fn = do
+    app <- use bsApp
+    basedir <- use bsBasedir
+    let dstFile = basedir </> fn
+        dstDir = takeDirectory dstFile
+    let session = do
+            let rq = setPath defaultRequest (fromString fp)
+            request rq
+    rp <- liftIO $ runSession session app
+    let status = simpleStatus rp
+    liftIO $ printf "GET %s %i %s\n" ("/" </> fp) (statusCode status) (decodeUtf8 $ statusMessage status)
+    if statusCode status `elem` expectedStatuses
+        then do
+            let ty = fromMaybe "application/octet-stream" $ lookup "content-type" (simpleHeaders rp)
+                rawTy = BS.takeWhile (/= fromIntegral (ord ';')) ty
+                rawTySplit = BS.split (fromIntegral . ord $ '/') rawTy
+
+            liftIO $ printf "%s\n" (decodeUtf8 ty)
+            let (linkUrls, dstDir', dstFile') = case rawTySplit of
+                    ["text", "html"] ->
+                        let body = LBS.toStrict $ simpleBody rp
+                            soup = parseTags (decodeUtf8 body)
+                            linkUrls = map (fp </>) . map Text.unpack $ extractLinkedUrls soup
+                        in case htmlMode of
+                                CreateIndexHtml ->
+                                    (linkUrls, dstFile, dstFile </> "index.html")
+                                MapHtmlDirect ->
+                                    (linkUrls, dstDir, replaceExtension dstFile "html")
+                    [_, "css"] ->
+                        let body = decodeUtf8 . LBS.toStrict $ simpleBody rp
+                            tokens = either error id $ CSS.tokenize body
+                            linkUrls = map (takeDirectory fp </>) . map Text.unpack $ extractCssUrls tokens
+                        in (linkUrls, dstDir, dstFile)
+                    _ ->
+                        ([], dstDir, dstFile)
+            liftIO $ do
+                createDirectoryIfMissing True dstDir'
+                LBS.writeFile dstFile' (simpleBody rp)
+            bsTodo <>= linkUrls
+        else do
+            liftIO $ putStrLn "skip"
 
 extractLinkedUrls :: [Tag Text] -> [Text]
 extractLinkedUrls tags = filter isLocalUrl $ do
