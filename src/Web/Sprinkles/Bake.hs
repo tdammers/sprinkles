@@ -32,6 +32,10 @@ import qualified Data.ByteString as BS
 import Data.Char (ord)
 import Text.HTML.TagSoup (parseTags, Tag (..), Attribute)
 import qualified Data.CSS.Syntax.Tokens as CSS
+import Data.FileEmbed (embedStringFile)
+
+defHtaccess :: String
+defHtaccess = $(embedStringFile "embedded/.htaccess")
 
 data BakeState
     = BakeState
@@ -62,6 +66,7 @@ bakeProject destDir project = do
     createDirectoryIfMissing True destDir
     let app = appFromProject project
     runBake destDir entryPoints app $ do
+        bakeHtaccess
         bake404
         bakeApp
     where
@@ -79,6 +84,10 @@ runBake baseDir entryPoints app a =
         , _bsBasedir = baseDir
         , _bsApp = app
         }
+
+bakeHtaccess :: Bake ()
+bakeHtaccess = do
+    liftIO $ writeFile ".htaccess" defHtaccess
 
 bakeApp :: Bake ()
 bakeApp = do
