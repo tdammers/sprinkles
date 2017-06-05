@@ -1,1 +1,2 @@
 ErrorDocument 404 /_errors/404.html
+AddCharset UTF-8 .html
