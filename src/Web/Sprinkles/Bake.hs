@@ -87,7 +87,8 @@ runBake baseDir entryPoints app a =
 
 bakeHtaccess :: Bake ()
 bakeHtaccess = do
-    liftIO $ writeFile ".htaccess" defHtaccess
+    basedir <- use bsBasedir
+    liftIO $ writeFile (basedir </> ".htaccess") defHtaccess
 
 bakeApp :: Bake ()
 bakeApp = do
