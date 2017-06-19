@@ -10,6 +10,11 @@
             {% endfor %}
             <li><a href="/new">new page</a></li>
         </ul>
-        <footer>ssid: {{ session.id }}; {{ counter }}</footer>
+        <footer>
+            {% if user %}
+                user: {{ user.username }} ({{ session.get('user') }}); 
+            {% endif %}
+            ssid: {{ session.id }}; {{ counter }}
+        </footer>
     </body>
 </html>

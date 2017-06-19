@@ -15,16 +15,56 @@ data:
     - counter:
         type: 'literal'
         body: 'Count: {{ session.put("count", session.get("count")|default(0) + 1) }}{{ session.get("count") }}'
+    - userid:
+        type: 'literal'
+        body: '{{ session.get("user") }}'
+    - user:
+        type: 'sql'
+        connection: *main_db
+        query: "SELECT id, username FROM users WHERE id = ?"
+        params: [ '{{ session.get("user") }}' ]
+        fetch: one
 rules:
     - pattern: '/'
       method: 'GET'
       redirect: '/hello'
-    - pattern: '/new-session'
+
+    - pattern: '/logout'
       session: new
+
+    - pattern: '/login'
+      method: 'GET'
+      template: 'login.html'
+      data:
+        - errorCode: 'literal://{{request.queryInfo.error}}'
+
+    - pattern: '/login'
+      method: 'POST'
+      session: new
+      data:
+        - posted: 'post://'
+        - user:
+            type: 'sql'
+            connection: *main_db
+            query: "SELECT id, username, password FROM users WHERE username = ?"
+            params: [ "{{ posted.username }}" ]
+            fetch: one
+        - userid:
+            type: 'literal'
+            body: |
+              {%- if bcrypt.validate(user.password, posted.password) -%}
+                {{ session.put("user", user.id) }}{{ user.id }}
+              {%- else -%}
+                {{ session.put("user", null) }}
+              {%- endif -%}
+        - target: 'literal://{%- if userid -%}/{%- else -%}/login?error=wrong-credentials{%- endif -%}'
+      redirect: '{{ target }}'
+
     - pattern: '/hashtest/{{password:*}}'
       data:
       - hashed: 'literal://{{bcrypt.hash(password, cost=5)}}'
       - valid: 'literal://{{bcrypt.validate(hashed, password)}}'
+
     - pattern: '/{{slug:/^[a-z0-9][-a-z0-9_]*$/}}/edit'
       method: 'GET'
       data:
@@ -34,11 +74,13 @@ rules:
             query: "SELECT id, slug, title, body FROM pages WHERE slug = ?"
             params: ['{{slug}}']
             fetch: one
-      required: ['page']
+      required: ['page', 'user']
       template: 'edit.html'
+
     - pattern: '/boom'
       method: 'GET'
       template: 'invalid.html'
+
     - pattern: '/new'
       session: require
       method: 'GET'
@@ -50,6 +92,8 @@ rules:
                 slug: 'choose-a-good-slug'
                 body: 'Start typing here'
       template: 'edit.html'
+      required: ['user']
+
     - pattern: '/_save'
       method: 'POST'
       data:
@@ -67,7 +111,9 @@ rules:
             query: "SELECT slug FROM pages WHERE id = ?"
             params: ['{{inserted.id}}']
             fetch: one
+      required: ['user']
       redirect: '/{{page.slug}}'
+
     - pattern: '/{{slug:/^[a-z0-9][-a-z0-9_]*$/}}/xml'
       method: 'GET'
       data:
@@ -80,6 +126,7 @@ rules:
       required: ['page']
       template: 'page.xml'
       content-type: 'application/xml'
+
     - pattern: '/{{slug:/^[a-z0-9][-a-z0-9_]*$/}}'
       method: 'GET'
       data:
@@ -91,6 +138,7 @@ rules:
             fetch: one
       required: ['page']
       template: 'page.html'
+
     - pattern: '/_save/{{id:/^[1-9][0-9]*$/}}'
       method: 'POST'
       data:
@@ -107,7 +155,9 @@ rules:
             query: "SELECT id, slug, title, body FROM pages WHERE id = ?"
             params: ['{{id}}']
             fetch: one
+      required: ['user']
       redirect: '/{{form.slug}}'
+
     - pattern: '/{{path:**}}'
       data:
         - path: 'literal://{{path[-1:]}}'

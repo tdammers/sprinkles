@@ -187,7 +187,6 @@ handleRule rule captures project request respond = do
         backendSpecs = ruleContextData $ rule
         logger = projectLogger project
         context = capturesG <> sprinklesGingerContext cache request session logger
-    target <- expandRuleTarget context . ruleTarget $ rule
 
     now <- getCurrentTime
     let oneYear = 86400 * 365 -- good enough
@@ -232,6 +231,12 @@ handleRule rule captures project request respond = do
                         (globalBackendSpecs <> backendSpecs)
                         (ruleRequired rule)
                         context
+
+    let context' :: HashMap Text (GVal (Ginger.Run IO Html))
+        context' = fmap toGVal backendData
+        context'' :: HashMap Text (GVal (Ginger.Run IO Text))
+        context'' = fmap Ginger.marshalGVal context'
+    target <- expandRuleTarget (context'' <> context) . ruleTarget $ rule
 
     let handle :: HashMap Text (Items (BackendData IO Html))
                -> Project

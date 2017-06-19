@@ -1,2 +1,6 @@
 sessions:
-  type: inproc
+  # type: inproc
+  type: sql
+log:
+  destination: stdio
+  level: debug
