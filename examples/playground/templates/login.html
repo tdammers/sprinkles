@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+    <body>
+        <h1>login</h1>
+        <form method="POST" action="/login">
+            {%- if errorCode -%}
+            <div class="error">
+                {%- set errorMessages = {
+                        'wrong-credentials': 'Incorrect username or password'
+                    }
+                  -%}
+                {{ errorMessages[errorCode]|default('Something went wrong.') }}
+            </div>
+            {%- endif -%}
+            <input type="text" placeholder="username" name="username">
+            <input type="password" placeholder="password" name="password">
+            <button type="submit">Log in</button>
+        </form>
+    </body>
+</html>
