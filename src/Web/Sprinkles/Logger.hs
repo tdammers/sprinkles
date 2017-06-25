@@ -16,7 +16,7 @@ where
 
 import ClassyPrelude
 import Control.Concurrent (forkIO)
-import Data.Aeson (FromJSON (..), Value (..), (.:))
+import Data.Aeson (FromJSON (..), Value (..), (.:), withObject)
 import qualified System.Posix.Syslog as Syslog
 import Data.Default (Default (..))
 
@@ -51,7 +51,7 @@ data LogMessage =
         deriving (Show, Eq)
 
 instance FromJSON LogMessage where
-    parseJSON (Object o) =
+    parseJSON = withObject "LogMessage" $ \o -> do
         LogMessage <$> o .: "timestamp"
                    <*> o .: "level"
                    <*> o .: "message"

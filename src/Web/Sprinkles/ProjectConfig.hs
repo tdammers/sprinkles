@@ -37,7 +37,7 @@ instance Monoid ProjectConfig where
     mappend = pcAppend
 
 instance FromJSON ProjectConfig where
-    parseJSON (Object obj) = do
+    parseJSON = withObject "ProjectConfig" $ \obj -> do
         contextData <- fromMaybe AList.empty <$> obj .:? "data"
         rulesValue <- fromMaybe (toJSON ([] :: [Value])) <$> (obj .:? "rules" <|> obj .:? "Rules")
         rules <- parseJSON rulesValue

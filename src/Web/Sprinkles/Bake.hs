@@ -93,13 +93,12 @@ bakeHtaccess = do
 bakeApp :: Bake ()
 bakeApp = do
     use bsTodo >>= \case
-        [] ->
-            return ()
         (current:rest) -> do
             bsTodo .= rest
             bakePath current
             bsDone %= Set.insert current
             bakeApp
+        _ -> return ()
 
 bakePath :: FilePath -> Bake ()
 bakePath fp = do
@@ -194,7 +193,7 @@ isLocalUrl url = not
 extractCssUrls :: [CSS.Token] -> [Text]
 extractCssUrls tokens = filter isLocalUrl $ go tokens
     where
-        go [] = []
         go (CSS.Url url:xs) = url:go xs
         go (CSS.Function "url":CSS.String _ url:xs) = url:go xs
         go (x:xs) = go xs
+        go _ = []

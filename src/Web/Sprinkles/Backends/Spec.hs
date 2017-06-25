@@ -212,6 +212,7 @@ backendSpecFromJSON (Object obj) = do
                 Array v -> parseJSON rawCmd >>= \case
                     cmd:args -> return (SubprocessBackend cmd args t, FetchOne)
                     [] -> fail "Expected a command and a list of arguments"
+                x -> fail $ "Expected string or array, but found " ++ show x
         parseLiteralBackendSpec = do
             b <- obj .:? "body" .!= JSON.Null
             return (LiteralBackend b, FetchOne)
@@ -376,6 +377,8 @@ instance FromJSON HttpBackendOptions where
             <$> (o .:? "credentials" .!= AnonymousCredentials)
             <*> (o .:? "method" .!= GET)
             <*> pure knownContentTypes
+    parseJSON x =
+        fail $ "Expected string or array, but found " ++ show x
 
 instance Default HttpBackendOptions where
     def = HttpBackendOptions

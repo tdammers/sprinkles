@@ -133,7 +133,6 @@ loadBackendDict writeLog postBodySrc cache backendPaths required globalContext =
         go :: HashMap Text (GVal (Run IO Text))
            -> [(Text, BackendSpec)]
            -> IO [(Text, Items (BackendData IO Html))]
-        go _ [] = return []
         go context ((key, backendSpec):specs) = do
             expBackendSpec <- expandReplacementBackend context backendSpec
             bd :: Items (BackendData IO Html)
@@ -155,3 +154,4 @@ loadBackendDict writeLog postBodySrc cache backendPaths required globalContext =
                 context' = insertMap key bdGP context
             remainder <- go context' specs
             return $ resultItem:remainder
+        go _ _ = return []

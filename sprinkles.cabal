@@ -125,6 +125,7 @@ library
                , yaml
                , yeshql
   default-language:    Haskell2010
+  ghc-options: -Werror -fwarn-incomplete-patterns
 
 executable sprinkles
   hs-source-dirs: app

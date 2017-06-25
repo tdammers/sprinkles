@@ -165,14 +165,16 @@ gfnEllipse xs = do
     gfnEllipse $ (Nothing, str):xs
 
 gfnJSON :: Ginger.Function (Ginger.Run IO h)
-gfnJSON [] = return def
-gfnJSON ((_, x):xs) =
+gfnJSON ((_, x):_) =
     return . toGVal . LUTF8.toString . JSON.encodePretty $ x
+gfnJSON _ =
+    return def
 
 gfnYAML :: Ginger.Function (Ginger.Run IO h)
-gfnYAML [] = return def
-gfnYAML ((_, x):xs) =
+gfnYAML ((_, x):_) =
     return . toGVal . UTF8.toString . YAML.encode $ x
+gfnYAML _ =
+    return def
 
 gfnLoadBackendData :: forall h. (LogLevel -> Text -> IO ()) -> RawBackendCache -> Ginger.Function (Ginger.Run IO h)
 gfnLoadBackendData writeLog cache args =

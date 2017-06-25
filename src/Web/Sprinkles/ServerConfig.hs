@@ -77,6 +77,8 @@ instance FromJSON ServerDriver where
         return BakeDriver
     parseJSON (String "default") =
         return def
+    parseJSON (String x) =
+        fail $ "Invalid server driver " ++ show x
     parseJSON (Object o) = do
         st :: Text <- o .: "type"
         case st of
@@ -86,6 +88,9 @@ instance FromJSON ServerDriver where
             "fastcgi" -> return FastCGIDriver
             "scgi" -> return SCGIDriver
             "bake" -> return BakeDriver
+            x -> fail $ "Invalid server driver " ++ show x
+    parseJSON x =
+        fail $ "Invalid server driver " ++ show x
 
 data LoggerConfig =
     DiscardLog |
@@ -104,7 +109,7 @@ instance FromJSON LoggerConfig where
                 StdioLog . fromMaybe Warning <$> obj .:? "level"
             Just "syslog" ->
                 Syslog . fromMaybe Warning <$> obj .:? "level"
-
+            Just x -> fail $ "Invalid logger type " ++ show x
     parseJSON _ = fail "Invalid logger config"
 
 data SessionExpiration = NeverExpire 
@@ -128,6 +133,7 @@ instance FromJSON SessionDriver where
         Null -> return NoSessionDriver
         String "inproc" -> return InProcSessionDriver
         String "sql" -> return $ SqlSessionDriver (DSN SqliteDriver "sessions.sqlite")
+        String x -> fail $ "Invalid session driver " ++ show x
         Object obj -> do
             ty <- obj .: "type"
             case (ty :: Text) of
@@ -136,6 +142,7 @@ instance FromJSON SessionDriver where
                 "sql" -> do
                     SqlSessionDriver <$>
                         obj .:? "connection" .!= DSN SqliteDriver "sessions.sqlite"
+                x -> fail $ "Invalid session driver " ++ show x
         _ -> fail "Invalid session driver"
 
 data SessionConfig =

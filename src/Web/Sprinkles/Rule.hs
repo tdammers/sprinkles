@@ -44,6 +44,7 @@ instance FromJSON ClientCacheSetting where
         String "forever" -> return CacheForever
         String x -> fail $ "Invalid cache expiry: " ++ show x
         Number n -> return $ MaxAge (floor n)
+        _ -> fail "Invalid client cache setting"
 
 -- | Describes if and how to initialize a session for a request.
 data SessionDirective = AcceptSession -- ^ Accept if given, but do not require
@@ -58,6 +59,7 @@ instance FromJSON SessionDirective where
         String "new" -> return CreateNewSession
         String "accept" -> return AcceptSession
         String "require" -> return RequireSession
+        _ -> fail "Invalid session directive"
 
 data Rule =
     Rule
@@ -183,6 +185,6 @@ applyRules :: [Rule]
                  ( Rule
                  , HashMap Text MatchedText
                 )
-applyRules [] _ _ _ = Left PathNotMatched
 applyRules (rule:rules) method path query =
     applyRule rule method path query <|+> applyRules rules method path query
+applyRules _ _ _ _ = Left PathNotMatched
