@@ -1,5 +1,6 @@
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE OverloadedStrings #-}
+{-#LANGUAGE OverloadedLists #-}
 {-#LANGUAGE TypeFamilies #-}
 {-#LANGUAGE MultiParamTypeClasses #-}
 {-#LANGUAGE FlexibleInstances #-}
@@ -232,10 +233,30 @@ backendSpecFromJSON (Object obj) = do
                     query <- obj .: "query"
                     params <- obj .:? "params" .!= []
                     return (SqlBackend dsn query params, FetchAll)
-                Just queries' -> do
-                    queries <- parseJSON queries'
+                Just (Array queries') -> do
+                    queries <- forM (toList queries') $ \case
+                        String queryStr -> do
+                            return (queryStr, [])
+                        Object queriesObj -> do
+                            query <- queriesObj .: "query"
+                            params <- queriesObj .:? "params" .!= []
+                            return (query, params)
+                        Array queriesArr -> do
+                            case toList queriesArr of
+                                [] ->
+                                    fail "Invalid query object, empty array is not allowed"
+                                [String queryStr] ->
+                                    return (queryStr, [])
+                                [String queryStr, Array params] ->
+                                    (queryStr,) <$> mapM parseJSON (toList params)
+                                (String queryStr:params) ->
+                                    (queryStr,) <$> mapM parseJSON params
+                                x ->
+                                    fail "Invalid query object, first array element must be string"
+                        x -> fail "Invalid query object, must be array, string, or object"
                     mode <- obj .:? "results" .!= ResultsMerge
                     return (SqlMultiBackend dsn mode queries, FetchAll)
+                Just x -> fail "Invalid queries object, must be array"
         parseSubprocessSpec = do
             rawCmd <- obj .: "cmd"
             t <- fromString <$> (obj .:? "mime-type" .!= "text/plain")
@@ -243,7 +264,7 @@ backendSpecFromJSON (Object obj) = do
                 String cmd -> return (SubprocessBackend cmd [] t, FetchOne)
                 Array v -> parseJSON rawCmd >>= \case
                     cmd:args -> return (SubprocessBackend cmd args t, FetchOne)
-                    [] -> fail "Expected a command and a list of arguments"
+                    _ -> fail "Expected a command and a list of arguments"
                 x -> fail $ "Expected string or array, but found " ++ show x
         parseLiteralBackendSpec = do
             b <- obj .:? "body" .!= JSON.Null
