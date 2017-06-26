@@ -1,3 +1,7 @@
+## 0.4.3.0
+
+- Nicer YAML syntax for SQL backend.
+
 ## 0.4.2.0
 
 - Handle SQL NULL more leniently in the SQL backend; NULL values in the result
