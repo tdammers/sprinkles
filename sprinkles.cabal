@@ -84,6 +84,7 @@ library
                , curl
                , data-default
                , directory
+               , extra
                , filepath
                , file-embed
                , ginger >=0.3.8.0 && <0.4

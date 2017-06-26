@@ -24,6 +24,25 @@ import Data.Expandable
 data DSN = DSN { dsnDriver :: SqlDriver, dsnDetails :: Text }
     deriving (Show, Generic)
 
+data ResultSetMode
+    = ResultsMerge
+    | ResultsNth Int
+    | ResultsLast
+    deriving (Show, Generic)
+
+instance FromJSON ResultSetMode where
+    parseJSON = \case
+        String "merge" -> return ResultsMerge
+        String "first" -> return $ ResultsNth 0
+        String "last" -> return ResultsLast
+        String x -> fail $ "Invalid result set mode " ++ show x
+        Number i -> if i >= 0
+                        then return (ResultsNth . round $ i)
+                        else fail $ "Invalid result set index " ++ show i
+        x -> fail $ "Expected integer or string for result set mode, got " ++ show x
+
+instance Serialize ResultSetMode where
+
 instance ExpandableM Text DSN where
     expandM f (DSN driver details) = DSN driver <$> f details
 

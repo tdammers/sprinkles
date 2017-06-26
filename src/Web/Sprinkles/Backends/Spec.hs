@@ -5,6 +5,7 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE LambdaCase #-}
+{-#LANGUAGE TupleSections #-}
 {-#LANGUAGE DeriveGeneric #-}
 
 -- | Backend spec types and parser
@@ -38,7 +39,7 @@ import Data.Default (Default (..))
 import Web.Sprinkles.Cache
 import qualified Data.Serialize as Cereal
 import Data.Serialize (Serialize)
-import Web.Sprinkles.Databases (DSN (..), sqlDriverFromID)
+import Web.Sprinkles.Databases (DSN (..), sqlDriverFromID, ResultSetMode (..))
 import Web.Sprinkles.Logger (LogLevel (..))
 import Data.Expandable (ExpandableM (..), expand)
 
@@ -46,6 +47,7 @@ import Data.Expandable (ExpandableM (..), expand)
 data BackendType = HttpBackend Text HttpBackendOptions -- ^ Fetch data over HTTP(S)
                  | FileBackend Text -- ^ Read local files
                  | SqlBackend DSN Text [Text] -- ^ Query an SQL database
+                 | SqlMultiBackend DSN ResultSetMode [(Text, [Text])] -- ^ Query an SQL database, multiple queries
                  | SubprocessBackend Text [Text] MimeType -- ^ Run a command in a subprocess
                  | RequestBodyBackend -- ^ Read the incoming request body
                  | LiteralBackend Value -- ^ Return literal data from the spec itself
@@ -64,6 +66,14 @@ instance Serialize BackendType where
         Cereal.put dsn
         Cereal.put (encodeUtf8 . unpack $ query)
         Cereal.put (map (encodeUtf8 . unpack) params)
+    put (SqlMultiBackend dsn mode queries) = do
+        Cereal.put 'S'
+        Cereal.put dsn
+        Cereal.put mode
+        Cereal.put
+            [ (encodeUtf8 . unpack $ q, map (encodeUtf8 . unpack) p)
+            | (q, p) <- queries
+            ]
     put (SubprocessBackend cmd args t) = do
         Cereal.put 'p'
         Cereal.put (encodeUtf8 . unpack $ cmd)
@@ -80,6 +90,15 @@ instance Serialize BackendType where
                     Cereal.get <*>
                     (pack . decodeUtf8 <$> Cereal.get) <*>
                     (map (pack . decodeUtf8) <$> Cereal.get)
+            'S' -> SqlMultiBackend <$>
+                    Cereal.get <*>
+                    Cereal.get <*>
+                    (Cereal.get >>= \items -> return
+                        [ ( (pack . decodeUtf8) q
+                          , map (pack . decodeUtf8) p
+                          )
+                        | (q, p) <- items
+                        ])
             'p' -> SubprocessBackend <$>
                     (pack . decodeUtf8 <$> Cereal.get) <*>
                     (map (pack . decodeUtf8) <$> Cereal.get) <*>
@@ -96,6 +115,13 @@ instance ExpandableM Text BackendType where
         FileBackend <$> f t
     expandM f (SqlBackend dsn query params) =
         SqlBackend <$> expandM f dsn <*> pure query <*> expandM f params
+    expandM f (SqlMultiBackend dsn mode queries) =
+        SqlMultiBackend
+            <$> expandM f dsn
+            <*> pure mode
+            <*> ( forM queries $ \(query, params) ->
+                    (query,) <$> expandM f params
+                )
     expandM f (SubprocessBackend cmd args t) =
         SubprocessBackend cmd <$> expandM f args <*> pure t
     expandM _ RequestBodyBackend =
@@ -201,9 +227,15 @@ backendSpecFromJSON (Object obj) = do
             return (FileBackend (pack $ path </> "*"), FetchAll)
         parseSqlBackendSpec = do
             dsn <- obj .: "connection"
-            query <- obj .: "query"
-            params <- obj .:? "params" .!= []
-            return (SqlBackend dsn query params, FetchAll)
+            case lookup "queries" obj of
+                Nothing -> do
+                    query <- obj .: "query"
+                    params <- obj .:? "params" .!= []
+                    return (SqlBackend dsn query params, FetchAll)
+                Just queries' -> do
+                    queries <- parseJSON queries'
+                    mode <- obj .:? "results" .!= ResultsMerge
+                    return (SqlMultiBackend dsn mode queries, FetchAll)
         parseSubprocessSpec = do
             rawCmd <- obj .: "cmd"
             t <- fromString <$> (obj .:? "mime-type" .!= "text/plain")

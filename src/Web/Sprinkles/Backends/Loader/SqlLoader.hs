@@ -29,20 +29,32 @@ import Data.Aeson as JSON
 import Data.Aeson.TH as JSON
 import Data.Yaml as YAML
 import Web.Sprinkles.Backends.Loader.Type
+import Data.List.Extra (takeEnd)
 
-sqlLoader :: DSN -> Text -> [Text] -> Loader
-sqlLoader dsn query params writeLog _ fetchMode fetchOrder = do
-    rows <- DB.withConnection dsn $ \conn -> do
+sqlLoader :: DSN -> DB.ResultSetMode -> [(Text, [Text])] -> Loader
+sqlLoader dsn mode queries writeLog _ fetchMode fetchOrder = do
+    resultSets <- DB.withConnection dsn $ \conn -> do
         HDBC.withTransaction conn $ \conn -> do
-            writeLog Debug $
-                "SQL: QUERY: " <> tshow query <>
-                " ON " <> DB.dsnToText dsn <>
-                " WITH: " <> tshow params
-            stmt <- HDBC.prepare conn (unpack query)
-            HDBC.execute stmt (map HDBC.toSql params)
-            HDBC.fetchAllRowsMap stmt
-    return $ map mapRow rows
+            forM queries $ \(query, params) -> do
+                writeLog Debug $
+                    "SQL: QUERY: " <> tshow query <>
+                    " ON " <> DB.dsnToText dsn <>
+                    " WITH: " <> tshow params
+                stmt <- HDBC.prepare conn (unpack query)
+                HDBC.execute stmt (map HDBC.toSql params)
+                HDBC.fetchAllRowsMap stmt
+    return $ mergeResultSets resultSets
     where
+        mergeResultSets :: [[Map String HDBC.SqlValue]] -> [BackendSource]
+        mergeResultSets [] = []
+        mergeResultSets rawRows = case mode of
+            DB.ResultsMerge ->
+                map mapRow . mconcat $ rawRows
+            DB.ResultsNth i ->
+                map mapRow . mconcat . drop i . take 1 $ rawRows
+            DB.ResultsLast ->
+                map mapRow . mconcat . takeEnd 1 $ rawRows
+
         mapRow :: Map String HDBC.SqlValue -> BackendSource
         mapRow row =
             let json = JSON.encode (fmap (HDBC.fromSql :: HDBC.SqlValue -> Text) row)

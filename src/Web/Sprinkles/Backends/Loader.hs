@@ -21,9 +21,11 @@ import Web.Sprinkles.Backends.Loader.HttpLoader
 import Web.Sprinkles.Backends.Loader.RequestBodyLoader
 import Web.Sprinkles.Backends.Loader.LiteralLoader
 import Web.Sprinkles.Backends.Spec
+import Web.Sprinkles.Databases (ResultSetMode (..))
 
 loader :: BackendType -> Loader
-loader (SqlBackend dsn query params) = sqlLoader dsn query params
+loader (SqlBackend dsn query params) = sqlLoader dsn ResultsLast [(query, params)]
+loader (SqlMultiBackend dsn mode queries) = sqlLoader dsn mode queries
 loader (FileBackend filepath) = fileLoader filepath
 loader (HttpBackend uriText credentials) = curlLoader uriText credentials
 loader (SubprocessBackend cmd args mimeType) = subprocessLoader cmd args mimeType
