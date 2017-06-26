@@ -57,7 +57,7 @@ sqlLoader dsn mode queries writeLog _ fetchMode fetchOrder = do
 
         mapRow :: Map String HDBC.SqlValue -> BackendSource
         mapRow row =
-            let json = JSON.encode (fmap (HDBC.fromSql :: HDBC.SqlValue -> Text) row)
+            let json = JSON.encode (fmap (HDBC.fromSql :: HDBC.SqlValue -> Maybe Text) row)
                 name = maybe "SQL" HDBC.fromSql $
                     lookup "name" row <|>
                     lookup "title" row <|>
