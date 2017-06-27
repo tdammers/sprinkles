@@ -128,7 +128,7 @@ regexP = do
     return $ Regex body options
 
 regexCharP :: Parsec Text () Char
-regexCharP = (char '\\' >> char '/') <|> noneOf "/"
+regexCharP = (Parsec.try $ char '\\' >> char '/') <|> noneOf "/"
 
 regexOptionP :: Parsec Text () RE.CompOption
 regexOptionP = (char 'm' >> return RE.compMultiline)

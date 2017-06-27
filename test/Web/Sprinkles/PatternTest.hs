@@ -175,9 +175,9 @@ parseNamedAnyTest =
 
 parseNamedRegexTest =
     testCase "parse named Regex" $ do
-        let src = "/{{who:/foo/}}"
+        let src = "/{{who:/foo\\./}}"
             expected = Right $ Pattern
-                        [ PatternPathItem (Just "who") (Regex "foo" RE.compBlank) MatchOne
+                        [ PatternPathItem (Just "who") (Regex "foo\\." RE.compBlank) MatchOne
                         ]
                         []
             actual = parsePattern src
