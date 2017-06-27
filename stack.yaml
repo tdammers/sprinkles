@@ -11,7 +11,7 @@ packages:
 # if installing from Hackage fails.
 - location:
     git: https://git@github.com/tdammers/ginger
-    commit: '0.3.8.0'
+    commit: '0.5.2.1'
   extra-dep: true
 - location:
     git: 'https://git@github.com/tdammers/pandoc-creole.git'
@@ -24,8 +24,9 @@ extra-deps:
   - wai-handler-fastcgi-3.0.0.2
   - system-locale-0.1.0.0
   - megaparsec-5.0.1
-  - ginger-0.3.8.0
+  - ginger-0.5.2.1
   - yeshql-2.2.0.0
+  - wryte-0.2.0.0
 
 # Override default flag values for local packages and extra-deps
 flags: {}

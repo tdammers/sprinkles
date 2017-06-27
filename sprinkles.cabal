@@ -87,7 +87,7 @@ library
                , extra
                , filepath
                , file-embed
-               , ginger >=0.3.8.0 && <0.4
+               , ginger >=0.5.2.0 && <0.6
                , hashable
                , heredoc
                , hsyslog
