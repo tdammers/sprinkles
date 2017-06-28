@@ -12,7 +12,9 @@ where
 
 import ClassyPrelude
 import qualified Network.Wai as Wai
+import Network.HTTP.Types (HeaderName)
 import Web.Sprinkles.SessionHandle (SessionHandle)
+import Debug.Trace (trace)
 
 import Web.Sprinkles.Backends.Data
         ( BackendData (..)
@@ -30,9 +32,12 @@ import Web.Sprinkles.Logger (LogLevel)
 data RequestContext =
     RequestContext
         { loadPost :: IO LByteString
-        , contentType :: ByteString
         , sessionHandle :: Maybe SessionHandle
+        , lookupHeader :: HeaderName -> Maybe ByteString
         }
+
+contentType :: RequestContext -> ByteString
+contentType rqc = fromMaybe "text/plain" $ lookupHeader rqc "Content-type"
 
 type Loader = (LogLevel -> Text -> IO ())
             -> RequestContext
@@ -44,16 +49,16 @@ pbsFromRequest :: Wai.Request -> Maybe SessionHandle -> RequestContext
 pbsFromRequest request session =
     RequestContext
         { loadPost = Wai.lazyRequestBody request
-        , contentType = fromMaybe "text/plain" $
-            lookup "Content-type" (Wai.requestHeaders request)
         , sessionHandle = session
+        , lookupHeader = \name ->
+            lookup name (Wai.requestHeaders request)
         }
 
 pbsInvalid :: RequestContext
 pbsInvalid =
     RequestContext
         { loadPost = fail "POST body not available"
-        , contentType = "text/plain"
         , sessionHandle = Nothing
+        , lookupHeader = const Nothing
         }
 

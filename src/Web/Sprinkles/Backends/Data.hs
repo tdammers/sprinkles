@@ -38,6 +38,8 @@ import Data.Default (Default (..))
 import Data.Time.Clock.POSIX (POSIXTime, posixSecondsToUTCTime)
 import Data.Time (UTCTime, LocalTime, utc, utcToLocalTime)
 import Data.Scientific (Scientific)
+import qualified Data.ByteString.Char8 as BS8
+import qualified Data.ByteString.Lazy.Char8 as LBS8
 
 import Web.Sprinkles.Backends.Spec
 
@@ -93,6 +95,40 @@ rawToLBS :: RawBytes -> IO LByteString
 rawToLBS r = do
     len <- rbLength r
     rbGetRange r 0 len
+
+rawToGVal :: MonadIO m => RawBytes -> GVal (Run m h)
+rawToGVal raw =
+    dict
+        [ ("length", Ginger.fromFunction (gfnLength raw))
+        , ("read", Ginger.fromFunction (gfnRead raw))
+        ]
+    where
+        gfnLength :: MonadIO m => RawBytes -> [(Maybe Text, GVal (Run m h))] -> Run m h (GVal (Run m h))
+        gfnLength raw args = do
+            length <- liftIO (rbLength raw)
+            return . toGVal $ length
+        gfnRead :: MonadIO m => RawBytes -> [(Maybe Text, GVal (Run m h))] -> Run m h (GVal (Run m h))
+        gfnRead raw args = do
+            inputLength <- liftIO (rbLength raw)
+            let extracted =
+                    Ginger.extractArgsDefL
+                        [ ("start", def)
+                        , ("length", toGVal inputLength)
+                        ]
+                        args
+            case extracted of
+                Right [startG, lengthG] -> do
+                    let start = fromMaybe 0 $ asInteger startG
+                        length = fromMaybe inputLength $ asInteger lengthG
+                    bytes <- liftIO (rbGetRange raw start length)
+                    return . toGVal . LBS8.unpack $ bytes
+                _ -> fail "Invalid arguments to RawBytes.read"
+
+        asInteger :: GVal m -> Maybe Integer
+        asInteger = fmap round . Ginger.asNumber
+
+instance MonadIO m => ToGVal (Run m h) RawBytes where
+    toGVal = rawToGVal
 
 -- | A parsed record from a query result.
 data BackendData m h =
@@ -153,7 +189,7 @@ addBackendDataChildren children bd =
 instance ToJSON (BackendData m h) where
     toJSON = bdJSON
 
-instance ToGVal (Run m h) (BackendData m h) where
+instance MonadIO m => ToGVal (Run m h) (BackendData m h) where
     toGVal bd =
         let baseVal = bdGVal bd
             baseLookup = fromMaybe (const def) $ Ginger.asLookup baseVal
@@ -164,9 +200,11 @@ instance ToGVal (Run m h) (BackendData m h) where
             { Ginger.asLookup = Just $ \case
                 "props" -> return . toGVal . bdMeta $ bd
                 "children" -> return childrenG
+                "bytes" -> return . toGVal . bdRaw $ bd
                 k -> baseLookup k
             , Ginger.asDictItems =
                 (("props" ~> bdMeta bd):) .
+                (("bytes" ~> bdRaw bd):) .
                 (("children", childrenG):) <$> baseDictItems
             }
 

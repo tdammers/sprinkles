@@ -21,12 +21,12 @@ packages:
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:
   - HDBC-mysql-0.6.6.4
-  - wai-handler-fastcgi-3.0.0.2
-  - system-locale-0.1.0.0
-  - megaparsec-5.0.1
   - ginger-0.5.2.1
-  - yeshql-2.2.0.0
+  - megaparsec-5.0.1
+  - system-locale-0.1.0.0
+  - wai-handler-fastcgi-3.0.0.2
   - wryte-0.2.0.0
+  - yeshql-2.2.0.0
 
 # Override default flag values for local packages and extra-deps
 flags: {}
