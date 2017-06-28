@@ -38,6 +38,7 @@ import Web.Sprinkles.Logger as Logger
 import Web.Sprinkles.Backends.Loader.Type
        (RequestContext (..), pbsFromRequest, pbsInvalid)
 import Web.Sprinkles.SessionHandle
+import System.Random (randomRIO)
 
 sprinklesGingerContext :: RawBackendCache
                        -> Wai.Request
@@ -65,6 +66,7 @@ baseGingerContext logger =
         , ("rst", Ginger.fromFunction (gfnPandocAlias "rst" (writeLog logger)))
         , ("creole", Ginger.fromFunction (gfnPandocAlias "creole" (writeLog logger)))
         , ("bcrypt", gnsBCrypt)
+        , ("randomStr", Ginger.fromFunction gfnRandomStr)
         ]
 
 gnsBCrypt :: GVal (Ginger.Run IO h)
@@ -93,6 +95,32 @@ gfnBCryptHash args = do
             hash <- liftIO $ BCrypt.hashPasswordUsingPolicy policy password
             return . toGVal . fmap decodeUtf8 $ hash
         _ -> throwM $ GingerInvalidFunctionArgs "bcrypt.hash" "string password, int cost, string algorithm"
+
+gfnRandomStr :: Ginger.Function (Ginger.Run IO h)
+gfnRandomStr args = do
+    let defaultAlphabet = ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] :: String
+        argSpec :: [(Text, Ginger.GVal (Ginger.Run IO h))]
+        argSpec = [ ("length", toGVal (8 :: Int))
+                  , ("alphabet", toGVal defaultAlphabet)
+                  ]
+    case Ginger.extractArgsDefL argSpec args of
+        Right [lengthG, alphabetG] -> do
+            desiredLength :: Int <- case fmap round . asNumber $ lengthG of
+                    Nothing -> throwM $ GingerInvalidFunctionArgs "randomStr" "int length"
+                    Just l -> return l
+            let alphabet :: String
+                alphabet = unpack . Ginger.asText $ alphabetG
+                alphabetSize :: Int
+                alphabetSize = ClassyPrelude.length alphabet
+            when (alphabetSize < 2)
+                (throwM $ GingerInvalidFunctionArgs "randomStr" "alphabet too small")
+            when (desiredLength < 1)
+                (throwM $ GingerInvalidFunctionArgs "randomStr" "length too small")
+            items :: [String] <- forM [0..desiredLength] $ \_ -> do
+                i :: Int <- liftIO $ randomRIO (0, pred alphabetSize)
+                return $ take 1 . drop i $ alphabet
+            return . toGVal $ concat items
+        _ -> throwM $ GingerInvalidFunctionArgs "randomStr" "int length, string alphabet"
 
 gfnBCryptValidate :: Ginger.Function (Ginger.Run IO h)
 gfnBCryptValidate args = do

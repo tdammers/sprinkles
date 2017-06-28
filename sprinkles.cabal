@@ -103,6 +103,7 @@ library
                , pandoc-types
                , parsec
                , process
+               , random
                , random-shuffle
                , regex-base
                , regex-pcre
