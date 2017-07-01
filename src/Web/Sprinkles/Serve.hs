@@ -41,10 +41,11 @@ import Network.Wai.Middleware.Autohead (autohead)
 import System.Environment (lookupEnv)
 import System.Locale.Read (getLocale)
 import qualified Text.Ginger as Ginger
+import qualified Text.Ginger.Run.VM as Ginger
 import Text.Ginger
        (parseGinger, Template, runGingerT, GingerContext, GVal(..), ToGVal(..),
         (~>))
-import Text.Ginger.Html (Html, htmlSource)
+import Text.Ginger.Html (Html, htmlSource, unsafeRawHtml)
 import qualified Text.Pandoc as Pandoc
 import qualified Text.Pandoc.Readers.Creole as Pandoc
 
@@ -77,6 +78,7 @@ import Web.Sprinkles.Handlers.Common
        , handle500
        , handle404
        , handleNotAllowed
+       , marshalGValHtmlToText
        )
 import Web.Sprinkles.MatchedText (MatchedText (..))
 import Web.Sprinkles.TemplateContext (sprinklesGingerContext)
@@ -235,7 +237,7 @@ handleRule rule captures project request respond = do
     let context' :: HashMap Text (GVal (Ginger.Run IO Html))
         context' = fmap toGVal backendData
         context'' :: HashMap Text (GVal (Ginger.Run IO Text))
-        context'' = fmap Ginger.marshalGVal context'
+        context'' = fmap marshalGValHtmlToText context'
     target <- expandRuleTarget (context'' <> context) . ruleTarget $ rule
 
     let handle :: HashMap Text (Items (BackendData IO Html))

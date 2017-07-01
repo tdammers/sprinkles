@@ -11,7 +11,7 @@ packages:
 # if installing from Hackage fails.
 - location:
     git: https://git@github.com/tdammers/ginger
-    commit: '0.5.2.1'
+    commit: '0.5.3.0'
   extra-dep: true
 - location:
     git: 'https://git@github.com/tdammers/pandoc-creole.git'
@@ -21,7 +21,7 @@ packages:
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:
   - HDBC-mysql-0.6.6.4
-  - ginger-0.5.2.1
+  - ginger-0.5.3.0
   - megaparsec-5.0.1
   - system-locale-0.1.0.0
   - wai-handler-fastcgi-3.0.0.2

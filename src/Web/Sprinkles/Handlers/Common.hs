@@ -19,13 +19,15 @@ import Web.Sprinkles.ProjectConfig
 import Network.HTTP.Types
        (Status, status200, status302, status400, status404, status405, status500)
 import Web.Sprinkles.Handlers.Respond
-import Text.Ginger.Html (Html, htmlSource)
+import Text.Ginger.Html (Html, htmlSource, unsafeRawHtml)
+import qualified Text.Ginger as Ginger
 import Web.Sprinkles.Backends.Loader.Type
        (RequestContext (..), pbsFromRequest, pbsInvalid)
 import Web.Sprinkles.Rule (expandReplacementBackend)
 import Data.AList (AList)
 import qualified Data.AList as AList
-import Text.Ginger (GVal, ToGVal (..), Run, marshalGVal)
+import Text.Ginger (GVal, ToGVal (..), Run, marshalGValEx, hoistRun)
+import Text.Ginger.Run.VM (withEncoder)
 import Control.Monad.Writer (Writer)
 import Web.Sprinkles.SessionHandle
 
@@ -150,8 +152,20 @@ loadBackendDict writeLog postBodySrc cache backendPaths required globalContext =
             let bdG :: GVal (Run IO Html)
                 bdG = toGVal bd
                 bdGP :: GVal (Run IO Text)
-                bdGP = marshalGVal bdG
+                bdGP = marshalGValHtmlToText bdG
                 context' = insertMap key bdGP context
             remainder <- go context' specs
             return $ resultItem:remainder
         go _ _ = return []
+
+marshalGValHtmlToText :: GVal (Run IO Html) -> GVal (Run IO Text)
+marshalGValHtmlToText = marshalGValEx hoistRunToText hoistRunFromText
+
+hoistRunToText :: Run IO Html a -> Run IO Text a
+hoistRunToText =
+    hoistRun htmlSource unsafeRawHtml
+        . withEncoder (unsafeRawHtml . Ginger.asText)
+hoistRunFromText:: Run IO Text a -> Run IO Html a
+hoistRunFromText =
+    hoistRun unsafeRawHtml htmlSource
+

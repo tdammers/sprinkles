@@ -40,6 +40,7 @@ import Data.Time (UTCTime, LocalTime, utc, utcToLocalTime)
 import Data.Scientific (Scientific)
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy.Char8 as LBS8
+import Text.Printf (printf)
 
 import Web.Sprinkles.Backends.Spec
 
@@ -101,6 +102,7 @@ rawToGVal raw =
     dict
         [ ("length", Ginger.fromFunction (gfnLength raw))
         , ("read", Ginger.fromFunction (gfnRead raw))
+        , ("store", Ginger.fromFunction (gfnStore raw))
         ]
     where
         gfnLength :: MonadIO m => RawBytes -> [(Maybe Text, GVal (Run m h))] -> Run m h (GVal (Run m h))
@@ -123,6 +125,22 @@ rawToGVal raw =
                     bytes <- liftIO (rbGetRange raw start length)
                     return . toGVal . LBS8.unpack $ bytes
                 _ -> fail "Invalid arguments to RawBytes.read"
+
+        gfnStore :: MonadIO m => RawBytes -> [(Maybe Text, GVal (Run m h))] -> Run m h (GVal (Run m h))
+        gfnStore raw args = do
+            let extracted =
+                    Ginger.extractArgsDefL
+                        [ ("filename", "stored")
+                        ]
+                        args
+            case extracted of
+                Right [filenameG] -> liftIO $ do
+                    let filename = unpack . Ginger.asText $ filenameG
+                    len <- rbLength raw
+                    bytes <- rbGetRange raw 0 len
+                    writeFile filename bytes
+                    return . toGVal $ True
+                _ -> fail "Invalid arguments to RawBytes.store"
 
         asInteger :: GVal m -> Maybe Integer
         asInteger = fmap round . Ginger.asNumber
