@@ -23,6 +23,8 @@ import Text.Ginger.Html (Html, htmlSource, unsafeRawHtml)
 import qualified Text.Ginger as Ginger
 import Web.Sprinkles.Backends.Loader.Type
        (RequestContext (..), pbsFromRequest, pbsInvalid)
+import Web.Sprinkles.Backends.Data
+       (BackendData (..), BackendSource (..), Verification (..))
 import Web.Sprinkles.Rule (expandReplacementBackend)
 import Data.AList (AList)
 import qualified Data.AList as AList
@@ -30,6 +32,10 @@ import Text.Ginger (GVal, ToGVal (..), Run, marshalGValEx, hoistRun)
 import Text.Ginger.Run.VM (withEncoder)
 import Control.Monad.Writer (Writer)
 import Web.Sprinkles.SessionHandle
+import Web.Sprinkles.Exceptions
+import qualified Data.Foldable as Foldable
+import qualified Data.Aeson as JSON
+import Data.Aeson (FromJSON (..))
 
 data NotFoundException = NotFoundException
     deriving (Show)
@@ -129,7 +135,7 @@ loadBackendDict :: (LogLevel -> Text -> IO ())
                 -> Set Text
                 -> HashMap Text (GVal (Run IO Text))
                 -> IO (HashMap Text (Items (BackendData IO Html)))
-loadBackendDict writeLog postBodySrc cache backendPaths required globalContext = do
+loadBackendDict writeLog reqCtx cache backendPaths required globalContext = do
     mapFromList <$> go globalContext (AList.toList backendPaths)
     where
         go :: HashMap Text (GVal (Run IO Text))
@@ -140,9 +146,10 @@ loadBackendDict writeLog postBodySrc cache backendPaths required globalContext =
             bd :: Items (BackendData IO Html)
                <- loadBackendData
                     writeLog
-                    postBodySrc
+                    reqCtx
                     cache
                     expBackendSpec
+            Foldable.traverse_ (verifyBD reqCtx) bd
             resultItem <- case bd of
                 NotFound ->
                     if key `elem` required
@@ -157,6 +164,37 @@ loadBackendDict writeLog postBodySrc cache backendPaths required globalContext =
             remainder <- go context' specs
             return $ resultItem:remainder
         go _ _ = return []
+
+verifyBD :: RequestContext -> BackendData IO Html -> IO ()
+verifyBD reqCtx bd =
+    case bdVerification bd of
+        Trusted ->
+            return ()
+        VerifyCSRF -> do
+            let csrfHeaderMay = decodeUtf8 <$> lookupHeader reqCtx "X-Form-Token"
+                csrfFormFieldMay =
+                    (fromJSONMay (bdJSON bd) :: Maybe (HashMap Text JSON.Value))
+                    >>= lookup "__form_token"
+                    >>= fromJSONMay
+            csrfToken <- case sessionHandle reqCtx of
+                Nothing -> 
+                    throwM RequestValidationException
+                Just session -> do
+                    maybe
+                        (throwM RequestValidationException)
+                        return
+                        =<< sessionGet session "csrf"
+            let candidates :: [Text]
+                candidates = catMaybes [csrfHeaderMay, csrfFormFieldMay]
+            when (null candidates)
+                (throwM RequestValidationException)
+            when (any (/= csrfToken) candidates)
+                (throwM RequestValidationException)
+
+fromJSONMay :: FromJSON a => JSON.Value -> Maybe a
+fromJSONMay x = case JSON.fromJSON x of
+    JSON.Error _ -> Nothing
+    JSON.Success a -> Just a
 
 marshalGValHtmlToText :: GVal (Run IO Html) -> GVal (Run IO Text)
 marshalGValHtmlToText = marshalGValEx hoistRunToText hoistRunFromText

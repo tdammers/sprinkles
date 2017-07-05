@@ -6,12 +6,14 @@
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE DeriveGeneric #-}
+{-#LANGUAGE DeriveFunctor #-}
 
 -- | Types for and operations on backend data.
 module Web.Sprinkles.Backends.Data
 ( BackendData (..)
 , BackendMeta (..)
 , BackendSource (..)
+, Verification (..)
 , RawBytes (..)
 , toBackendData
 , Items (..)
@@ -41,6 +43,7 @@ import Data.Scientific (Scientific)
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy.Char8 as LBS8
 import Text.Printf (printf)
+import Data.Foldable (Foldable (foldMap))
 
 import Web.Sprinkles.Backends.Spec
 
@@ -52,6 +55,12 @@ unCTime (CTime i) = fromIntegral i
 data Items a = NotFound -- ^ Nothing was found
              | SingleItem a -- ^ A single item was requested, and this is it
              | MultiItem [a] -- ^ Multiple items were requested, here they are
+             deriving (Functor)
+
+instance Foldable Items where
+    foldMap f NotFound = mempty
+    foldMap f (SingleItem x) = f x
+    foldMap f (MultiItem xs) = mconcat $ map f xs
 
 -- | Transform a raw list of results into an 'Items' value. This allows us
 -- later to distinguish between Nothing Found vs. Empty List, and between
@@ -156,13 +165,20 @@ data BackendData m h =
         , bdRaw :: RawBytes -- ^ Raw result body source
         , bdMeta :: BackendMeta -- ^ Meta-information
         , bdChildren :: HashMap Text (BackendData m h) -- ^ Child documents
+        , bdVerification :: Verification
         }
+
+data Verification
+    = Trusted
+    | VerifyCSRF
+    deriving (Show, Eq, Enum, Ord, Bounded)
 
 -- | A raw (unparsed) record from a query result.
 data BackendSource =
     BackendSource
         { bsMeta :: BackendMeta
         , bsSource :: RawBytes
+        , bsVerification :: Verification
         }
         deriving (Generic)
 
@@ -182,7 +198,7 @@ serializeBackendSource bs = do
 
 deserializeBackendSource :: SerializableBackendSource -> BackendSource
 deserializeBackendSource sbs =
-    BackendSource (sbsMeta sbs) (rawFromLBS $ sbsSource sbs)
+    BackendSource (sbsMeta sbs) (rawFromLBS $ sbsSource sbs) Trusted
 
 -- | Wrap a parsed backend value in a 'BackendData' structure. The original
 -- raw 'BackendSource' value is needed alongside the parsed value, because the
@@ -196,6 +212,7 @@ toBackendData src val =
         , bdRaw = bsSource src
         , bdMeta = bsMeta src
         , bdChildren = mapFromList []
+        , bdVerification = bsVerification src
         }
 
 addBackendDataChildren :: HashMap Text (BackendData m h)

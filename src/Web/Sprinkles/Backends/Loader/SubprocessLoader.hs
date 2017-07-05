@@ -17,6 +17,7 @@ import Web.Sprinkles.Backends.Data
         ( BackendData (..)
         , BackendMeta (..)
         , BackendSource (..)
+        , Verification (..)
         , Items (..)
         , reduceItems
         , rawFromLBS
@@ -40,4 +41,4 @@ subprocessLoader cmd args mimeType writeLog _ fetchMode fetchOrder = do
                 , bmPath = unwords $ cmd:args
                 , bmSize = Just contentLength
                 }
-    return [BackendSource meta (rawFromLBS body)]
+    return [BackendSource meta (rawFromLBS body) Trusted]

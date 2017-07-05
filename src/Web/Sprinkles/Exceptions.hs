@@ -4,6 +4,7 @@
 
 module Web.Sprinkles.Exceptions
 ( formatException
+, RequestValidationException (..)
 , GingerFunctionCallException (..)
 , InvalidReaderException (..)
 , TemplateNotFoundException (..)
@@ -23,6 +24,12 @@ import qualified Data.Yaml as YAML
 import Text.Ginger as Ginger
 
 -- * Various exception types for specific situations
+
+data RequestValidationException =
+    RequestValidationException
+    deriving (Show, Eq, Generic)
+
+instance Exception RequestValidationException
 
 data GingerFunctionCallException =
     GingerInvalidFunctionArgs

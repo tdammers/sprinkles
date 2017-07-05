@@ -17,6 +17,7 @@ import Web.Sprinkles.Backends.Data
         ( BackendData (..)
         , BackendMeta (..)
         , BackendSource (..)
+        , Verification (..)
         , Items (..)
         , reduceItems
         , RawBytes (..)
@@ -45,4 +46,4 @@ literalLoader body writeLog _ fetchMode fetchOrder = do
             , bmPath = "literal"
             , bmSize = Just . fromIntegral $ length rawBodyBytes
             }
-    return [ BackendSource meta rawBody ]
+    return [ BackendSource meta rawBody Trusted ]

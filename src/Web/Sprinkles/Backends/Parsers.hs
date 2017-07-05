@@ -19,6 +19,7 @@ import Web.Sprinkles.Backends.Data
         ( BackendData (..)
         , BackendMeta (..)
         , BackendSource (..)
+        , Verification (..)
         , toBackendData
         , addBackendDataChildren
         , rawToLBS, rawFromLBS
@@ -45,7 +46,7 @@ import Network.HTTP.Types (parseQuery, queryToQueryText)
 parseBackendData :: (MonadIO m, Monad m, Monad n)
                  => BackendSource
                  -> m (BackendData n h)
-parseBackendData item@(BackendSource meta body) = do
+parseBackendData item@(BackendSource meta body _) = do
     let t = takeWhile (/= fromIntegral (ord ';')) (bmMimeType meta)
         parse = fromMaybe parseRawData $ lookup t parsersTable
     parse item
@@ -84,24 +85,25 @@ knownContentTypes = concatMap fst parserTypes
 -- | Parser for raw data (used for static files); this is also the default
 -- fallback for otherwise unsupported file types.
 parseRawData :: Monad m => BackendSource -> m (BackendData n h)
-parseRawData (BackendSource meta body) =
+parseRawData (BackendSource meta body veri) =
     return BackendData
         { bdJSON = JSON.Null
         , bdGVal = toGVal JSON.Null
         , bdMeta = meta
         , bdRaw = body
         , bdChildren = mapFromList []
+        , bdVerification = veri
         }
 
 -- | Parser for (utf-8) plaintext documents.
 plainText :: (MonadIO m, Monad m) => BackendSource -> m (BackendData n h)
-plainText item@(BackendSource meta body) = do
+plainText item@(BackendSource meta body _) = do
     textBody <- liftIO $ toStrict . decodeUtf8 <$> rawToLBS body
     return $ toBackendData item textBody
 
 -- | Parser for JSON source data.
 json :: (MonadIO m, Monad m) => BackendSource -> m (BackendData n h)
-json item@(BackendSource meta body) = do
+json item@(BackendSource meta body _) = do
     bodyBytes <- liftIO $ rawToLBS body
     case JSON.eitherDecode bodyBytes of
         Left err -> fail $ err ++ "\n" ++ show bodyBytes
@@ -109,14 +111,14 @@ json item@(BackendSource meta body) = do
 
 -- | Parser for YAML source data.
 yaml :: (MonadIO m, Monad m) => BackendSource -> m (BackendData n h)
-yaml item@(BackendSource meta body) = do
+yaml item@(BackendSource meta body _) = do
     bodyBytes <- liftIO $ rawToLBS body
     case YAML.decodeEither (toStrict bodyBytes) of
         Left err -> fail $ err ++ "\n" ++ show bodyBytes
         Right json -> return . toBackendData item $ (json :: JSON.Value)
 
 urlencodedForm :: (MonadIO m, Monad m) => BackendSource -> m (BackendData n h)
-urlencodedForm item@(BackendSource meta body) = do
+urlencodedForm item@(BackendSource meta body _) = do
     bodyBytes <- liftIO $ rawToLBS body
     return .
         toBackendData item .
@@ -134,7 +136,7 @@ pandocBS :: (MonadIO m, Monad m, Monad n)
          => (LByteString -> Either PandocError Pandoc)
          -> BackendSource
          -> m (BackendData n h)
-pandocBS reader input@(BackendSource meta body) = do
+pandocBS reader input@(BackendSource meta body _) = do
     bodyBytes <- liftIO $ rawToLBS body
     case reader bodyBytes of
         Left err -> fail . show $ err
@@ -146,7 +148,7 @@ pandocWithMedia :: (MonadIO m, Monad m, Monad n)
                 => (LByteString -> Either PandocError (Pandoc, Pandoc.MediaBag))
                 -> BackendSource
                 -> m (BackendData n h)
-pandocWithMedia reader input@(BackendSource meta body) = do
+pandocWithMedia reader input@(BackendSource meta body _) = do
     bodyBytes <- liftIO $ rawToLBS body
     case reader bodyBytes of
         Left err -> fail . show $ err
@@ -174,7 +176,7 @@ mediaBagToBackendData bag = do
                     , bmPath = pack path
                     , bmSize = Just $ fromIntegral contentLength
                     }
-        (pack path,) <$> parseBackendData (BackendSource meta (rawFromLBS body))
+        (pack path,) <$> parseBackendData (BackendSource meta (rawFromLBS body) Trusted)
 
 -- | Parser for Pandoc-supported formats that are read from 'String's.
 pandoc :: (MonadIO m, Monad m, Monad n)

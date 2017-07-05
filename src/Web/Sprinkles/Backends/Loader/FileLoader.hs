@@ -17,6 +17,7 @@ import Web.Sprinkles.Backends.Data
         ( BackendData (..)
         , BackendMeta (..)
         , BackendSource (..)
+        , Verification (..)
         , Items (..)
         , reduceItems
         , RawBytes (..)
@@ -102,7 +103,7 @@ mkFileBackendSource mimeType candidate contents = do
                 , bmPath = pack candidate
                 , bmSize = Just . fromIntegral $ fileSize status :: Maybe Integer
                 }
-    return $ BackendSource meta contents
+    return $ BackendSource meta contents Trusted
 
 -- | Our own extended MIME type dictionary. The default one lacks appropriate
 -- entries for some of the important types we use, so we add them here.

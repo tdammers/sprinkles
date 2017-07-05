@@ -17,6 +17,7 @@ import Web.Sprinkles.Backends.Data
         ( BackendData (..)
         , BackendMeta (..)
         , BackendSource (..)
+        , Verification (..)
         , Items (..)
         , reduceItems
         , rawFromLBS
@@ -69,4 +70,4 @@ sqlLoader dsn mode queries writeLog _ fetchMode fetchOrder = do
                         , bmPath = "SQL"
                         , bmSize = Just . fromIntegral $ length json
                         }
-            in BackendSource meta (rawFromLBS json)
+            in BackendSource meta (rawFromLBS json) Trusted

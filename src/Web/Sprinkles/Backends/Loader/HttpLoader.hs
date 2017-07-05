@@ -20,6 +20,7 @@ import Web.Sprinkles.Backends.Data
         ( BackendData (..)
         , BackendMeta (..)
         , BackendSource (..)
+        , Verification (..)
         , Items (..)
         , reduceItems
         , rawFromLBS
@@ -78,4 +79,4 @@ curlLoader uriText options writeLog _ fetchMode fetchOrder = do
                             , bmPath = uriText
                             , bmSize = contentLength
                             }
-                return [BackendSource meta body]
+                return [BackendSource meta body Trusted]

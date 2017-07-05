@@ -17,6 +17,7 @@ import Web.Sprinkles.Backends.Data
         ( BackendData (..)
         , BackendMeta (..)
         , BackendSource (..)
+        , Verification (..)
         , Items (..)
         , reduceItems
         , rawFromLBS
@@ -85,4 +86,4 @@ requestBodyLoader writeLog pbs fetchMode fetchOrder = do
                 , bmPath = decodeUtf8 filename
                 , bmSize = Nothing
                 }
-    return [BackendSource meta contents]
+    return [BackendSource meta contents VerifyCSRF]
