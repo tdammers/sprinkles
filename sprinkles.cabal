@@ -62,6 +62,7 @@ library
                  , Data.EmbedVersion
                  , Data.AList
                  , Data.Expandable
+                 , Data.RandomString
   build-depends: base >= 4.7 && < 5
                , Cabal
                , Glob

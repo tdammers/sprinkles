@@ -28,6 +28,7 @@ import Network.Wai
 import qualified Data.ByteString.Char8 as Char8
 import Data.Char (isSpace)
 import qualified Crypto.Nonce as Nonce
+import Data.RandomString (randomStr)
 
 setSessionCookie :: Project -> Request -> SessionHandle -> Response -> Response
 setSessionCookie project request session =
@@ -50,13 +51,30 @@ resumeSession project request = do
             parseCookieHeader >>=
             lookup (sessCookieName sessionConfig)
 
+verifyCSRF :: Project -> Request -> IO Bool
+verifyCSRF project request = do
+    let sessionConfig = projectSessionConfig project
+        sessionStore = projectSessionStore project
+    resumeSession project request >>= \case
+        Nothing ->
+            return False
+        Just handle -> do
+            let csrfHeaderMay = decodeUtf8 <$> lookup "X-Form-Token" (requestHeaders request)
+            csrfTokenMay <- sessionGet handle "csrf"
+            return $
+                (csrfHeaderMay == csrfTokenMay) &&
+                isJust csrfHeaderMay
+
 newSession :: Project -> Request -> IO (Maybe SessionHandle)
 newSession project request = do
     ssid <- Nonce.new >>= Nonce.nonce128url
+    csrfToken <- Nonce.new >>= Nonce.nonce128url
     let sessionConfig = projectSessionConfig project
         sessionStore = projectSessionStore project
     ssCreateSession sessionStore ssid NeverExpires
-    return . Just $ makeSessionHandle sessionStore ssid
+    let handle = makeSessionHandle sessionStore ssid
+    sessionPut handle "csrf" . decodeUtf8 $ csrfToken
+    return . Just $ handle
 
 parseCookieHeader :: ByteString -> Maybe [(ByteString, ByteString)]
 parseCookieHeader headerVal =

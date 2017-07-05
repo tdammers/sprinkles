@@ -38,7 +38,7 @@ import Web.Sprinkles.Logger as Logger
 import Web.Sprinkles.Backends.Loader.Type
        (RequestContext (..), pbsFromRequest, pbsInvalid)
 import Web.Sprinkles.SessionHandle
-import System.Random (randomRIO)
+import Data.RandomString (randomStr)
 
 sprinklesGingerContext :: RawBackendCache
                        -> Wai.Request
@@ -110,16 +110,9 @@ gfnRandomStr args = do
                     Just l -> return l
             let alphabet :: String
                 alphabet = unpack . Ginger.asText $ alphabetG
-                alphabetSize :: Int
-                alphabetSize = ClassyPrelude.length alphabet
-            when (alphabetSize < 2)
+            when (null alphabet)
                 (throwM $ GingerInvalidFunctionArgs "randomStr" "alphabet too small")
-            when (desiredLength < 1)
-                (throwM $ GingerInvalidFunctionArgs "randomStr" "length too small")
-            items :: [String] <- forM [0..desiredLength] $ \_ -> do
-                i :: Int <- liftIO $ randomRIO (0, pred alphabetSize)
-                return $ take 1 . drop i $ alphabet
-            return . toGVal $ concat items
+            liftIO $ toGVal <$> randomStr alphabet desiredLength
         _ -> throwM $ GingerInvalidFunctionArgs "randomStr" "int length, string alphabet"
 
 gfnBCryptValidate :: Ginger.Function (Ginger.Run IO h)
