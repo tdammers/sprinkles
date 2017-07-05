@@ -78,6 +78,7 @@ import Web.Sprinkles.Handlers.Common
        , handle500
        , handle404
        , handleNotAllowed
+       , handleRequestValidation
        , marshalGValHtmlToText
        )
 import Web.Sprinkles.MatchedText (MatchedText (..))
@@ -148,7 +149,7 @@ handleRequest :: Project -> Wai.Application
 handleRequest project request respond =
     go `catch` handleNotFound project request respond
        `catch` handleMethodNotAllowed project request respond
-       `catch` handleNotAllowed project request respond
+       `catch` handleRequestValidation project request respond
        `catch` \e -> handle500 e project request respond
     where
         go = do
@@ -181,14 +182,18 @@ handleRule rule captures project request respond = do
         RequireSession -> resumeSession project request >>= \case
             Nothing -> throwM NotAllowedException
             Just s -> return $ Just s
+        CreateNewSession -> return Nothing
+
+    newSession <- case ruleSessionDirective rule of
         CreateNewSession -> newSession project request
+        _ -> return session
 
     let cache = projectBackendCache project
         capturesG = fmap toGVal captures
         globalBackendSpecs = pcContextData . projectConfig $ project
         backendSpecs = ruleContextData $ rule
         logger = projectLogger project
-        context = capturesG <> sprinklesGingerContext cache request session logger
+    context <- (capturesG <>) <$> sprinklesGingerContext cache request newSession logger
 
     now <- getCurrentTime
     let oneYear = 86400 * 365 -- good enough
@@ -212,7 +217,7 @@ handleRule rule captures project request respond = do
                     )
 
         addCookie :: Wai.Response -> Wai.Response
-        addCookie = maybe id (setSessionCookie project request) session
+        addCookie = maybe id (setSessionCookie project request) newSession
 
         addExpiryHeader :: Wai.Response -> Wai.Response
         addExpiryHeader =

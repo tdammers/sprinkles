@@ -14,6 +14,8 @@ import ClassyPrelude
 import Text.Ginger
        (parseGinger, Template, runGingerT, GingerContext, GVal(..), ToGVal(..),
         (~>))
+import Text.Ginger.Html
+       (unsafeRawHtml, html)
 import qualified Text.Ginger as Ginger
 import qualified Data.Yaml as YAML
 import qualified Data.Aeson as JSON
@@ -40,15 +42,31 @@ import Web.Sprinkles.Backends.Loader.Type
 import Web.Sprinkles.SessionHandle
 import Data.RandomString (randomStr)
 
+import Text.Printf (printf)
+
 sprinklesGingerContext :: RawBackendCache
                        -> Wai.Request
                        -> Maybe SessionHandle
                        -> Logger
-                       -> HashMap Text (GVal (Ginger.Run IO h))
-sprinklesGingerContext cache request session logger =
-    mapFromList
+                       -> IO (HashMap Text (GVal (Ginger.Run IO h)))
+sprinklesGingerContext cache request session logger = do
+    csrfTokenMay <- case session of
+        Nothing -> return Nothing
+        Just handle -> sessionGet handle "csrf"
+    writeLog logger Debug . pack . printf "CSRF token: %s" . show $ csrfTokenMay
+    let htmlCsrfToken = case csrfTokenMay of
+            Just token ->
+                mconcat
+                    [ unsafeRawHtml "<input type=\"hidden\" name=\"__form_token\" value=\""
+                    , html token
+                    , unsafeRawHtml "\"/>"
+                    ]
+            Nothing ->
+                unsafeRawHtml "<!-- no form token defined -->"
+    return $ mapFromList
         [ "request" ~> request
         , "session" ~> session
+        , "formToken" ~> htmlCsrfToken
         , ("load", Ginger.fromFunction (gfnLoadBackendData (writeLog logger) cache))
         ] <> baseGingerContext logger
 

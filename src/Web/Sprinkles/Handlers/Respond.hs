@@ -135,8 +135,8 @@ mkContextLookup :: (ToGVal (Ginger.Run IO h) a)
 mkContextLookup request project session contextMap key = do
     let cache = projectBackendCache project
         logger = projectLogger project
-        contextMap' =
-            fmap toGVal contextMap <>
-            sprinklesGingerContext cache request session logger
+    sprinklesContext <- liftIO $
+        sprinklesGingerContext cache request session logger
+    let contextMap' =
+            fmap toGVal contextMap <> sprinklesContext
     return . fromMaybe def $ lookup key contextMap'
-

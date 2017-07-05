@@ -6,6 +6,7 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE MultiParamTypeClasses #-}
+{-#LANGUAGE DeriveGeneric #-}
 module Web.Sprinkles.Handlers.Common
 where
 
@@ -36,21 +37,27 @@ import Web.Sprinkles.Exceptions
 import qualified Data.Foldable as Foldable
 import qualified Data.Aeson as JSON
 import Data.Aeson (FromJSON (..))
+import Text.Printf (printf)
 
 data NotFoundException = NotFoundException
-    deriving (Show)
+    deriving (Show, Eq, Generic)
 
 instance Exception NotFoundException where
 
 data MethodNotAllowedException = MethodNotAllowedException
-    deriving (Show)
+    deriving (Show, Eq, Generic)
 
 instance Exception MethodNotAllowedException where
 
 data NotAllowedException = NotAllowedException
-    deriving (Show)
+    deriving (Show, Eq, Generic)
 
 instance Exception NotAllowedException where
+
+data RequestValidationException = RequestValidationException
+    deriving (Show, Eq, Generic)
+
+instance Exception RequestValidationException
 
 type ContextualHandler =
     HashMap Text (Items (BackendData IO Html)) ->
@@ -78,6 +85,13 @@ handleNotAllowed project request respond _ = do
         status400
         [("Content-type", "text/plain")]
         "Not allowed"
+
+handleRequestValidation :: Project -> Wai.Request -> (Wai.Response -> IO Wai.ResponseReceived) -> RequestValidationException -> IO Wai.ResponseReceived
+handleRequestValidation project request respond _ = do
+    respond $ Wai.responseLBS
+        status400
+        [("Content-type", "text/plain")]
+        "Invalid Request"
 
 handleHttpError :: Status
                 -> Text
@@ -149,7 +163,7 @@ loadBackendDict writeLog reqCtx cache backendPaths required globalContext = do
                     reqCtx
                     cache
                     expBackendSpec
-            Foldable.traverse_ (verifyBD reqCtx) bd
+            Foldable.traverse_ (verifyBD writeLog reqCtx) bd
             resultItem <- case bd of
                 NotFound ->
                     if key `elem` required
@@ -165,31 +179,41 @@ loadBackendDict writeLog reqCtx cache backendPaths required globalContext = do
             return $ resultItem:remainder
         go _ _ = return []
 
-verifyBD :: RequestContext -> BackendData IO Html -> IO ()
-verifyBD reqCtx bd =
+verifyBD :: (LogLevel -> Text -> IO ()) -> RequestContext -> BackendData IO Html -> IO ()
+verifyBD writeLog reqCtx bd =
     case bdVerification bd of
-        Trusted ->
+        Trusted -> do
+            writeLog Debug "Trusted"
             return ()
         VerifyCSRF -> do
+            writeLog Debug "CSRF"
             let csrfHeaderMay = decodeUtf8 <$> lookupHeader reqCtx "X-Form-Token"
                 csrfFormFieldMay =
                     (fromJSONMay (bdJSON bd) :: Maybe (HashMap Text JSON.Value))
                     >>= lookup "__form_token"
                     >>= fromJSONMay
-            csrfToken <- case sessionHandle reqCtx of
-                Nothing -> 
-                    throwM RequestValidationException
+            writeLog Debug $ "POST (JSON): " <> tshow (bdJSON bd)
+            case sessionHandle reqCtx of
+                Nothing -> do
+                    -- No session means there's no need to check the
+                    -- CSRF token, because without a session, the user
+                    -- cannot be holding an authenticated identity.
+                    writeLog Notice "No session, not performing CSRF validation"
+                    return ()
                 Just session -> do
-                    maybe
+                    writeLog Notice "Session found, checking CSRF token"
+                    csrfToken <- maybe
                         (throwM RequestValidationException)
                         return
                         =<< sessionGet session "csrf"
-            let candidates :: [Text]
-                candidates = catMaybes [csrfHeaderMay, csrfFormFieldMay]
-            when (null candidates)
-                (throwM RequestValidationException)
-            when (any (/= csrfToken) candidates)
-                (throwM RequestValidationException)
+                    let candidates :: [Text]
+                        candidates = catMaybes [csrfHeaderMay, csrfFormFieldMay]
+                    writeLog Notice . pack $ printf "CSRF token: %s; candidates: %s"
+                        (show csrfToken) (show candidates)
+                    when (null candidates)
+                        (throwM RequestValidationException)
+                    when (any (/= csrfToken) candidates)
+                        (throwM RequestValidationException)
 
 fromJSONMay :: FromJSON a => JSON.Value -> Maybe a
 fromJSONMay x = case JSON.fromJSON x of
