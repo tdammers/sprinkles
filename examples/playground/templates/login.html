@@ -3,7 +3,7 @@
     <body>
         <h1>login</h1>
         <form method="POST" action="/login">
-            {{ formToken }}
+            {{ formTokenInput }}
             {%- if errorCode -%}
             <div class="error">
                 {%- set errorMessages = {

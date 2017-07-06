@@ -54,7 +54,7 @@ sprinklesGingerContext cache request session logger = do
         Nothing -> return Nothing
         Just handle -> sessionGet handle "csrf"
     writeLog logger Debug . pack . printf "CSRF token: %s" . show $ csrfTokenMay
-    let htmlCsrfToken = case csrfTokenMay of
+    let csrfTokenInput = case csrfTokenMay of
             Just token ->
                 mconcat
                     [ unsafeRawHtml "<input type=\"hidden\" name=\"__form_token\" value=\""
@@ -66,7 +66,8 @@ sprinklesGingerContext cache request session logger = do
     return $ mapFromList
         [ "request" ~> request
         , "session" ~> session
-        , "formToken" ~> htmlCsrfToken
+        , "formToken" ~> csrfTokenMay
+        , "formTokenInput" ~> csrfTokenInput
         , ("load", Ginger.fromFunction (gfnLoadBackendData (writeLog logger) cache))
         ] <> baseGingerContext logger
 
