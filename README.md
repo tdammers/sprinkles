@@ -240,6 +240,7 @@ Particular points of interest:
   be provided as a list; the command is run directly, without a shell. This
   means, among other things, that shell magic such as globbing, environment
   variable substitution, or shorthands like `~` won't work.
+- The subprocess runs with the user as the Sprinkle process. 
 
 ##### The `post` Backend
 
