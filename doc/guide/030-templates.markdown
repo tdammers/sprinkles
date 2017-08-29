@@ -28,7 +28,7 @@ following template snippet:
 One thing to note here is that Ginger automatically HTML-encodes any data
 you pass it, unless it is HTML-encoded already; this means that you will not
 generally encounter XSS vulnerabilities, nor excessive HTML-encoding (i.e.,
-seeing "special" HTML characters in the output such as \&amp; or \&gt;.
+seeing "special" HTML characters in the output such as \&amp; or \&gt;).
 
 ## Literal Values
 
@@ -279,5 +279,5 @@ current HTTP request, particularly:
   correctly.
 - `pandoc`: Pass the input through pandoc (the rich-text conversion library
   Sprinkles uses). The second argument is the input language to use.
-- `markdown`, `textile`, `rst`, `creole`:, Shorthand for `pandoc`, selecting the
+- `markdown`, `textile`, `rst`, `creole`: Shorthand for `pandoc`, selecting the
   input language directly. 
