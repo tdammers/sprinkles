@@ -56,7 +56,7 @@ instance ToGVal m ByteString where
 instance ToGVal m (CI.CI ByteString) where
     toGVal = toGVal . CI.original
 
-respondTemplateHtml :: ToGVal (Ginger.Run IO Html) a
+respondTemplateHtml :: ToGVal (Ginger.Run Ginger.SourcePos IO Html) a
                     => Project
                     -> Maybe SessionHandle
                     -> Status
@@ -73,7 +73,7 @@ respondTemplateHtml =
         writeText write = write . stringUtf8 . unpack . htmlSource
         makeContext = Ginger.makeContextHtmlM
 
-respondTemplateText :: ToGVal (Ginger.Run IO Text) a
+respondTemplateText :: ToGVal (Ginger.Run Ginger.SourcePos IO Text) a
                     => Project
                     -> Maybe SessionHandle
                     -> Status
@@ -90,16 +90,16 @@ respondTemplateText =
         writeText write = write . stringUtf8 . unpack . ClassyPrelude.asText
         makeContext = Ginger.makeContextTextM
 
-respondTemplate :: ToGVal (Ginger.Run IO h) a
-                => ToGVal (Ginger.Run IO h) h
+respondTemplate :: ToGVal (Ginger.Run Ginger.SourcePos IO h) a
+                => ToGVal (Ginger.Run Ginger.SourcePos IO h) h
                 => Monoid h
                 => ByteString -- ^ content type
                 -> ( (Builder -> IO ())
                    -> h -> IO ()
                    )
-                -> (  (Text -> Ginger.Run IO h (GVal (Ginger.Run IO h)))
+                -> (  (Text -> Ginger.Run Ginger.SourcePos IO h (GVal (Ginger.Run Ginger.SourcePos IO h)))
                    -> (h -> IO ())
-                   -> GingerContext IO h
+                   -> GingerContext Ginger.SourcePos IO h
                    )
                 -> Project
                 -> Maybe SessionHandle
@@ -125,13 +125,13 @@ respondTemplate contentType
         runGingerT context template
         flush
 
-mkContextLookup :: (ToGVal (Ginger.Run IO h) a)
+mkContextLookup :: (ToGVal (Ginger.Run Ginger.SourcePos IO h) a)
                 => Wai.Request
                 -> Project
                 -> Maybe SessionHandle
                 -> HashMap Text a
                 -> Text
-                -> Ginger.Run IO h (GVal (Ginger.Run IO h))
+                -> Ginger.Run Ginger.SourcePos IO h (GVal (Ginger.Run Ginger.SourcePos IO h))
 mkContextLookup request project session contextMap key = do
     let cache = projectBackendCache project
         logger = projectLogger project

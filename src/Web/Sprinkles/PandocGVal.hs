@@ -24,7 +24,7 @@ writerOptions =
         , writerHtml5 = True
         }
 
-gfnWithMediaRoot :: Monad m => Pandoc -> Ginger.Function (Ginger.Run m h)
+gfnWithMediaRoot :: Monad m => Pandoc -> Ginger.Function (Ginger.Run p m h)
 gfnWithMediaRoot pandoc args = do
     defMediaroot <- fromMaybe def . Ginger.lookupKey "path" <$> Ginger.getVar "request"
     let extracted =
@@ -38,7 +38,7 @@ gfnWithMediaRoot pandoc args = do
             return $ toGVal pandoc'
         _ -> return def
 
-gfnWithAppRoot :: Monad m => Pandoc -> Ginger.Function (Ginger.Run m h)
+gfnWithAppRoot :: Monad m => Pandoc -> Ginger.Function (Ginger.Run p m h)
 gfnWithAppRoot pandoc args = do
     defApproot <- Ginger.getVar "approot"
     let extracted =
@@ -84,7 +84,7 @@ localUrlPrefix prefix = modifyUrls (prefixLocalUrl prefix)
 relativeUrlPrefix :: String -> Pandoc -> Pandoc
 relativeUrlPrefix prefix = modifyUrls (prefixRelativeUrl prefix)
 
-instance Monad m => ToGVal (Ginger.Run m h) Pandoc where
+instance Monad m => ToGVal (Ginger.Run p m h) Pandoc where
     toGVal pandoc@(Pandoc meta blocks) =
         def { asList = Just $ map toGVal blocks
             , asDictItems =

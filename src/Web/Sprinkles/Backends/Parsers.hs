@@ -45,7 +45,7 @@ import Network.HTTP.Types (parseQuery, queryToQueryText)
 -- | Parse raw backend data source into a structured backend data record.
 parseBackendData :: (MonadIO m, Monad m, Monad n)
                  => BackendSource
-                 -> m (BackendData n h)
+                 -> m (BackendData p n h)
 parseBackendData item@(BackendSource meta body _) = do
     let t = takeWhile (/= fromIntegral (ord ';')) (bmMimeType meta)
         parse = fromMaybe parseRawData $ lookup t parsersTable
@@ -53,19 +53,19 @@ parseBackendData item@(BackendSource meta body _) = do
 
 -- | Lookup table of mime types to parsers.
 parsersTable :: (MonadIO m, Monad m, Monad n)
-             => HashMap MimeType (BackendSource -> m (BackendData n h))
+             => HashMap MimeType (BackendSource -> m (BackendData p n h))
 parsersTable = mapFromList . mconcat $
     [ zip mimeTypes (repeat parser) | (mimeTypes, parser) <- parsers ]
 
 -- | The parsers we know, by mime types.
 parsers :: (MonadIO m, Monad m, Monad n)
-        => [([MimeType], BackendSource -> m (BackendData n h))]
+        => [([MimeType], BackendSource -> m (BackendData p n h))]
 parsers =
     [ (types, getParser p) | (types, p) <- parserTypes ]
 
 getParser :: (MonadIO m, Monad m, Monad n)
           => ParserType
-          -> (BackendSource -> m (BackendData n h))
+          -> (BackendSource -> m (BackendData p n h))
 getParser ParserJSON = json
 getParser ParserYAML = yaml
 getParser ParserFormUrlencoded = urlencodedForm
@@ -84,7 +84,7 @@ knownContentTypes = concatMap fst parserTypes
 
 -- | Parser for raw data (used for static files); this is also the default
 -- fallback for otherwise unsupported file types.
-parseRawData :: Monad m => BackendSource -> m (BackendData n h)
+parseRawData :: Monad m => BackendSource -> m (BackendData p n h)
 parseRawData (BackendSource meta body veri) =
     return BackendData
         { bdJSON = JSON.Null
@@ -96,13 +96,13 @@ parseRawData (BackendSource meta body veri) =
         }
 
 -- | Parser for (utf-8) plaintext documents.
-plainText :: (MonadIO m, Monad m) => BackendSource -> m (BackendData n h)
+plainText :: (MonadIO m, Monad m) => BackendSource -> m (BackendData p n h)
 plainText item@(BackendSource meta body _) = do
     textBody <- liftIO $ toStrict . decodeUtf8 <$> rawToLBS body
     return $ toBackendData item textBody
 
 -- | Parser for JSON source data.
-json :: (MonadIO m, Monad m) => BackendSource -> m (BackendData n h)
+json :: (MonadIO m, Monad m) => BackendSource -> m (BackendData p n h)
 json item@(BackendSource meta body _) = do
     bodyBytes <- liftIO $ rawToLBS body
     case JSON.eitherDecode bodyBytes of
@@ -110,14 +110,14 @@ json item@(BackendSource meta body _) = do
         Right json -> return . toBackendData item $ (json :: JSON.Value)
 
 -- | Parser for YAML source data.
-yaml :: (MonadIO m, Monad m) => BackendSource -> m (BackendData n h)
+yaml :: (MonadIO m, Monad m) => BackendSource -> m (BackendData p n h)
 yaml item@(BackendSource meta body _) = do
     bodyBytes <- liftIO $ rawToLBS body
     case YAML.decodeEither (toStrict bodyBytes) of
         Left err -> fail $ err ++ "\n" ++ show bodyBytes
         Right json -> return . toBackendData item $ (json :: JSON.Value)
 
-urlencodedForm :: (MonadIO m, Monad m) => BackendSource -> m (BackendData n h)
+urlencodedForm :: (MonadIO m, Monad m) => BackendSource -> m (BackendData p n h)
 urlencodedForm item@(BackendSource meta body _) = do
     bodyBytes <- liftIO $ rawToLBS body
     return .
@@ -135,7 +135,7 @@ urlencodedForm item@(BackendSource meta body _) = do
 pandocBS :: (MonadIO m, Monad m, Monad n)
          => (LByteString -> Either PandocError Pandoc)
          -> BackendSource
-         -> m (BackendData n h)
+         -> m (BackendData p n h)
 pandocBS reader input@(BackendSource meta body _) = do
     bodyBytes <- liftIO $ rawToLBS body
     case reader bodyBytes of
@@ -147,7 +147,7 @@ pandocBS reader input@(BackendSource meta body _) = do
 pandocWithMedia :: (MonadIO m, Monad m, Monad n)
                 => (LByteString -> Either PandocError (Pandoc, Pandoc.MediaBag))
                 -> BackendSource
-                -> m (BackendData n h)
+                -> m (BackendData p n h)
 pandocWithMedia reader input@(BackendSource meta body _) = do
     bodyBytes <- liftIO $ rawToLBS body
     case reader bodyBytes of
@@ -160,7 +160,7 @@ pandocWithMedia reader input@(BackendSource meta body _) = do
 
 mediaBagToBackendData :: (MonadIO m, Monad m, Monad n)
                       => Pandoc.MediaBag
-                      -> m [(Text, BackendData n h)]
+                      -> m [(Text, BackendData p n h)]
 mediaBagToBackendData bag = do
     let metas = Pandoc.mediaDirectory bag
     forM metas $ \(path, mimeType, contentLength) -> do
@@ -182,7 +182,7 @@ mediaBagToBackendData bag = do
 pandoc :: (MonadIO m, Monad m, Monad n)
        => (String -> Either PandocError Pandoc)
        -> BackendSource
-       -> m (BackendData n h)
+       -> m (BackendData p n h)
 pandoc reader =
     pandocBS (reader . unpack . decodeUtf8)
 

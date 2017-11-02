@@ -106,7 +106,7 @@ rawToLBS r = do
     len <- rbLength r
     rbGetRange r 0 len
 
-rawToGVal :: MonadIO m => RawBytes -> GVal (Run m h)
+rawToGVal :: MonadIO m => RawBytes -> GVal (Run p m h)
 rawToGVal raw =
     dict
         [ ("length", Ginger.fromFunction (gfnLength raw))
@@ -114,11 +114,11 @@ rawToGVal raw =
         , ("store", Ginger.fromFunction (gfnStore raw))
         ]
     where
-        gfnLength :: MonadIO m => RawBytes -> [(Maybe Text, GVal (Run m h))] -> Run m h (GVal (Run m h))
+        gfnLength :: MonadIO m => RawBytes -> [(Maybe Text, GVal (Run p m h))] -> Run p m h (GVal (Run p m h))
         gfnLength raw args = do
             length <- liftIO (rbLength raw)
             return . toGVal $ length
-        gfnRead :: MonadIO m => RawBytes -> [(Maybe Text, GVal (Run m h))] -> Run m h (GVal (Run m h))
+        gfnRead :: MonadIO m => RawBytes -> [(Maybe Text, GVal (Run p m h))] -> Run p m h (GVal (Run p m h))
         gfnRead raw args = do
             inputLength <- liftIO (rbLength raw)
             let extracted =
@@ -135,7 +135,7 @@ rawToGVal raw =
                     return . toGVal . LBS8.unpack $ bytes
                 _ -> fail "Invalid arguments to RawBytes.read"
 
-        gfnStore :: MonadIO m => RawBytes -> [(Maybe Text, GVal (Run m h))] -> Run m h (GVal (Run m h))
+        gfnStore :: MonadIO m => RawBytes -> [(Maybe Text, GVal (Run p m h))] -> Run p m h (GVal (Run p m h))
         gfnStore raw args = do
             let extracted =
                     Ginger.extractArgsDefL
@@ -154,17 +154,17 @@ rawToGVal raw =
         asInteger :: GVal m -> Maybe Integer
         asInteger = fmap round . Ginger.asNumber
 
-instance MonadIO m => ToGVal (Run m h) RawBytes where
+instance MonadIO m => ToGVal (Run p m h) RawBytes where
     toGVal = rawToGVal
 
 -- | A parsed record from a query result.
-data BackendData m h =
+data BackendData p m h =
     BackendData
         { bdJSON :: JSON.Value -- ^ Result body as JSON
-        , bdGVal :: GVal (Run m h) -- ^ Result body as GVal
+        , bdGVal :: GVal (Run p m h) -- ^ Result body as GVal
         , bdRaw :: RawBytes -- ^ Raw result body source
         , bdMeta :: BackendMeta -- ^ Meta-information
-        , bdChildren :: HashMap Text (BackendData m h) -- ^ Child documents
+        , bdChildren :: HashMap Text (BackendData p m h) -- ^ Child documents
         , bdVerification :: Verification
         }
 
@@ -204,7 +204,7 @@ deserializeBackendSource sbs =
 -- raw 'BackendSource' value is needed alongside the parsed value, because the
 -- resulting structure contains both the 'BackendMeta' and the raw (unparsed)
 -- data from it.
-toBackendData :: (ToJSON a, ToGVal (Run m h) a) => BackendSource -> a -> BackendData m h
+toBackendData :: (ToJSON a, ToGVal (Run p m h) a) => BackendSource -> a -> BackendData p m h
 toBackendData src val =
     BackendData
         { bdJSON = toJSON val
@@ -215,16 +215,16 @@ toBackendData src val =
         , bdVerification = bsVerification src
         }
 
-addBackendDataChildren :: HashMap Text (BackendData m h)
-                       -> BackendData m h
-                       -> BackendData m h
+addBackendDataChildren :: HashMap Text (BackendData p m h)
+                       -> BackendData p m h
+                       -> BackendData p m h
 addBackendDataChildren children bd =
     bd { bdChildren = children <> bdChildren bd }
 
-instance ToJSON (BackendData m h) where
+instance ToJSON (BackendData p m h) where
     toJSON = bdJSON
 
-instance MonadIO m => ToGVal (Run m h) (BackendData m h) where
+instance MonadIO m => ToGVal (Run p m h) (BackendData p m h) where
     toGVal bd =
         let baseVal = bdGVal bd
             baseLookup = fromMaybe (const def) $ Ginger.asLookup baseVal

@@ -16,6 +16,7 @@ import Text.Ginger
         , GVal (..)
         , ToGVal (..)
         , (~>)
+        , SourcePos
         )
 import Text.Ginger.Html (Html, htmlSource)
 import qualified Text.Ginger as Ginger
@@ -36,7 +37,7 @@ import Web.Sprinkles.SessionStore
 import Web.Sprinkles.SessionStore.Database (sqlSessionStore, DSN (..), SqlDriver (SqliteDriver))
 import Web.Sprinkles.SessionStore.InProc (inProcSessionStore)
 
-newtype TemplateCache = TemplateCache (HashMap Text Template)
+newtype TemplateCache = TemplateCache (HashMap Text (Template SourcePos))
 
 data Project =
     Project
@@ -142,7 +143,7 @@ preloadTemplates logger dir = do
             Right t -> return t
     return . TemplateCache . mapFromList $ zip (map pack relativeFilenames) templates
 
-getTemplate :: Project -> Text -> IO Template
+getTemplate :: Project -> Text -> IO (Template SourcePos)
 getTemplate project templateName = do
     let TemplateCache tm = projectTemplates project
     maybe

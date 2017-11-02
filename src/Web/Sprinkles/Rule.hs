@@ -18,7 +18,7 @@ import qualified Network.HTTP as HTTP
 import qualified Network.HTTP.Types as HTTP
 import qualified Data.AList as AList
 import Data.AList (AList)
-import Text.Ginger (Run, ToGVal (..), GVal)
+import Text.Ginger (Run, ToGVal (..), GVal, SourcePos)
 import Control.Monad.Writer (Writer)
 import qualified Data.Set as Set
 import Data.Expandable
@@ -112,7 +112,7 @@ instance FromJSON Rule where
             sessionDirective
     parseJSON x = fail $ "Expected rule, but found " <> show x
 
-expandRuleTarget :: HashMap Text (GVal (Run IO Text)) -> RuleTarget Replacement -> IO (RuleTarget Text)
+expandRuleTarget :: HashMap Text (GVal (Run SourcePos IO Text)) -> RuleTarget Replacement -> IO (RuleTarget Text)
 expandRuleTarget _ JSONTarget =
      return JSONTarget
 expandRuleTarget varMap (StaticTarget pMay) =
@@ -122,7 +122,7 @@ expandRuleTarget varMap (TemplateTarget p) =
 expandRuleTarget varMap (RedirectTarget p) =
      RedirectTarget <$> expandReplacement varMap p
 
-expandReplacementBackend :: HashMap Text (GVal (Run IO Text))
+expandReplacementBackend :: HashMap Text (GVal (Run SourcePos IO Text))
                          -> BackendSpec
                          -> IO BackendSpec
 expandReplacementBackend varMap spec = do

@@ -29,7 +29,7 @@ import Web.Sprinkles.Backends.Data
 import Web.Sprinkles.Rule (expandReplacementBackend)
 import Data.AList (AList)
 import qualified Data.AList as AList
-import Text.Ginger (GVal, ToGVal (..), Run, marshalGValEx, hoistRun)
+import Text.Ginger (GVal, ToGVal (..), Run, marshalGValEx, hoistRun, SourcePos)
 import Text.Ginger.Run.VM (withEncoder)
 import Control.Monad.Writer (Writer)
 import Web.Sprinkles.SessionHandle
@@ -60,7 +60,7 @@ data RequestValidationException = RequestValidationException
 instance Exception RequestValidationException
 
 type ContextualHandler =
-    HashMap Text (Items (BackendData IO Html)) ->
+    HashMap Text (Items (BackendData SourcePos IO Html)) ->
     Project ->
     Maybe SessionHandle ->
     Wai.Application
@@ -147,17 +147,17 @@ loadBackendDict :: (LogLevel -> Text -> IO ())
                 -> RawBackendCache
                 -> AList Text BackendSpec
                 -> Set Text
-                -> HashMap Text (GVal (Run IO Text))
-                -> IO (HashMap Text (Items (BackendData IO Html)))
+                -> HashMap Text (GVal (Run SourcePos IO Text))
+                -> IO (HashMap Text (Items (BackendData SourcePos IO Html)))
 loadBackendDict writeLog reqCtx cache backendPaths required globalContext = do
     mapFromList <$> go globalContext (AList.toList backendPaths)
     where
-        go :: HashMap Text (GVal (Run IO Text))
+        go :: HashMap Text (GVal (Run SourcePos IO Text))
            -> [(Text, BackendSpec)]
-           -> IO [(Text, Items (BackendData IO Html))]
+           -> IO [(Text, Items (BackendData SourcePos IO Html))]
         go context ((key, backendSpec):specs) = do
             expBackendSpec <- expandReplacementBackend context backendSpec
-            bd :: Items (BackendData IO Html)
+            bd :: Items (BackendData SourcePos IO Html)
                <- loadBackendData
                     writeLog
                     reqCtx
@@ -170,16 +170,16 @@ loadBackendDict writeLog reqCtx cache backendPaths required globalContext = do
                         then throwM NotFoundException
                         else return (key, NotFound)
                 _ -> return (key, bd)
-            let bdG :: GVal (Run IO Html)
+            let bdG :: GVal (Run SourcePos IO Html)
                 bdG = toGVal bd
-                bdGP :: GVal (Run IO Text)
+                bdGP :: GVal (Run SourcePos IO Text)
                 bdGP = marshalGValHtmlToText bdG
                 context' = insertMap key bdGP context
             remainder <- go context' specs
             return $ resultItem:remainder
         go _ _ = return []
 
-verifyBD :: (LogLevel -> Text -> IO ()) -> RequestContext -> BackendData IO Html -> IO ()
+verifyBD :: (LogLevel -> Text -> IO ()) -> RequestContext -> BackendData SourcePos IO Html -> IO ()
 verifyBD writeLog reqCtx bd =
     case bdVerification bd of
         Trusted -> do
@@ -220,14 +220,14 @@ fromJSONMay x = case JSON.fromJSON x of
     JSON.Error _ -> Nothing
     JSON.Success a -> Just a
 
-marshalGValHtmlToText :: GVal (Run IO Html) -> GVal (Run IO Text)
+marshalGValHtmlToText :: GVal (Run SourcePos IO Html) -> GVal (Run SourcePos IO Text)
 marshalGValHtmlToText = marshalGValEx hoistRunToText hoistRunFromText
 
-hoistRunToText :: Run IO Html a -> Run IO Text a
+hoistRunToText :: Run SourcePos IO Html a -> Run SourcePos IO Text a
 hoistRunToText =
     hoistRun htmlSource unsafeRawHtml
         . withEncoder (unsafeRawHtml . Ginger.asText)
-hoistRunFromText:: Run IO Text a -> Run IO Html a
+hoistRunFromText:: Run SourcePos IO Text a -> Run SourcePos IO Html a
 hoistRunFromText =
     hoistRun unsafeRawHtml htmlSource
 

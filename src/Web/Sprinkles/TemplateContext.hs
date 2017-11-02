@@ -48,7 +48,7 @@ sprinklesGingerContext :: RawBackendCache
                        -> Wai.Request
                        -> Maybe SessionHandle
                        -> Logger
-                       -> IO (HashMap Text (GVal (Ginger.Run IO h)))
+                       -> IO (HashMap Text (GVal (Ginger.Run p IO h)))
 sprinklesGingerContext cache request session logger = do
     csrfTokenMay <- case session of
         Nothing -> return Nothing
@@ -72,7 +72,7 @@ sprinklesGingerContext cache request session logger = do
         ] <> baseGingerContext logger
 
 baseGingerContext :: Logger
-                  -> HashMap Text (GVal (Ginger.Run IO h))
+                  -> HashMap Text (GVal (Ginger.Run p IO h))
 baseGingerContext logger =
     mapFromList
         [ ("ellipse", Ginger.fromFunction gfnEllipse)
@@ -88,16 +88,16 @@ baseGingerContext logger =
         , ("randomStr", Ginger.fromFunction gfnRandomStr)
         ]
 
-gnsBCrypt :: GVal (Ginger.Run IO h)
+gnsBCrypt :: GVal (Ginger.Run p IO h)
 gnsBCrypt =
     Ginger.dict
         [ ("hash", Ginger.fromFunction gfnBCryptHash)
         , ("validate", Ginger.fromFunction gfnBCryptValidate)
         ]
 
-gfnBCryptHash :: Ginger.Function (Ginger.Run IO h)
+gfnBCryptHash :: Ginger.Function (Ginger.Run p IO h)
 gfnBCryptHash args = do
-    let argSpec :: [(Text, Ginger.GVal (Ginger.Run IO h))]
+    let argSpec :: [(Text, Ginger.GVal (Ginger.Run p IO h))]
         argSpec = [ ("password", def)
                   , ("cost", toGVal (4 :: Int))
                   , ("algorithm", toGVal ("$2y$" :: Text))
@@ -115,10 +115,10 @@ gfnBCryptHash args = do
             return . toGVal . fmap decodeUtf8 $ hash
         _ -> throwM $ GingerInvalidFunctionArgs "bcrypt.hash" "string password, int cost, string algorithm"
 
-gfnRandomStr :: Ginger.Function (Ginger.Run IO h)
+gfnRandomStr :: Ginger.Function (Ginger.Run p IO h)
 gfnRandomStr args = do
     let defaultAlphabet = ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'] :: String
-        argSpec :: [(Text, Ginger.GVal (Ginger.Run IO h))]
+        argSpec :: [(Text, Ginger.GVal (Ginger.Run p IO h))]
         argSpec = [ ("length", toGVal (8 :: Int))
                   , ("alphabet", toGVal defaultAlphabet)
                   ]
@@ -134,9 +134,9 @@ gfnRandomStr args = do
             liftIO $ toGVal <$> randomStr alphabet desiredLength
         _ -> throwM $ GingerInvalidFunctionArgs "randomStr" "int length, string alphabet"
 
-gfnBCryptValidate :: Ginger.Function (Ginger.Run IO h)
+gfnBCryptValidate :: Ginger.Function (Ginger.Run p IO h)
 gfnBCryptValidate args = do
-    let argSpec :: [(Text, Ginger.GVal (Ginger.Run IO h))]
+    let argSpec :: [(Text, Ginger.GVal (Ginger.Run p IO h))]
         argSpec = [ ("hash", def)
                   , ("password", def)
                   ]
@@ -147,13 +147,13 @@ gfnBCryptValidate args = do
             return . toGVal $ BCrypt.validatePassword hash password
         _ -> throwM $ GingerInvalidFunctionArgs "bcrypt.validate" "string password, int cost, string algorithm"
 
-gfnPandoc :: forall h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run IO h)
+gfnPandoc :: forall p h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run p IO h)
 gfnPandoc writeLog args = liftIO . catchToGinger writeLog $
     case Ginger.extractArgsDefL [("src", ""), ("reader", "markdown")] args of
         Right [src, readerName] -> toGVal <$> pandoc (Ginger.asText readerName) (Ginger.asText src)
         _ -> throwM $ GingerInvalidFunctionArgs "pandoc" "string src, string reader"
 
-gfnPandocAlias :: forall h. Text -> (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run IO h)
+gfnPandocAlias :: forall p h. Text -> (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run p IO h)
 gfnPandocAlias readerName writeLog args = liftIO . catchToGinger writeLog $
     case Ginger.extractArgsDefL [("src", "")] args of
         Right [src] -> toGVal <$> pandoc readerName (Ginger.asText src)
@@ -175,7 +175,7 @@ pandoc readerName src = do
         getReader "creole" = Right $ Pandoc.mkStringReader Pandoc.readCreole
         getReader readerName = Pandoc.getReader readerName
 
-gfnGetLocale :: forall h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run IO h)
+gfnGetLocale :: forall p h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run p IO h)
 gfnGetLocale writeLog args = liftIO . catchToGinger writeLog $
     case Ginger.extractArgsDefL [("category", "LC_TIME"), ("locale", "")] args of
         Right [gCat, gName] ->
@@ -185,7 +185,7 @@ gfnGetLocale writeLog args = liftIO . catchToGinger writeLog $
                 (cat, localeName) -> return def -- valid call, but category not implemented
         _ -> throwM $ GingerInvalidFunctionArgs "getlocale" "string category, string name"
 
-gfnEllipse :: Ginger.Function (Ginger.Run IO h)
+gfnEllipse :: Ginger.Function (Ginger.Run p IO h)
 gfnEllipse [] = return def
 gfnEllipse [(Nothing, str)] =
     gfnEllipse [(Nothing, str), (Nothing, toGVal (100 :: Int))]
@@ -204,27 +204,27 @@ gfnEllipse xs = do
     let str = fromMaybe def $ lookup (Just "str") xs
     gfnEllipse $ (Nothing, str):xs
 
-gfnJSON :: Ginger.Function (Ginger.Run IO h)
+gfnJSON :: Ginger.Function (Ginger.Run p IO h)
 gfnJSON ((_, x):_) =
     return . toGVal . LUTF8.toString . JSON.encodePretty $ x
 gfnJSON _ =
     return def
 
-gfnYAML :: Ginger.Function (Ginger.Run IO h)
+gfnYAML :: Ginger.Function (Ginger.Run p IO h)
 gfnYAML ((_, x):_) =
     return . toGVal . UTF8.toString . YAML.encode $ x
 gfnYAML _ =
     return def
 
-gfnLoadBackendData :: forall h. (LogLevel -> Text -> IO ()) -> RawBackendCache -> Ginger.Function (Ginger.Run IO h)
+gfnLoadBackendData :: forall p h. (LogLevel -> Text -> IO ()) -> RawBackendCache -> Ginger.Function (Ginger.Run p IO h)
 gfnLoadBackendData writeLog cache args =
     Ginger.dict <$> forM (zip [0..] args) loadPair
     where
-        loadPair :: (Int, (Maybe Text, GVal (Ginger.Run IO h)))
-                 -> Ginger.Run IO h (Text, GVal (Ginger.Run IO h))
+        loadPair :: (Int, (Maybe Text, GVal (Ginger.Run p IO h)))
+                 -> Ginger.Run p IO h (Text, GVal (Ginger.Run p IO h))
         loadPair (index, (keyMay, gBackendURL)) = do
             let backendURL = Ginger.asText gBackendURL
-            backendData :: Items (BackendData IO h) <- liftIO $
+            backendData :: Items (BackendData p IO h) <- liftIO $
                 loadBackendData writeLog pbsInvalid cache =<< parseBackendURI backendURL
             return
                 ( fromMaybe (tshow index) keyMay

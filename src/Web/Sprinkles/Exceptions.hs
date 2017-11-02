@@ -65,7 +65,14 @@ instance HasSourceContext SourceContextException where
         WithSourceContext source (withoutSourceContext e)
 
 instance HasSourceContext Ginger.ParserError where
-    overrideSourceContext = \s e -> e { peSourceName = Just . unpack $ s }
+    overrideSourceContext = setGingerSourceName
+
+setGingerSourceName :: Text -> Ginger.ParserError -> Ginger.ParserError
+setGingerSourceName source e@(Ginger.ParserError { peSourcePosition = Just pos }) =
+    e { peSourcePosition =
+          Just (Ginger.setSourceName pos (unpack source))
+      }
+setGingerSourceName source e = e
 
 withSourceContext :: Exception e => Text -> e -> SomeException
 withSourceContext context =
@@ -102,8 +109,8 @@ formatGingerFunctionCallException e =
 
 formatGingerParserError :: Ginger.ParserError -> Text
 formatGingerParserError e =
-    "line " <> (fromMaybe "?" . fmap tshow . Ginger.peSourceLine $ e)
-    <> ", column " <> (fromMaybe "?" . fmap tshow . Ginger.peSourceColumn $ e)
+    "line " <> (fromMaybe "?" . fmap (tshow . Ginger.sourceLine) . Ginger.peSourcePosition $ e)
+    <> ", column " <> (fromMaybe "?" . fmap (tshow . Ginger.sourceColumn) . Ginger.peSourcePosition $ e)
     <> ": " <> pack (Ginger.peErrorMessage e)
 
 formatYamlParseException :: YAML.ParseException -> Text

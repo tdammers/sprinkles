@@ -72,20 +72,20 @@ loadBackendData :: Monad m
                 -> RequestContext
                 -> RawBackendCache
                 -> BackendSpec
-                -> IO (Items (BackendData m h))
+                -> IO (Items (BackendData p m h))
 loadBackendData writeLog cache loadPost bspec =
     fmap (reduceItems (bsFetchMode bspec)) $
         fetchBackendData writeLog cache loadPost bspec >>=
         mapM parseBackendData >>=
         sorter
     where
-        sorter :: [BackendData m h] -> IO [BackendData m h]
+        sorter :: [BackendData p m h] -> IO [BackendData p m h]
         sorter = fmap reverter . baseSorter
         reverter :: [a] -> [a]
         reverter = case fetchAscDesc (bsOrder bspec) of
             Ascending -> id
             Descending -> reverse
-        baseSorter :: [BackendData m h] -> IO [BackendData m h]
+        baseSorter :: [BackendData p m h] -> IO [BackendData p m h]
         baseSorter = case fetchField (bsOrder bspec) of
             ArbitraryOrder -> return
             RandomOrder -> shuffleM

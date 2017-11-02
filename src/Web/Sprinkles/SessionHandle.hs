@@ -27,7 +27,7 @@ data SessionHandle =
         , sessionPut :: Text -> Text -> IO ()
         }
 
-instance (Monad m, MonadIO m) => ToGVal (Ginger.Run m h) SessionHandle where
+instance (Monad m, MonadIO m) => ToGVal (Ginger.Run p m h) SessionHandle where
     toGVal session =
         Ginger.dict
             [ "id" ~> decodeUtf8 (sessionID session)
@@ -35,7 +35,7 @@ instance (Monad m, MonadIO m) => ToGVal (Ginger.Run m h) SessionHandle where
             , ("put", Ginger.fromFunction (gSessionPut $ session))
             ]
 
-gSessionGet :: (Monad m, MonadIO m) => SessionHandle -> Ginger.Function (Ginger.Run m h)
+gSessionGet :: (Monad m, MonadIO m) => SessionHandle -> Ginger.Function (Ginger.Run p m h)
 gSessionGet session args = do
     let (matched, position, named) = Ginger.matchFuncArgs ["key"] args
     case lookup "key" matched of
@@ -44,7 +44,7 @@ gSessionGet session args = do
         Just key -> do
             toGVal <$> liftIO (sessionGet session $ Ginger.asText key)
 
-gSessionPut :: (Monad m, MonadIO m) => SessionHandle -> Ginger.Function (Ginger.Run m h)
+gSessionPut :: (Monad m, MonadIO m) => SessionHandle -> Ginger.Function (Ginger.Run p m h)
 gSessionPut session args = do
     let (matched, position, named) = Ginger.matchFuncArgs ["key", "value"] args
     case lookup "key" matched of

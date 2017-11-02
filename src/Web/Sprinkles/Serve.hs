@@ -44,7 +44,7 @@ import qualified Text.Ginger as Ginger
 import qualified Text.Ginger.Run.VM as Ginger
 import Text.Ginger
        (parseGinger, Template, runGingerT, GingerContext, GVal(..), ToGVal(..),
-        (~>))
+        (~>), SourcePos)
 import Text.Ginger.Html (Html, htmlSource, unsafeRawHtml)
 import qualified Text.Pandoc as Pandoc
 import qualified Text.Pandoc.Readers.Creole as Pandoc
@@ -230,7 +230,7 @@ handleRule rule captures project request respond = do
                     )
             in mapResponseHeaders (expiryHeader:)
 
-    backendData :: HashMap Text (Items (BackendData IO Html))
+    backendData :: HashMap Text (Items (BackendData SourcePos IO Html))
                 <- loadBackendDict
                         (writeLog logger)
                         (pbsFromRequest request session)
@@ -239,13 +239,13 @@ handleRule rule captures project request respond = do
                         (ruleRequired rule)
                         context
 
-    let context' :: HashMap Text (GVal (Ginger.Run IO Html))
+    let context' :: HashMap Text (GVal (Ginger.Run SourcePos IO Html))
         context' = fmap toGVal backendData
-        context'' :: HashMap Text (GVal (Ginger.Run IO Text))
+        context'' :: HashMap Text (GVal (Ginger.Run SourcePos IO Text))
         context'' = fmap marshalGValHtmlToText context'
     target <- expandRuleTarget (context'' <> context) . ruleTarget $ rule
 
-    let handle :: HashMap Text (Items (BackendData IO Html))
+    let handle :: HashMap Text (Items (BackendData SourcePos IO Html))
                -> Project
                -> Maybe SessionHandle
                -> Wai.Application

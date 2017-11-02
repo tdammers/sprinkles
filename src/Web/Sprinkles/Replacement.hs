@@ -34,13 +34,14 @@ data ReplacementItem =
     Variable Text
     deriving (Show, Eq)
 
-newtype Replacement = Replacement Template
+newtype Replacement =
+  Replacement (Template Ginger.SourcePos)
     deriving (Show)
 
-instance FromJSON Replacement where
+instance FromJSON (Replacement) where
     parseJSON val = (either (fail . unpack . formatException) return . parseReplacement) =<< parseJSON val
 
-expandReplacementText :: HashMap Text (GVal (Run IO Text))
+expandReplacementText :: HashMap Text (GVal (Run Ginger.SourcePos IO Text))
                       -> Text
                       -> IO Text
 expandReplacementText variables input =
@@ -54,7 +55,7 @@ parseReplacement input =
         Nothing
         (unpack input)
 
-expandReplacement :: HashMap Text (GVal (Run IO Text)) -> Replacement -> IO Text
+expandReplacement :: HashMap Text (GVal (Run Ginger.SourcePos IO Text)) -> Replacement -> IO Text
 expandReplacement variables (Replacement template) = do
     output <- newIORef (TextBuilder.fromText "")
     let emit :: Text -> IO ()
