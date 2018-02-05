@@ -44,7 +44,6 @@ library
                  , Web.Sprinkles.Backends.Loader.SubprocessLoader
                  , Web.Sprinkles.Backends.Loader.RequestBodyLoader
                  , Web.Sprinkles.Backends.Loader.LiteralLoader
-                 , Web.Sprinkles.Backends.Loader.StringLoader
                  , Web.Sprinkles.Handlers
                  , Web.Sprinkles.Handlers.Common
                  , Web.Sprinkles.Handlers.Respond
@@ -139,6 +138,7 @@ executable sprinkles
   build-depends: base
                , sprinkles
                , classy-prelude
+               , async
                , data-default
                , safe
                , text

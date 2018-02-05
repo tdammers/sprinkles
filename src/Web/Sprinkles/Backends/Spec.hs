@@ -14,6 +14,8 @@ module Web.Sprinkles.Backends.Spec
 (
 -- * Defining backends
   BackendSpec (..)
+, makeBackendTypePathsAbsolute
+, makeBackendSpecPathsAbsolute
 , BackendType (..)
 , FetchOrderField (..)
 , FetchMode (..)
@@ -52,8 +54,12 @@ data BackendType = HttpBackend Text HttpBackendOptions -- ^ Fetch data over HTTP
                  | SubprocessBackend Text [Text] MimeType -- ^ Run a command in a subprocess
                  | RequestBodyBackend -- ^ Read the incoming request body
                  | LiteralBackend Value -- ^ Return literal data from the spec itself
-                 | StringBackend Text MimeType
                  deriving (Show, Generic)
+
+makeBackendTypePathsAbsolute :: FilePath -> BackendType -> BackendType
+makeBackendTypePathsAbsolute dir (FileBackend fn) = FileBackend (pack . (dir </>) . unpack $ fn)
+makeBackendTypePathsAbsolute dir (SubprocessBackend cmd args ty) = SubprocessBackend (pack . (dir </>) . unpack $ cmd) args ty
+makeBackendTypePathsAbsolute _ x = x
 
 instance Serialize BackendType where
     put (HttpBackend url options) = do
@@ -85,10 +91,6 @@ instance Serialize BackendType where
     put (LiteralBackend b) = do
         Cereal.put 'l'
         Cereal.put (JSON.encode b)
-    put (StringBackend txt t) = do
-        Cereal.put 'x'
-        Cereal.put (encodeUtf8 txt)
-        Cereal.put t
     get = Cereal.get >>= \case
             'h' -> HttpBackend <$> (pack . decodeUtf8 <$> Cereal.get) <*> Cereal.get
             'f' -> FileBackend <$> (pack . decodeUtf8 <$> Cereal.get)
@@ -112,9 +114,6 @@ instance Serialize BackendType where
             'b' -> return RequestBodyBackend
             'l' -> LiteralBackend <$>
                     (fromMaybe JSON.Null . JSON.decode <$> Cereal.get)
-            'x' -> StringBackend <$>
-                    (pack . decodeUtf8 <$> Cereal.get) <*>
-                    Cereal.get
             x -> fail $ "Invalid backend type identifier: " <> show x
 
 instance ExpandableM Text BackendType where
@@ -137,8 +136,6 @@ instance ExpandableM Text BackendType where
         pure RequestBodyBackend
     expandM f (LiteralBackend b) =
         LiteralBackend <$> expandM f b
-    expandM f (StringBackend s t) =
-        StringBackend <$> expandM f s <*> pure t
 
 -- | A specification of a backend query.
 data BackendSpec =
@@ -152,6 +149,10 @@ data BackendSpec =
         deriving (Show, Generic)
 
 instance Serialize BackendSpec
+
+makeBackendSpecPathsAbsolute :: FilePath -> BackendSpec -> BackendSpec
+makeBackendSpecPathsAbsolute dir spec =
+  spec { bsType = makeBackendTypePathsAbsolute dir (bsType spec) }
 
 instance ExpandableM Text BackendSpec where
     expandM f (BackendSpec t m o mto) =
@@ -221,7 +222,6 @@ backendSpecFromJSON (Object obj) = do
             "subprocess" -> parseSubprocessSpec
             "post" -> return (RequestBodyBackend, FetchOne)
             "literal" -> parseLiteralBackendSpec
-            "string" -> parseStringBackendSpec
             x -> fail $ "Invalid backend specifier: " ++ show x
     fetchMode <- obj .:? "fetch" .!= defFetchMode
     fetchOrder <- obj .:? "order" .!= def
@@ -280,10 +280,6 @@ backendSpecFromJSON (Object obj) = do
         parseLiteralBackendSpec = do
             b <- obj .:? "body" .!= JSON.Null
             return (LiteralBackend b, FetchOne)
-        parseStringBackendSpec = do
-            b <- obj .:? "body" .!= ""
-            t <- fromString <$> (obj .:? "mime-type" .!= "text/plain;charset=utf8")
-            return (StringBackend b t, FetchOne)
 
 backendSpecFromJSON x = fail $ "Invalid JSON value for BackendSpec: " <> show x <> ", expecting object or string"
 
@@ -325,11 +321,6 @@ parseBackendURI t = do
             return $
                 BackendSpec
                     (LiteralBackend $ JSON.String path)
-                    FetchOne def Nothing
-        "string" ->
-            return $
-                BackendSpec
-                    (StringBackend path "text/plain;charset=utf8")
                     FetchOne def Nothing
         _ -> fail $ "Unknown protocol: " <> show protocol
     where

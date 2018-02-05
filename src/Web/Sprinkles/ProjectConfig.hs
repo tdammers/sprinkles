@@ -26,6 +26,13 @@ data ProjectConfig =
         }
         deriving (Show)
 
+makeProjectPathsAbsolute :: FilePath -> ProjectConfig -> ProjectConfig
+makeProjectPathsAbsolute dir (ProjectConfig context rules) =
+  ProjectConfig (fmap goBackendSpec context) (fmap goRule rules)
+  where
+    goBackendSpec = makeBackendSpecPathsAbsolute dir
+    goRule = makeRulePathsAbsolute dir
+
 instance Default ProjectConfig where
     def = ProjectConfig
             { pcContextData = AList.empty
@@ -66,5 +73,4 @@ loadProjectConfigFile fn =
 
 loadProjectConfig :: FilePath -> IO ProjectConfig
 loadProjectConfig dir =
-    loadProjectConfigFile $ dir </> "project.yml"
-
+    fmap (makeProjectPathsAbsolute dir) . loadProjectConfigFile $ dir </> "project.yml"

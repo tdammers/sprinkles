@@ -11,6 +11,7 @@ module Web.Sprinkles.Backends
 (
 -- * Defining backends
   BackendSpec (..)
+, makeBackendSpecPathsAbsolute
 , parseBackendURI
 -- * Fetching backend data
 , BackendData (..)
@@ -33,6 +34,7 @@ import Network.Mime (MimeType)
 
 import Web.Sprinkles.Backends.Spec
         ( BackendSpec (..)
+        , makeBackendSpecPathsAbsolute
         , BackendType (..)
         , AscDesc (..)
         , FetchMode (..)

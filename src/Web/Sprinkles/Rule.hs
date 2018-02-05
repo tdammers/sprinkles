@@ -74,6 +74,13 @@ data Rule =
         }
         deriving (Show)
 
+makeRulePathsAbsolute :: FilePath -> Rule -> Rule
+makeRulePathsAbsolute dir rule =
+  rule
+    { ruleContextData =
+        fmap (makeBackendSpecPathsAbsolute dir) (ruleContextData rule)
+    }
+
 orElse :: Monad m => m (Maybe a) -> m (Maybe a) -> m (Maybe a)
 orElse leftAction rightAction = do
     leftAction >>= maybe rightAction (return . Just)

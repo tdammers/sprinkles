@@ -20,7 +20,6 @@ import Web.Sprinkles.Backends.Loader.FileLoader
 import Web.Sprinkles.Backends.Loader.HttpLoader
 import Web.Sprinkles.Backends.Loader.RequestBodyLoader
 import Web.Sprinkles.Backends.Loader.LiteralLoader
-import Web.Sprinkles.Backends.Loader.StringLoader
 import Web.Sprinkles.Backends.Spec
 import Web.Sprinkles.Databases (ResultSetMode (..))
 
@@ -32,4 +31,3 @@ loader (HttpBackend uriText credentials) = curlLoader uriText credentials
 loader (SubprocessBackend cmd args mimeType) = subprocessLoader cmd args mimeType
 loader RequestBodyBackend = requestBodyLoader
 loader (LiteralBackend body) = literalLoader body
-loader (StringBackend src mimeType) = stringLoader src mimeType

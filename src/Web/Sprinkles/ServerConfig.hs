@@ -174,6 +174,7 @@ data ServerConfig =
         , scDriver :: ServerDriver
         , scLogger :: Maybe LoggerConfig
         , scSessions :: SessionConfig
+        , scRootDir :: FilePath
         }
         deriving (Show)
 
@@ -183,6 +184,7 @@ instance Default ServerConfig where
             , scDriver = def
             , scLogger = Nothing
             , scSessions = def
+            , scRootDir = ""
             }
 
 instance Monoid ServerConfig where
@@ -199,11 +201,13 @@ instance FromJSON ServerConfig where
                     <$> ( obj .:? "driver" )
         logger <- obj .:? "log"
         sessions <- obj .:? "sessions" .!= def
+        rootDir <- obj .:? "dir" .!= ""
         return ServerConfig
             { scBackendCache = caches
             , scDriver = driver
             , scLogger = logger
             , scSessions = sessions
+            , scRootDir = rootDir
             }
     parseJSON _ = fail "Invalid server config"
 
@@ -221,6 +225,8 @@ scAppend a b =
             case sessDriver (scSessions b) of
                 NoSessionDriver -> scSessions a
                 _ -> scSessions b
+        , scRootDir = 
+            firstNonNull (scRootDir b) (scRootDir a)
         }
 
 firstNonNull :: [a] -> [a] -> [a]
