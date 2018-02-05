@@ -50,8 +50,9 @@ data Project =
         , projectSessionConfig :: SessionConfig
         }
 
-loadProject :: ServerConfig -> FilePath -> IO Project
-loadProject sconfig dir = do
+loadProject :: ServerConfig -> IO Project
+loadProject sconfig = do
+    let dir = scRootDir sconfig
     pconfig <- loadProjectConfig dir
     logger <- createLogger $ fromMaybe (StdioLog Warning) (scLogger sconfig)
     templates <- preloadTemplates logger dir

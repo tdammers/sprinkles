@@ -138,6 +138,7 @@ executable sprinkles
   build-depends: base
                , sprinkles
                , classy-prelude
+               , async
                , data-default
                , safe
                , text

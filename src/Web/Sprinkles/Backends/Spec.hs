@@ -14,6 +14,8 @@ module Web.Sprinkles.Backends.Spec
 (
 -- * Defining backends
   BackendSpec (..)
+, makeBackendTypePathsAbsolute
+, makeBackendSpecPathsAbsolute
 , BackendType (..)
 , FetchOrderField (..)
 , FetchMode (..)
@@ -53,6 +55,11 @@ data BackendType = HttpBackend Text HttpBackendOptions -- ^ Fetch data over HTTP
                  | RequestBodyBackend -- ^ Read the incoming request body
                  | LiteralBackend Value -- ^ Return literal data from the spec itself
                  deriving (Show, Generic)
+
+makeBackendTypePathsAbsolute :: FilePath -> BackendType -> BackendType
+makeBackendTypePathsAbsolute dir (FileBackend fn) = FileBackend (pack . (dir </>) . unpack $ fn)
+makeBackendTypePathsAbsolute dir (SubprocessBackend cmd args ty) = SubprocessBackend (pack . (dir </>) . unpack $ cmd) args ty
+makeBackendTypePathsAbsolute _ x = x
 
 instance Serialize BackendType where
     put (HttpBackend url options) = do
@@ -142,6 +149,10 @@ data BackendSpec =
         deriving (Show, Generic)
 
 instance Serialize BackendSpec
+
+makeBackendSpecPathsAbsolute :: FilePath -> BackendSpec -> BackendSpec
+makeBackendSpecPathsAbsolute dir spec =
+  spec { bsType = makeBackendTypePathsAbsolute dir (bsType spec) }
 
 instance ExpandableM Text BackendSpec where
     expandM f (BackendSpec t m o mto) =
