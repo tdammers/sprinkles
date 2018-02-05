@@ -41,4 +41,4 @@ subprocessLoader cmd args mimeType writeLog _ fetchMode fetchOrder = do
                 , bmPath = unwords $ cmd:args
                 , bmSize = Just contentLength
                 }
-    return [BackendSource meta (rawFromLBS body) Trusted]
+    return [BackendSource meta (rawFromLBS . fromStrict $ body) Trusted]

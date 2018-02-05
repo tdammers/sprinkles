@@ -21,7 +21,7 @@ import Control.Exception
 
 getPackageVersion :: FilePath -> IO Version
 getPackageVersion cabalFileName = do
-    gpd <- readPackageDescription silent cabalFileName
+    gpd <- readGenericPackageDescription silent cabalFileName
     return . pkgVersion . package. packageDescription $ gpd
 
 getPackageVersionStr :: FilePath -> IO String
@@ -60,7 +60,7 @@ haveGitModifications = do
 
 formatPackageVersion :: Version -> String
 formatPackageVersion =
-    intercalate "." . map show . versionBranch
+    intercalate "." . map show . versionNumbers
 
 embedPackageVersionStr :: FilePath -> Q Exp
 embedPackageVersionStr fp = do

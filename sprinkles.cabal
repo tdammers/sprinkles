@@ -43,6 +43,7 @@ library
                  , Web.Sprinkles.Backends.Loader.SubprocessLoader
                  , Web.Sprinkles.Backends.Loader.RequestBodyLoader
                  , Web.Sprinkles.Backends.Loader.LiteralLoader
+                 , Web.Sprinkles.Backends.Loader.StringLoader
                  , Web.Sprinkles.Handlers
                  , Web.Sprinkles.Handlers.Common
                  , Web.Sprinkles.Handlers.Respond
@@ -94,7 +95,7 @@ library
                , hsyslog
                , http-types
                , lens
-               , memcached-binary
+               , memcache
                , mime-types
                , mtl
                , network-uri

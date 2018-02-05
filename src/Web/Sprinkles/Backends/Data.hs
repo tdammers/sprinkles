@@ -147,7 +147,7 @@ rawToGVal raw =
                     let filename = unpack . Ginger.asText $ filenameG
                     len <- rbLength raw
                     bytes <- rbGetRange raw 0 len
-                    writeFile filename bytes
+                    LBS8.writeFile filename bytes
                     return . toGVal $ True
                 _ -> fail "Invalid arguments to RawBytes.store"
 

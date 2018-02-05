@@ -11,6 +11,7 @@ import ClassyPrelude hiding (asText, asList)
 import Text.Ginger as Ginger (GVal (..), ToGVal (..), dict, (~>))
 import Text.Ginger.Html (unsafeRawHtml)
 import qualified Text.Ginger as Ginger
+import qualified Text.Ginger.Html as Ginger
 import qualified Text.Ginger.Run.VM as Ginger
 import Text.Pandoc
 import Text.Pandoc.Walk (query, walk)
@@ -19,10 +20,7 @@ import Data.Aeson (ToJSON (..))
 import Data.Scientific (fromFloatDigits)
 
 writerOptions :: WriterOptions
-writerOptions =
-    def { writerStandalone = False
-        , writerHtml5 = True
-        }
+writerOptions = def
 
 gfnWithMediaRoot :: Monad m => Pandoc -> Ginger.Function (Ginger.Run p m h)
 gfnWithMediaRoot pandoc args = do
@@ -104,7 +102,7 @@ instance Monad m => ToGVal (Ginger.Run p m h) Pandoc where
                             "withMediaRoot" -> Just . Ginger.fromFunction . gfnWithMediaRoot $ pandoc
                             "withAppRoot" -> Just . Ginger.fromFunction . gfnWithAppRoot $ pandoc
                             _ -> Nothing
-            , asHtml = unsafeRawHtml . pack . writeHtmlString writerOptions $ pandoc
+            , asHtml = pandocToHtml pandoc
             , asText = unwords . fmap (asText . toGVal) $ blocks
             , asBoolean = True
             , asNumber = Nothing
@@ -138,7 +136,7 @@ instance ToGVal m Block where
         in def { asList = Just listItems
                , asDictItems = Just $ mapToList props
                , asLookup = Just $ \key -> lookup key props
-               , asHtml = unsafeRawHtml . pack . writeHtmlString writerOptions $ pandoc
+               , asHtml = pandocToHtml pandoc
                , asText = unwords . fmap ((<> " ") . asText) $ listItems
                , asBoolean = True
                , asNumber = Nothing
@@ -191,6 +189,13 @@ blockChildren (OrderedList _ items) =
 blockChildren (BulletList items) =
     ( mapFromList
         [ "type" ~> ("ul" :: Text)
+        , "items" ~> items
+        ]
+    , fmap toGVal items
+    )
+blockChildren (LineBlock items) =
+    ( mapFromList
+        [ "type" ~> ("lines" :: Text)
         , "items" ~> items
         ]
     , fmap toGVal items
@@ -252,6 +257,12 @@ instance ToGVal m Alignment where
     toGVal AlignCenter = toGVal ("center" :: Text)
     toGVal AlignDefault = def
 
+pandocToHtml :: Pandoc -> Ginger.Html
+pandocToHtml pandoc =
+  case runPure $ writeHtml5String writerOptions pandoc of
+    Left err -> unsafeRawHtml ""
+    Right html -> unsafeRawHtml html
+
 instance ToGVal m Inline where
     toGVal inline =
         let pandoc = Pandoc nullMeta [Plain [inline]]
@@ -263,7 +274,7 @@ instance ToGVal m Inline where
         in def { asList = Just listItems
                , asDictItems = Just $ mapToList props
                , asLookup = Just $ \key -> lookup key props
-               , asHtml = unsafeRawHtml . pack . writeHtmlString writerOptions $ pandoc
+               , asHtml = pandocToHtml pandoc
                , asText = unwords . fmap asText $ listItems
                , asBoolean = True
                , asNumber = Nothing

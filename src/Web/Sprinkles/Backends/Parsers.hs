@@ -28,7 +28,7 @@ import Web.Sprinkles.Backends.Spec
         ( parserTypes
         , ParserType (..)
         )
-import Text.Pandoc (Pandoc)
+import Text.Pandoc (Pandoc, PandocPure)
 import qualified Text.Pandoc as Pandoc
 import qualified Text.Pandoc.MediaBag as Pandoc
 import qualified Text.Pandoc.Readers.Creole as Pandoc
@@ -133,24 +133,28 @@ urlencodedForm item@(BackendSource meta body _) = do
 
 -- | Parser for Pandoc-supported formats that are read from 'LByteString's.
 pandocBS :: (MonadIO m, Monad m, Monad n)
-         => (LByteString -> Either PandocError Pandoc)
+         => (LByteString -> PandocPure Pandoc)
          -> BackendSource
          -> m (BackendData p n h)
 pandocBS reader input@(BackendSource meta body _) = do
     bodyBytes <- liftIO $ rawToLBS body
-    case reader bodyBytes of
+    case Pandoc.runPure $ reader bodyBytes of
         Left err -> fail . show $ err
         Right pandoc -> return $ toBackendData input pandoc
 
 -- | Parser for Pandoc-supported formats that are read from 'LByteString's, and
 -- return a 'Pandoc' document plus a 'MediaBag'.
 pandocWithMedia :: (MonadIO m, Monad m, Monad n)
-                => (LByteString -> Either PandocError (Pandoc, Pandoc.MediaBag))
+                => (LByteString -> PandocPure Pandoc)
                 -> BackendSource
                 -> m (BackendData p n h)
 pandocWithMedia reader input@(BackendSource meta body _) = do
     bodyBytes <- liftIO $ rawToLBS body
-    case reader bodyBytes of
+    let reader' = do
+          pandoc <- reader bodyBytes
+          mediaBag <- Pandoc.getMediaBag
+          return (pandoc, mediaBag)
+    case Pandoc.runPure reader' of
         Left err -> fail . show $ err
         Right (pandoc, mediaBag) -> do
             -- TODO: marshal mediaBag to backend data item children
@@ -180,9 +184,9 @@ mediaBagToBackendData bag = do
 
 -- | Parser for Pandoc-supported formats that are read from 'String's.
 pandoc :: (MonadIO m, Monad m, Monad n)
-       => (String -> Either PandocError Pandoc)
+       => (Text -> PandocPure Pandoc)
        -> BackendSource
        -> m (BackendData p n h)
 pandoc reader =
-    pandocBS (reader . unpack . decodeUtf8)
+    pandocBS (reader . toStrict . decodeUtf8)
 

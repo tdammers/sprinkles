@@ -2,28 +2,30 @@
 # For more information, see: http://docs.haskellstack.org/en/stable/yaml_configuration/
 
 # Specifies the GHC version and set of packages available (e.g., lts-3.5, nightly-2015-09-21, ghc-7.10.2)
-resolver: lts-6.12
+resolver: lts-10.4
 
 # Local packages, usually specified by relative directory name
 packages:
 - '.'
 # Pull ginger directly from github; enable in favor of extra-deps
 # if installing from Hackage fails.
-- location:
-    git: https://git@github.com/tdammers/ginger
-    commit: '0.7.3.0'
-  extra-dep: true
+# - location:
+#     git: https://git@github.com/tdammers/ginger
+#     commit: '0.7.3.0'
+#   extra-dep: true
 - location:
     git: 'https://git@github.com/tdammers/pandoc-creole.git'
-    commit: '0.1.0.0'
+    commit: '0.2.0.0'
   extra-dep: true
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:
-  - HDBC-mysql-0.6.6.4
+  - HDBC-postgresql-2.3.2.5
+  - HDBC-sqlite3-2.3.3.1
+  - system-locale-0.2.0.0
+  - memcache-0.2.0.1
   - ginger-0.7.3.0
   - megaparsec-5.0.1
-  - system-locale-0.1.0.0
   - wai-handler-fastcgi-3.0.0.2
   - wryte-0.2.0.0
   - yeshql-2.2.0.0
