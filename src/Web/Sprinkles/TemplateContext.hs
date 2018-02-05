@@ -34,6 +34,7 @@ import qualified Data.CaseInsensitive as CI
 import Network.HTTP.Types.URI (queryToQueryText)
 import qualified Crypto.BCrypt as BCrypt
 
+import Web.Sprinkles.Pandoc (pandocReaderOptions)
 import Web.Sprinkles.Backends
 import Web.Sprinkles.Exceptions
 import Web.Sprinkles.Logger as Logger
@@ -167,9 +168,9 @@ pandoc readerName src = do
         (getReader $ unpack readerName)
     let read = case reader of
             Pandoc.TextReader r ->
-              r def
+              r pandocReaderOptions
             Pandoc.ByteStringReader r ->
-              r def . encodeUtf8 . fromStrict
+              r pandocReaderOptions . encodeUtf8 . fromStrict
     (pure . Pandoc.runPure . read $ src) >>= either
         (\err -> fail $ "Reading " ++ show readerName ++ " failed: " ++ show err)
         return

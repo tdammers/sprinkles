@@ -28,6 +28,7 @@ import Web.Sprinkles.Backends.Spec
         ( parserTypes
         , ParserType (..)
         )
+import Web.Sprinkles.Pandoc (pandocReaderOptions)
 import Text.Pandoc (Pandoc, PandocPure)
 import qualified Text.Pandoc as Pandoc
 import qualified Text.Pandoc.MediaBag as Pandoc
@@ -69,14 +70,14 @@ getParser :: (MonadIO m, Monad m, Monad n)
 getParser ParserJSON = json
 getParser ParserYAML = yaml
 getParser ParserFormUrlencoded = urlencodedForm
-getParser ParserMarkdown = pandoc (Pandoc.readMarkdown Pandoc.def)
-getParser ParserCreole = pandoc (Pandoc.readCreole Pandoc.def)
-getParser ParserTextile = pandoc (Pandoc.readTextile Pandoc.def)
-getParser ParserRST = pandoc (Pandoc.readRST Pandoc.def)
-getParser ParserLaTeX = pandoc (Pandoc.readLaTeX Pandoc.def)
-getParser ParserDocX = pandocWithMedia (Pandoc.readDocx Pandoc.def)
+getParser ParserMarkdown = pandoc (Pandoc.readMarkdown pandocReaderOptions)
+getParser ParserCreole = pandoc (Pandoc.readCreole pandocReaderOptions)
+getParser ParserTextile = pandoc (Pandoc.readTextile pandocReaderOptions)
+getParser ParserRST = pandoc (Pandoc.readRST pandocReaderOptions)
+getParser ParserLaTeX = pandoc (Pandoc.readLaTeX pandocReaderOptions)
+getParser ParserDocX = pandocWithMedia (Pandoc.readDocx pandocReaderOptions)
 getParser ParserText = plainText
-getParser ParserHtml = pandoc (Pandoc.readHtml Pandoc.def)
+getParser ParserHtml = pandoc (Pandoc.readHtml pandocReaderOptions)
 
 -- | All the content types we know how to parse
 knownContentTypes :: [MimeType]
