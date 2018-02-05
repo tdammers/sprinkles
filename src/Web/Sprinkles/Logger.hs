@@ -19,6 +19,8 @@ import Control.Concurrent (forkIO)
 import Data.Aeson (FromJSON (..), Value (..), (.:), withObject)
 import qualified System.Posix.Syslog as Syslog
 import Data.Default (Default (..))
+import Data.Text.IO (hPutStrLn)
+import Foreign.C.String (withCStringLen)
 
 data LogLevel = Debug
               | Notice
@@ -103,11 +105,13 @@ syslogLogger level =
             Syslog.withSyslog
                 "sprinkles"
                 []
-                Syslog.USER
-                (Syslog.logUpTo $ logLevelToSyslogPrio level) $
+                Syslog.User $ do
+                  let minPrio = logLevelToSyslogPrio level
+                  Syslog.setlogmask [minPrio..maxBound]
+                  withCStringLen (unpack . lmMessage $ msg) $
                     Syslog.syslog
-                        (logLevelToSyslogPrio . lmLevel $ msg)
-                        (unpack . lmMessage $ msg)
+                      Nothing
+                      (logLevelToSyslogPrio . lmLevel $ msg)
 
 -- | A logger that wraps another logger and adds line buffering.
 newBufferedLogger :: Logger -> IO Logger

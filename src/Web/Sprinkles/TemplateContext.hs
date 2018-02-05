@@ -34,6 +34,7 @@ import qualified Data.CaseInsensitive as CI
 import Network.HTTP.Types.URI (queryToQueryText)
 import qualified Crypto.BCrypt as BCrypt
 
+import Web.Sprinkles.Pandoc (pandocReaderOptions)
 import Web.Sprinkles.Backends
 import Web.Sprinkles.Exceptions
 import Web.Sprinkles.Logger as Logger
@@ -166,14 +167,16 @@ pandoc readerName src = do
         return
         (getReader $ unpack readerName)
     let read = case reader of
-            Pandoc.StringReader r -> r Pandoc.def . unpack
-            Pandoc.ByteStringReader r -> fmap (fmap fst) . r Pandoc.def . encodeUtf8
-    read (fromStrict src) >>= either
+            Pandoc.TextReader r ->
+              r pandocReaderOptions
+            Pandoc.ByteStringReader r ->
+              r pandocReaderOptions . encodeUtf8 . fromStrict
+    (pure . Pandoc.runPure . read $ src) >>= either
         (\err -> fail $ "Reading " ++ show readerName ++ " failed: " ++ show err)
         return
     where
-        getReader "creole" = Right $ Pandoc.mkStringReader Pandoc.readCreole
-        getReader readerName = Pandoc.getReader readerName
+        -- getReader "creole" = Right $ Pandoc.readCreole
+        getReader readerName = fst <$> Pandoc.getReader readerName
 
 gfnGetLocale :: forall p h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run p IO h)
 gfnGetLocale writeLog args = liftIO . catchToGinger writeLog $

@@ -23,6 +23,7 @@ library
                  , Web.Sprinkles.Cache.Filesystem
                  , Web.Sprinkles.Cache.Memory
                  , Web.Sprinkles.Cache.Memcached
+                 , Web.Sprinkles.Pandoc
                  , Web.Sprinkles.Sessions
                  , Web.Sprinkles.SessionHandle
                  , Web.Sprinkles.SessionStore
@@ -94,7 +95,7 @@ library
                , hsyslog
                , http-types
                , lens
-               , memcached-binary
+               , memcache
                , mime-types
                , mtl
                , network-uri

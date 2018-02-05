@@ -46,8 +46,6 @@ import Text.Ginger
        (parseGinger, Template, runGingerT, GingerContext, GVal(..), ToGVal(..),
         (~>), SourcePos)
 import Text.Ginger.Html (Html, htmlSource, unsafeRawHtml)
-import qualified Text.Pandoc as Pandoc
-import qualified Text.Pandoc.Readers.Creole as Pandoc
 
 import Web.Sprinkles.Exceptions
 import Web.Sprinkles.Backends

@@ -34,7 +34,7 @@ import Text.HTML.TagSoup (parseTags, Tag (..), Attribute)
 import qualified Data.CSS.Syntax.Tokens as CSS
 import Data.FileEmbed (embedStringFile)
 
-defHtaccess :: String
+defHtaccess :: ByteString
 defHtaccess = $(embedStringFile "embedded/.htaccess")
 
 data BakeState

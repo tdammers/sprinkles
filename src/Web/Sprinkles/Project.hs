@@ -6,7 +6,7 @@
 module Web.Sprinkles.Project
 where
 
-import ClassyPrelude
+import ClassyPrelude hiding (readFile)
 import Data.Aeson as JSON
 import Text.Ginger
         ( parseGinger
@@ -22,6 +22,7 @@ import Text.Ginger.Html (Html, htmlSource)
 import qualified Text.Ginger as Ginger
 import System.Directory (makeAbsolute, doesDirectoryExist, doesFileExist, getDirectoryContents)
 import System.FilePath
+import System.IO (readFile)
 import Data.Time.Clock.POSIX (POSIXTime)
 
 import Web.Sprinkles.Exceptions
@@ -121,7 +122,7 @@ preloadTemplates logger dir = do
     prefix <- makeAbsolute $ dir </> "templates"
     allFilenames <- findFilesR isTemplateFile prefix
     filenames <- findFiles isTemplateFile prefix
-    templateSources <- forM allFilenames readFile
+    templateSources <- forM allFilenames (readFile :: String -> IO String)
     let templateSourceMap :: HashMap String String
         templateSourceMap =
             mapFromList $
