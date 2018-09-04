@@ -25,7 +25,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import System.Locale.Read (getLocale)
 import qualified Text.Pandoc as Pandoc
-import qualified Text.Pandoc.Readers.Creole as Pandoc
+import qualified Text.Pandoc.Readers.CustomCreole as PandocCreole
 import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.ByteString.Lazy.UTF8 as LUTF8
 import Data.ByteString.Builder (stringUtf8)
@@ -33,6 +33,7 @@ import qualified Network.Wai as Wai
 import qualified Data.CaseInsensitive as CI
 import Network.HTTP.Types.URI (queryToQueryText)
 import qualified Crypto.BCrypt as BCrypt
+import Control.Monad.Except (throwError)
 
 import Web.Sprinkles.Pandoc (pandocReaderOptions)
 import Web.Sprinkles.Backends
@@ -175,8 +176,18 @@ pandoc readerName src = do
         (\err -> fail $ "Reading " ++ show readerName ++ " failed: " ++ show err)
         return
     where
-        -- getReader "creole" = Right $ Pandoc.readCreole
+        getReader :: String -> Either String (Pandoc.Reader Pandoc.PandocPure)
+        getReader "creole-tdammers" = customCreoleReader
         getReader readerName = fst <$> Pandoc.getReader readerName
+
+customCreoleReader :: Either String (Pandoc.Reader Pandoc.PandocPure)
+customCreoleReader =
+  Right . Pandoc.TextReader $ reader
+  where
+    reader :: Pandoc.ReaderOptions -> Text -> Pandoc.PandocPure Pandoc.Pandoc
+    reader opts src =
+      either throwError return $
+        PandocCreole.readCustomCreole opts (unpack src)
 
 gfnGetLocale :: forall p h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run p IO h)
 gfnGetLocale writeLog args = liftIO . catchToGinger writeLog $
