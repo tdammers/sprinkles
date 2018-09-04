@@ -20,7 +20,7 @@ import Control.Concurrent.Async
 
 data CliOptions =
     ServeProject ServerConfig |
-    BakeProject FilePath ServerConfig |
+    BakeProject FilePath ServerConfig [FilePath] |
     DumpVersion
     deriving (Show)
 
@@ -57,8 +57,10 @@ serveArgsP = do
 bakeArgsP :: ArgsP CliOptions
 bakeArgsP = do
     try $ tExactly "-bake"
-    dirname <- Text.unpack <$> option "./baked" bareArgP
-    return $ BakeProject dirname def
+    -- dirname <- try $ serveArgP (Optional "o" $ Just . Text.unpack . fromMaybe "./baked")
+    let dirname = "./baked"
+    extraEntryPoints <- fmap Text.unpack <$> Text.Parsec.many bareArgP
+    return $ BakeProject dirname def extraEntryPoints
 
 tSatisfy :: (Show t, Stream s m t) => (t -> Bool) -> ParsecT s u m t
 tSatisfy cond = do
@@ -144,8 +146,8 @@ runMain = do
         ServeProject sconfigA -> do
             prepareProject sconfigA >>= \(sconfig, project) ->
                 serveProject sconfig project
-        BakeProject path sconfigA -> do
+        BakeProject path sconfigA extraEntryPoints -> do
             prepareProject sconfigA >>= \(sconfig, project) ->
-                bakeProject path project
+                bakeProject path project extraEntryPoints
         DumpVersion -> do
             putStrLn sprinklesVersion

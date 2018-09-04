@@ -60,8 +60,8 @@ defaultApplication rq respond =
 
 type Bake = StateT BakeState IO
 
-bakeProject :: FilePath -> Project -> IO ()
-bakeProject destDir project = do
+bakeProject :: FilePath -> Project -> [FilePath] -> IO ()
+bakeProject destDir project extraEntryPoints = do
     putStrLn $ "Baking project into " <> pack destDir
     createDirectoryIfMissing True destDir
     let app = appFromProject project
@@ -76,6 +76,7 @@ bakeProject destDir project = do
             , "/favicon.ico"
             , "/robots.txt"
             ]
+            ++ extraEntryPoints
 
 runBake :: FilePath -> [FilePath] -> Application -> Bake a -> IO a
 runBake baseDir entryPoints app a =
