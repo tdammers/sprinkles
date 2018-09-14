@@ -2,6 +2,10 @@
 
 A minimalist website construction tool.
 
+https://sprinkles.tobiasdammers.nl/
+
+https://github.com/tdammers/sprinkles/
+
 ## What It Does
 
 Sprinkles is a tool that provides HTML front-ends to diverse data backends, based
