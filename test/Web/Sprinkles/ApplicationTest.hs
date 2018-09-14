@@ -6,6 +6,7 @@ where
 
 import ClassyPrelude
 import Web.Sprinkles.Project (Project (..), loadProject)
+import Web.Sprinkles.ServerConfig (ServerConfig (..))
 import Web.Sprinkles.Serve (appFromProject)
 import Web.Sprinkles.Logger (Logger (..), LogMessage (..), tChanLogger)
 import System.Directory
@@ -62,9 +63,9 @@ withFakeProject files inner = do
 
         go :: FilePath -> IO ()
         go dir = do
-            let sconfig = def
+            let sconfig = def { scRootDir = "." }
             logChan <- newTChanIO
-            project <- setFakeLogger logChan <$> loadProject sconfig "."
+            project <- setFakeLogger logChan <$> loadProject sconfig
             inner project
 
         setFakeLogger :: TChan LogMessage -> Project -> Project
