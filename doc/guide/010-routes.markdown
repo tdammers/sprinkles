@@ -49,7 +49,7 @@ rules:
 
 - # The "User Guide" section is also special, because it has a Table Of
   # Contents on every page, and the pages themselves have numbers prefixed so
-  # that ordering them by filename gives us the right ordering for the TOC. We
+  # that ordering them by filename gives us the right order for the TOC. We
   # don't want the numbering to appear in links / URLs though, so there's a bit
   # of magic added to make that possible.
   #
