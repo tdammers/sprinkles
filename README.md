@@ -142,11 +142,11 @@ specs as-is; the full Ginger language is at your disposal here.
 
 #### Supported Backend Types
 
-All backend specifications support at least the `type`, `fetch`, and `ordering`
+All backend specifications support at least the `type`, `fetch`, and `order`
 keys in long-hand mode. `type` determines the backend type, `fetch` is one of
 `one`, `all`, or an integer for a fixed maximum number of items. `all` and
 numbered return a list of records, `one` returns just one record. For
-`ordering`, the following are allowed:
+`order`, the following are allowed:
 
 - "arbitrary": do not reorder, use whatever the backend produces
 - "random": random-shuffle results

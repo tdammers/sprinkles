@@ -183,15 +183,15 @@ instance ExpandableM Text BackendSpec where
 --   - n (numeric value): Fetch up to n items, as a list
 --   "fetch": fetchMode,
 --
---   // ordering. One of:
+--   // order. One of:
 --   // - "arbitrary": do not reorder, use whatever the backend produces
 --   // - "random": random-shuffle results
 --   // - "shuffle": same as "random"
 --   // - "name": order by name
 --   // - "mtime": order by modification time
---   // The ordering can be preceded with a "+" or "-" sign to indicate
---   // ascending or descending ordering.
---   "order": ordering,
+--   // The order can be preceded with a "+" or "-" sign to indicate
+--   // ascending or descending order.
+--   "order": order,
 --
 --   // The rest of the structure depends on the type.
 --
@@ -350,7 +350,7 @@ instance FromJSON FetchMode where
     parseJSON _ = fail "Invalid fetch mode (want 'one' or 'all')"
 
 -- | By which field should we order results?
-data FetchOrderField = ArbitraryOrder -- ^ Do not impose any ordering at all
+data FetchOrderField = ArbitraryOrder -- ^ Do not impose any order at all
                      | RandomOrder -- ^ Shuffle randomly
                      | OrderByName -- ^ Order by reported name
                      | OrderByMTime -- ^ Order by modification time
@@ -373,7 +373,7 @@ instance Default AscDesc where
 data FetchOrder =
     FetchOrder
         { fetchField :: FetchOrderField -- ^ By which field?
-        , fetchAscDesc :: AscDesc -- ^ Reverse ordering?
+        , fetchAscDesc :: AscDesc -- ^ Reverse order?
         }
         deriving (Show, Read, Eq, Generic)
 
