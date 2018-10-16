@@ -5,3 +5,7 @@ tags
 /release
 sessions.sqlite
 baked
+.cabal-sandbox
+dist
+cabal.sandbox.config
+dist-newstyle
