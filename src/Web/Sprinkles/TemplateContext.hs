@@ -237,9 +237,9 @@ gfnLoadBackendData writeLog cache args =
         loadPair :: (Int, (Maybe Text, GVal (Ginger.Run p IO h)))
                  -> Ginger.Run p IO h (Text, GVal (Ginger.Run p IO h))
         loadPair (index, (keyMay, gBackendURL)) = do
-            let backendURL = Ginger.asText gBackendURL
+            backendSpec <- either fail pure . backendSpecFromJSON . toJSON $ gBackendURL
             backendData :: Items (BackendData p IO h) <- liftIO $
-                loadBackendData writeLog pbsInvalid cache =<< parseBackendURI backendURL
+                loadBackendData writeLog pbsInvalid cache backendSpec
             return
                 ( fromMaybe (tshow index) keyMay
                 , toGVal backendData
