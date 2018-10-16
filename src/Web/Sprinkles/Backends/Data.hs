@@ -26,7 +26,7 @@ module Web.Sprinkles.Backends.Data
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Text.Ginger (ToGVal (..), GVal, Run (..), dict, (~>))
 import qualified Text.Ginger as Ginger
 import Data.Aeson as JSON

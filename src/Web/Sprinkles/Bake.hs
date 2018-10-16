@@ -10,7 +10,7 @@
 module Web.Sprinkles.Bake
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import qualified Data.Text as Text
 import Data.Text (Text)
 import qualified Data.Set as Set

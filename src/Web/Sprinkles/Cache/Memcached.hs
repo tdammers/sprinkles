@@ -5,7 +5,7 @@
 module Web.Sprinkles.Cache.Memcached
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Web.Sprinkles.Cache
 import Data.Time.Clock.POSIX
 import qualified Data.HashMap.Strict as HashMap

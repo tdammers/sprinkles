@@ -6,7 +6,7 @@
 module Web.Sprinkles.Project
 where
 
-import ClassyPrelude hiding (readFile)
+import Web.Sprinkles.Prelude hiding (readFile)
 import Data.Aeson as JSON
 import Text.Ginger
         ( parseGinger

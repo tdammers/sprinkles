@@ -6,13 +6,13 @@ module Data.RandomString
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import System.Random
 
 randomStr :: [Char] -> Int -> IO String
 randomStr alphabet desiredLength = do
     let alphabetSize :: Int
-        alphabetSize = ClassyPrelude.length alphabet
+        alphabetSize = Web.Sprinkles.Prelude.length alphabet
     when (alphabetSize < 1) $
         error "randomStr: empty list of allowed characters"
     items :: [String] <- forM [0..desiredLength] $ \_ -> do

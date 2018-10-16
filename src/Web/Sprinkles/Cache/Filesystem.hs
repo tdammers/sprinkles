@@ -4,11 +4,12 @@
 module Web.Sprinkles.Cache.Filesystem
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Data.Char (isAlphaNum, ord, isDigit, isAlpha, chr)
 import Prelude (read)
 import Web.Sprinkles.Cache
 import System.IO (IOMode (..), withFile)
+import System.IO.Error (catchIOError)
 import System.Directory (removeFile, getDirectoryContents)
 import System.FilePath (takeFileName)
 import System.PosixCompat.Files (getFileStatus, modificationTime)
@@ -38,13 +39,13 @@ filesystemCache serializeKey deserializeKey writeValue readValue cacheDir maxAge
             catchIOError
                 (do
                     status <- getFileStatus filename
-                    body <- withFile filename ReadMode readValue
+                    body <- System.IO.withFile filename ReadMode readValue
                     return $ Just body
                 )
                 (ignoreNonexisting Nothing)
         , cachePut = \key val -> do
             let filename = keyToFilename key
-            withFile filename WriteMode (\h -> writeValue h val)
+            System.IO.withFile filename WriteMode (\h -> writeValue h val)
         , cacheDelete = \key -> do
             let filename = keyToFilename key
             removeFile filename `catchIOError` ignoreNonexisting_

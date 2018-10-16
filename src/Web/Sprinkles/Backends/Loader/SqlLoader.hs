@@ -12,7 +12,7 @@ module Web.Sprinkles.Backends.Loader.SqlLoader
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Web.Sprinkles.Backends.Data
         ( BackendData (..)
         , BackendMeta (..)

@@ -10,7 +10,7 @@
 module Web.Sprinkles.Databases
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Data.Aeson as JSON
 import Data.Aeson.TH as JSON
 import qualified Database.HDBC as HDBC

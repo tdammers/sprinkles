@@ -7,7 +7,7 @@
 -- | CLI program that drives a Sprinkles instance.
 module Main where
 
-import ClassyPrelude hiding ( (<|>), try )
+import Web.Sprinkles.Prelude hiding ( (<|>), try )
 import Web.Sprinkles
 import Web.Sprinkles.Project (Project)
 import Web.Sprinkles.Exceptions

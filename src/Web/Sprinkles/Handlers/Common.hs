@@ -10,7 +10,7 @@
 module Web.Sprinkles.Handlers.Common
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Web.Sprinkles.Exceptions
 import Web.Sprinkles.Backends
 import qualified Network.Wai as Wai

@@ -6,7 +6,7 @@
 module Web.Sprinkles.SessionStore
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Data.Time.Clock.POSIX
 
 type SessionID = ByteString

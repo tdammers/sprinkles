@@ -7,7 +7,7 @@ import Distribution.Version
 import Distribution.Verbosity
 import Distribution.Package
 import Distribution.PackageDescription
-import Distribution.PackageDescription.Parse
+import Distribution.PackageDescription.Parsec
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
 import Data.List (intercalate, isPrefixOf)

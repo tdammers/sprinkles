@@ -32,7 +32,7 @@ module Web.Sprinkles.Backends.Spec
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Network.Mime (MimeType)
 import Network.HTTP.Types ()
 import Data.Aeson (FromJSON (..), Value (..), (.=), (.!=), (.:?), (.:))

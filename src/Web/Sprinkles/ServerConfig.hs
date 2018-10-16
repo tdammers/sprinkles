@@ -7,7 +7,7 @@
 module Web.Sprinkles.ServerConfig
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Web.Sprinkles.Rule
 import Data.Aeson as JSON
 import Data.Aeson.TH

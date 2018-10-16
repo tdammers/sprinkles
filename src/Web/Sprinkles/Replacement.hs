@@ -11,7 +11,7 @@ module Web.Sprinkles.Replacement
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Data.Aeson as JSON
 import Data.Aeson.TH as JSON
 import Text.Ginger ( Template

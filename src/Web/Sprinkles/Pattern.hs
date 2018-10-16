@@ -8,7 +8,7 @@
 module Web.Sprinkles.Pattern
 where
 
-import ClassyPrelude hiding ( (<|>) )
+import Web.Sprinkles.Prelude hiding ( (<|>) )
 import Text.Parsec as Parsec
 import qualified Data.Text as Text
 import Data.Aeson as JSON

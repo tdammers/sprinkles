@@ -12,7 +12,7 @@ module Web.Sprinkles.Backends.Loader.HttpLoader
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Web.Sprinkles.Backends.Spec
         ( HttpBackendOptions (..)
         )

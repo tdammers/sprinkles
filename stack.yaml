@@ -2,7 +2,7 @@
 # For more information, see: http://docs.haskellstack.org/en/stable/yaml_configuration/
 
 # Specifies the GHC version and set of packages available (e.g., lts-3.5, nightly-2015-09-21, ghc-7.10.2)
-resolver: lts-10.4
+resolver: lts-12.13
 
 # Local packages, usually specified by relative directory name
 packages:
@@ -24,7 +24,7 @@ extra-deps:
   - HDBC-sqlite3-2.3.3.1
   - system-locale-0.2.0.0
   - memcache-0.2.0.1
-  - ginger-0.8.0.0
+  - ginger-0.8.0.1
   - megaparsec-5.0.1
   - wai-handler-fastcgi-3.0.0.2
   - wryte-0.2.0.0

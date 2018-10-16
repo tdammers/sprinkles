@@ -6,7 +6,7 @@
 module Web.Sprinkles.Rule
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Web.Sprinkles.Pattern
 import Web.Sprinkles.Replacement
 import Web.Sprinkles.Backends

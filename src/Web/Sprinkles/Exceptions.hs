@@ -13,7 +13,7 @@ module Web.Sprinkles.Exceptions
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Control.Exception
 import qualified Database.HDBC as HDBC
 import Database.HDBC (SqlError (..))
@@ -45,7 +45,7 @@ instance Exception InvalidReaderException
 
 throwInvalidReaderException :: String -> String -> IO ()
 throwInvalidReaderException name msg =
-    throwM $ InvalidReaderException (pack name) (pack msg)
+    Control.Exception.throwIO $ InvalidReaderException (pack name) (pack msg)
 
 data TemplateNotFoundException = TemplateNotFoundException Text
     deriving (Show, Eq, Generic)

@@ -14,7 +14,7 @@ module Web.Sprinkles.Logger
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Control.Concurrent (forkIO)
 import Data.Aeson (FromJSON (..), Value (..), (.:), withObject)
 import qualified System.Posix.Syslog as Syslog

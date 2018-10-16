@@ -7,7 +7,7 @@
 module Web.Sprinkles.PandocGVal
 where
 
-import ClassyPrelude hiding (asText, asList)
+import Web.Sprinkles.Prelude hiding (asText, asList)
 import Text.Ginger as Ginger (GVal (..), ToGVal (..), dict, (~>))
 import Text.Ginger.Html (unsafeRawHtml)
 import qualified Text.Ginger as Ginger
@@ -107,7 +107,7 @@ instance Monad m => ToGVal (Ginger.Run p m h) Pandoc where
             , asBoolean = True
             , asNumber = Nothing
             , asFunction = Nothing
-            , Ginger.length = Just (ClassyPrelude.length blocks)
+            , Ginger.length = Just (Web.Sprinkles.Prelude.length blocks)
             , isNull = False
             }
 
@@ -141,7 +141,7 @@ instance ToGVal m Block where
                , asBoolean = True
                , asNumber = Nothing
                , asFunction = Nothing
-               , Ginger.length = Just (ClassyPrelude.length listItems)
+               , Ginger.length = Just (Web.Sprinkles.Prelude.length listItems)
                , isNull = False
                }
 
@@ -279,7 +279,7 @@ instance ToGVal m Inline where
                , asBoolean = True
                , asNumber = Nothing
                , asFunction = Nothing
-               , Ginger.length = Just (ClassyPrelude.length listItems)
+               , Ginger.length = Just (Web.Sprinkles.Prelude.length listItems)
                , isNull = False
                }
 

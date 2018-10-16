@@ -12,7 +12,7 @@ module Web.Sprinkles.Serve
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Control.Concurrent (forkIO)
 import Data.Aeson as JSON
 import Data.Aeson.Encode.Pretty as JSON

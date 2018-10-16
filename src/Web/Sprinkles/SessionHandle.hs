@@ -12,7 +12,7 @@ module Web.Sprinkles.SessionHandle
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Web.Sprinkles.SessionStore
 import Text.Ginger
        (GVal(..), ToGVal(..),

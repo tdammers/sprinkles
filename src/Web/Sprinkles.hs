@@ -9,7 +9,7 @@ module Web.Sprinkles
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Web.Sprinkles.Project
 import Web.Sprinkles.ServerConfig
 import Web.Sprinkles.Serve

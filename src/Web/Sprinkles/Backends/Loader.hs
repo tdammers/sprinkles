@@ -12,7 +12,7 @@ module Web.Sprinkles.Backends.Loader
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Web.Sprinkles.Backends.Loader.Type
 import Web.Sprinkles.Backends.Loader.SqlLoader
 import Web.Sprinkles.Backends.Loader.SubprocessLoader

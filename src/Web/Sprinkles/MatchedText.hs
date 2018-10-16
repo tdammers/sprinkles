@@ -7,7 +7,7 @@
 module Web.Sprinkles.MatchedText
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 
 import qualified Text.Ginger as Ginger
 import Text.Ginger

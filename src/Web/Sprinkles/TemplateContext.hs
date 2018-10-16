@@ -10,7 +10,7 @@
 module Web.Sprinkles.TemplateContext
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Text.Ginger
        (parseGinger, Template, runGingerT, GingerContext, GVal(..), ToGVal(..),
         (~>))
@@ -205,7 +205,7 @@ gfnEllipse [(Nothing, str)] =
     gfnEllipse [(Nothing, str), (Nothing, toGVal (100 :: Int))]
 gfnEllipse [(Nothing, str), (Nothing, len)] = do
     let txt = Ginger.asText str
-        actualLen = ClassyPrelude.length txt
+        actualLen = Web.Sprinkles.Prelude.length txt
         targetLen = fromMaybe 100 $ ceiling <$> Ginger.asNumber len
         txt' = if actualLen + 3 > targetLen
                     then take (targetLen - 3) txt <> "..."

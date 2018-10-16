@@ -16,6 +16,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs: src
   exposed-modules: Web.Sprinkles
+                 , Web.Sprinkles.Prelude
                  , Web.Sprinkles.Logger
                  , Web.Sprinkles.Exceptions
                  , Web.Sprinkles.Databases
@@ -65,7 +66,7 @@ library
                  , Data.Expandable
                  , Data.RandomString
   build-depends: base >= 4.7 && < 5
-               , Cabal
+               , Cabal >= 2.4.0 && <2.5
                , Glob
                , HDBC
                , HDBC-postgresql
@@ -80,7 +81,6 @@ library
                , bytestring
                , case-insensitive
                , cereal
-               , classy-prelude
                , containers
                , css-syntax
                , curl
@@ -137,7 +137,6 @@ executable sprinkles
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends: base
                , sprinkles
-               , classy-prelude
                , async
                , data-default
                , safe
@@ -153,7 +152,6 @@ test-suite sprinkles-test
                , Web.Sprinkles.ApplicationTest
   build-depends: base
                , sprinkles
-               , classy-prelude
                , data-default
                , directory
                , filepath

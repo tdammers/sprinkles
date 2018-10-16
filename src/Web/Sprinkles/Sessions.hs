@@ -17,7 +17,7 @@ module Web.Sprinkles.Sessions
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Web.Sprinkles.SessionStore
 import Web.Sprinkles.SessionHandle
 import Web.Sprinkles.Logger as Logger

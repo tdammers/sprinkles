@@ -24,7 +24,7 @@ module Web.Sprinkles.Backends
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import System.Random.Shuffle (shuffleM)
 import Web.Sprinkles.Cache
 import qualified Data.Serialize as Cereal

@@ -10,7 +10,7 @@ module Web.Sprinkles.SessionStore.InProc
 )
 where
 
-import ClassyPrelude hiding (atomically)
+import Web.Sprinkles.Prelude hiding (atomically)
 import Web.Sprinkles.SessionStore
 import Control.Concurrent.STM
 

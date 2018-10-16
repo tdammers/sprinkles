@@ -10,7 +10,7 @@
 module Web.Sprinkles.Backends.Loader.Type
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import qualified Network.Wai as Wai
 import Network.HTTP.Types (HeaderName)
 import Web.Sprinkles.SessionHandle (SessionHandle)

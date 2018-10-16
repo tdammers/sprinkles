@@ -12,7 +12,7 @@ module Data.AList
 )
 where
 
-import ClassyPrelude hiding (fromList, toList, singleton, empty)
+import Web.Sprinkles.Prelude hiding (fromList, toList, singleton, empty)
 import Data.Aeson (ToJSON (..), FromJSON (..), Value (..))
 import qualified Data.HashMap.Strict as HashMap
 import Data.Monoid

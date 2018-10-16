@@ -4,7 +4,7 @@
 module Web.Sprinkles.ApplicationTest
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Web.Sprinkles.Project (Project (..), loadProject)
 import Web.Sprinkles.ServerConfig (ServerConfig (..))
 import Web.Sprinkles.Serve (appFromProject)

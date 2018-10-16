@@ -12,7 +12,7 @@ module Web.Sprinkles.SessionStore.Database
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import qualified Database.HDBC as HDBC
 import qualified Web.Sprinkles.Databases as DB
 import Web.Sprinkles.Databases (DSN (..), SqlDriver (..))

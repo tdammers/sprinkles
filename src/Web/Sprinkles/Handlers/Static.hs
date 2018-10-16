@@ -10,7 +10,7 @@ module Web.Sprinkles.Handlers.Static
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Web.Sprinkles.Backends
 import qualified Network.Wai as Wai
 import Web.Sprinkles.Logger as Logger

@@ -13,7 +13,7 @@ module Web.Sprinkles.Handlers.Respond
 )
 where
 
-import ClassyPrelude hiding (Builder)
+import Web.Sprinkles.Prelude hiding (Builder)
 import Web.Sprinkles.Backends
 import qualified Network.Wai as Wai
 import Web.Sprinkles.Logger as Logger
@@ -87,7 +87,7 @@ respondTemplateText =
         makeContext
     where
         contentType = "text/plain;charset=utf8"
-        writeText write = write . stringUtf8 . unpack . ClassyPrelude.asText
+        writeText write = write . stringUtf8 . unpack . Web.Sprinkles.Prelude.asText
         makeContext = Ginger.makeContextTextM
 
 respondTemplate :: ToGVal (Ginger.Run Ginger.SourcePos IO h) a

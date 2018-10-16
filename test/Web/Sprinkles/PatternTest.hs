@@ -3,7 +3,7 @@
 module Web.Sprinkles.PatternTest
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Web.Sprinkles.Pattern
 import Test.Tasty
 import Test.Tasty.HUnit

@@ -13,7 +13,7 @@ module Web.Sprinkles.Backends.Parsers
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 
 import Web.Sprinkles.Backends.Data
         ( BackendData (..)
@@ -114,8 +114,8 @@ json item@(BackendSource meta body _) = do
 yaml :: (MonadIO m, Monad m) => BackendSource -> m (BackendData p n h)
 yaml item@(BackendSource meta body _) = do
     bodyBytes <- liftIO $ rawToLBS body
-    case YAML.decodeEither (toStrict bodyBytes) of
-        Left err -> fail $ err ++ "\n" ++ show bodyBytes
+    case YAML.decodeEither' (toStrict bodyBytes) of
+        Left err -> fail $ YAML.prettyPrintParseException err ++ "\n" ++ show bodyBytes
         Right json -> return . toBackendData item $ (json :: JSON.Value)
 
 urlencodedForm :: (MonadIO m, Monad m) => BackendSource -> m (BackendData p n h)

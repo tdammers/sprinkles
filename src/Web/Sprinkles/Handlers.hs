@@ -12,7 +12,7 @@ module Web.Sprinkles.Handlers
 )
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Web.Sprinkles.Handlers.Common
 import Web.Sprinkles.Handlers.Static
 import Web.Sprinkles.Handlers.Redirect

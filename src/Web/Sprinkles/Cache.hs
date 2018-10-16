@@ -6,7 +6,7 @@
 module Web.Sprinkles.Cache
 where
 
-import ClassyPrelude
+import Web.Sprinkles.Prelude
 import Control.MaybeEitherMonad
 import Data.Time.Clock.POSIX
 
