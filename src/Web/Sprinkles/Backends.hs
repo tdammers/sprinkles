@@ -59,7 +59,7 @@ import Web.Sprinkles.Backends.Data
         , rawToLBS
         )
 import Web.Sprinkles.Backends.Loader
-import Web.Sprinkles.Backends.Loader.Type (RequestContext)
+import Web.Sprinkles.Backends.Loader.Type (RequestContext (..))
 import Data.Expandable
 
 -- | Cache for raw backend data, stored as bytestrings.
@@ -75,12 +75,13 @@ loadBackendData :: Monad m
                 -> RawBackendCache
                 -> BackendSpec
                 -> IO (Items (BackendData p m h))
-loadBackendData writeLog cache loadPost bspec =
+loadBackendData writeLog context cache bspec =
     fmap (reduceItems (bsFetchMode bspec)) $
-        fetchBackendData writeLog cache loadPost bspec >>=
+        fetchBackendData writeLog context cache' bspec >>=
         mapM parseBackendData >>=
         sorter
     where
+        cache' = if bsCacheEnabled bspec then cache else mempty
         sorter :: [BackendData p m h] -> IO [BackendData p m h]
         sorter = fmap reverter . baseSorter
         reverter :: [a] -> [a]
@@ -120,7 +121,7 @@ fetchBackendData' :: (LogLevel -> Text -> IO ()) -> RequestContext -> BackendSpe
 fetchBackendData'
         writeLog
         loadPost
-        (BackendSpec backendType fetchMode fetchOrder mimeOverride) =
+        (BackendSpec backendType fetchMode fetchOrder mimeOverride _) =
     map (overrideMime mimeOverride) <$> loader backendType writeLog loadPost fetchMode fetchOrder
 
 overrideMime :: Maybe MimeType -> BackendSource -> BackendSource
