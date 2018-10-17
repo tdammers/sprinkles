@@ -68,67 +68,70 @@ library
                  , Text.Pandoc.Readers.CustomCreole
   build-depends: base >= 4.7 && < 5
                , Cabal >= 2.4.0 && <2.5
-               , Glob
-               , HDBC
-               , HDBC-postgresql
-               , HDBC-sqlite3
-               , HDBC-mysql
-               , HTTP
-               , aeson
-               , aeson-pretty
-               , array
-               , base64-bytestring
-               , bcrypt
-               , bytestring
-               , case-insensitive
-               , cereal
-               , containers
-               , css-syntax
-               , curl
-               , data-default
-               , directory
-               , extra
-               , filepath
-               , file-embed
-               , ginger >=0.7.3 && <0.9
-               , hashable
-               , heredoc
-               , hsyslog
-               , http-types
-               , lens
-               , memcache
-               , mime-types
-               , mtl
-               , network-uri
-               , nonce
-               , pandoc
-               , pandoc-types
-               , parsec
-               , process
-               , random
-               , random-shuffle
-               , regex-base
-               , regex-pcre
-               , safe
-               , scientific
-               , split
-               , stm
-               , system-locale
-               , tagsoup
-               , template-haskell
-               , text
-               , time
-               , transformers
-               , unix-compat
-               , unordered-containers
-               , utf8-string
-               , vector
-               , wai
-               , wai-extra
-               , wai-handler-fastcgi
-               , warp
-               , yaml
-               , yeshql-hdbc
+               , Glob >=0.9.3 && <0.10
+               , HDBC >=2.4.0.2 && <2.5
+               , HDBC-postgresql >=2.3.2.5 && <2.4
+               , HDBC-sqlite3 >=2.3.3.1 && <2.4
+               , HDBC-mysql >=0.7.1.0 && <0.8
+               , HTTP >=4000.3.12 && <4000.4
+               , aeson >=1.3.1.1 && <1.4
+               , aeson-pretty >=0.8.7 && <0.9
+               , array >=0.5.2.0 && <0.6
+               , base64-bytestring >=1.0.0.1 && <1.1
+               , bcrypt >=0.0.11 && <0.1
+               , bytestring >=0.10.8.2 && <0.11
+               , case-insensitive >=1.2.0.11 && <1.3
+               , cereal >=0.5.7.0 && <0.6
+               , containers >=0.5.11.0 && <0.6
+               , unordered-containers >=0.2.9.0 && <0.3
+               , css-syntax >=0.0.8 && <0.1
+               , curl >=1.3.8 && <1.4
+               , data-default >=0.7.1.1 && <0.8
+               , directory >=1.3.1.5 && <1.4
+               , extra >=1.6.12 && <1.7
+               , wai-extra >=3.0.24.3 && <3.1
+               , filepath >=1.4.2 && <1.5
+               , file-embed >=0.0.10.1 && <0.1
+               , ginger >=0.8.1.0 && <0.9
+               , hashable >=1.2.7.0 && <1.3
+               , heredoc >=0.2.0.0 && <0.3
+               , hsyslog >=5.0.1 && <5.1
+               , http-types >=0.12.2 && <0.13
+               , lens >=4.17 && <4.18
+               , memcache >=0.2.0.1 && <0.3
+               , mime-types >=0.1.0.8 && <0.2
+               , mtl >=2.2.2 && <2.3
+               , network-uri >=2.6.1.0 && <2.7
+               , nonce >=1.0.7 && <1.1
+               , pandoc >=2.2.1 && <2.3
+               , pandoc-types >=1.17.5.1 && <1.18
+               , parsec >=3.1.13.0 && <3.2
+               , process >=1.6.3.0 && <1.7
+               , random >=1.1 && <1.2
+               , random-shuffle >=0.0.4 && <0.1
+               , regex-base >=0.93.2 && <0.94
+               , regex-pcre >=0.94.4 && <0.95
+               , safe >=0.3.17 && <0.4
+               , scientific >=0.3.6.2 && <0.4
+               , split >=0.2.3.3 && <0.3
+               , stm >=2.4.5.1 && <2.5
+               , system-locale >=0.2.0.0 && <0.3
+               , tagsoup >=0.14.7 && <0.15
+               , template-haskell >=2.13.0.0 && <2.14
+               , text >=1.2.3.1 && <1.3
+               , time >=1.8.0.2 && <1.9
+               , unix-time >=0.3.8 && <0.4
+               , transformers >=0.5.5.0 && <0.6
+               , unix-compat >=0.5.1 && <0.6
+               , unordered-containers >=0.2.9.0 && <0.3
+               , utf8-string >=1.0.1.1 && <1.1
+               , vector >=0.12.0.1 && <0.13
+               , wai >=3.2.1.2 && <3.3
+               , wai-extra >=3.0.24.3 && <3.1
+               , wai-handler-fastcgi >=3.0.0.2 && <3.1
+               , warp >=3.2.25 && <3.3
+               , yaml >=0.8.32 && <0.9
+               , yeshql-hdbc >=4.1.0.1 && <4.2
   default-language:    Haskell2010
   ghc-options: -fwarn-incomplete-patterns
 
