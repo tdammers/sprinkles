@@ -82,8 +82,7 @@ createLogger (StdioLog level) =
 createCache :: FilePath -> BackendCacheConfig -> IO (Cache ByteString ByteString)
 createCache cwd (FilesystemCache dir expiration) =
     return $ filesystemCache
-        (unpack . decodeUtf8) -- "serialize" key
-        (encodeUtf8 . pack) -- "unserialize" key
+        (sha1 . fromStrict) -- "serialize" key
         hPut -- write value
         hGetContents -- read value
         (cwd </> dir)

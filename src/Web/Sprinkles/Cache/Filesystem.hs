@@ -26,13 +26,12 @@ ignoreNonexisting_ :: IOError -> IO ()
 ignoreNonexisting_ = ignoreNonexisting ()
 
 filesystemCache :: (k -> String) -- ^ Key serializer
-                -> (String -> k) -- ^ Key deserializer
                 -> (Handle -> v -> IO ()) -- ^ Value serializer
                 -> (Handle -> IO v) -- ^ Value deserializer
                 -> FilePath -- ^ Base directory
                 -> POSIXTime -- ^ Expiration, in seconds
                 -> Cache k v -- ^ Resulting cache
-filesystemCache serializeKey deserializeKey writeValue readValue cacheDir maxAge =
+filesystemCache serializeKey writeValue readValue cacheDir maxAge =
     Cache
         { cacheGet = \key -> do
             let filename = keyToFilename key
@@ -65,7 +64,6 @@ filesystemCache serializeKey deserializeKey writeValue readValue cacheDir maxAge
         }
     where
         keyToFilename key = cacheDir </> encodeFilename (serializeKey key) <> ".cache"
-        keyFromFilename = deserializeKey . decodeFilename . takeFileName
 
 encodeFilename :: String -> FilePath
 encodeFilename =

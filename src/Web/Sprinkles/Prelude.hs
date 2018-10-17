@@ -27,6 +27,7 @@ module Web.Sprinkles.Prelude
 , getArgs
 , getEnv
 , lookupEnv
+, sha1, sha256, sha512
 )
 where
 
@@ -54,6 +55,7 @@ import Prelude as P hiding ( unwords
                            , (++)
                            , concat
                            , empty
+                           , sha1
                            )
 
 import Data.Text as P (Text)
@@ -109,6 +111,7 @@ import qualified Data.ByteString as BS
 import qualified Data.Vector as Vector
 import qualified System.IO
 import qualified System.Environment as Env
+import qualified Data.Digest.Pure.SHA as SHA
 import Text.Read (readMaybe)
 import Control.Exception (throw)
 
@@ -451,3 +454,33 @@ getEnv = fmap pack . Env.getEnv
 
 lookupEnv :: (Packable v String) => String -> IO (Maybe v)
 lookupEnv = fmap (fmap pack) . Env.lookupEnv
+
+class HashDigest a where
+  digest :: forall t. SHA.Digest t -> a
+
+instance HashDigest String where
+  digest = SHA.showDigest
+
+instance HashDigest Text where
+  digest = pack . digest
+
+instance HashDigest LText where
+  digest = pack . digest
+
+instance HashDigest LByteString where
+  digest = SHA.bytestringDigest
+
+instance HashDigest ByteString where
+  digest = toStrict . digest
+
+instance HashDigest Integer where
+  digest = SHA.integerDigest
+
+sha1 :: HashDigest a => LByteString -> a
+sha1 = digest . SHA.sha1
+
+sha256 :: HashDigest a => LByteString -> a
+sha256 = digest . SHA.sha1
+
+sha512 :: HashDigest a => LByteString -> a
+sha512 = digest . SHA.sha1
