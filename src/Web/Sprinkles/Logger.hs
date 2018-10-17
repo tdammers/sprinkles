@@ -19,7 +19,6 @@ import Control.Concurrent (forkIO)
 import Data.Aeson (FromJSON (..), Value (..), (.:), withObject)
 import qualified System.Posix.Syslog as Syslog
 import Data.Default (Default (..))
-import Data.Text.IO (hPutStrLn)
 import Foreign.C.String (withCStringLen)
 
 data LogLevel = Debug

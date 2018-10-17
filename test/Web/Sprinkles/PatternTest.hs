@@ -3,7 +3,7 @@
 module Web.Sprinkles.PatternTest
 where
 
-import Web.Sprinkles.Prelude
+import Web.Sprinkles.Prelude hiding (Any)
 import Web.Sprinkles.Pattern
 import Test.Tasty
 import Test.Tasty.HUnit

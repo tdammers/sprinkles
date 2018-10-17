@@ -15,7 +15,6 @@ import qualified Data.Yaml as YAML
 import Web.Sprinkles.Backends
 import Data.Default
 import System.FilePath.Glob (glob)
-import System.Environment (getEnv, lookupEnv)
 import Control.MaybeEitherMonad (maybeFail)
 import System.Directory (doesFileExist)
 import Data.Scientific (Scientific)
@@ -187,6 +186,9 @@ instance Default ServerConfig where
             , scRootDir = ""
             }
 
+instance Semigroup ServerConfig where
+    (<>) = scAppend
+
 instance Monoid ServerConfig where
     mempty = def
     mappend = scAppend
@@ -242,7 +244,7 @@ loadServerConfigFile fn =
 
 loadServerConfig :: FilePath -> IO ServerConfig
 loadServerConfig dir = do
-    homeDirMay <- lookupEnv "HOME"
+    homeDirMay <- lookupEnv ("HOME" :: String)
     let systemGlobalFilename = "/etc/sprinkles/server.yml"
         globalFilename = "/usr/local/etc/sprinkles/server.yml"
         userFilenameMay = (</> ".config" </> "sprinkles" </> "server.yml") <$> homeDirMay

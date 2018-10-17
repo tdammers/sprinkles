@@ -7,6 +7,8 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE MultiParamTypeClasses #-}
+{-#LANGUAGE TypeApplications #-}
+
 module Web.Sprinkles.Handlers.Respond
 ( respondTemplateHtml
 , respondTemplateText
@@ -87,7 +89,7 @@ respondTemplateText =
         makeContext
     where
         contentType = "text/plain;charset=utf8"
-        writeText write = write . stringUtf8 . unpack . Web.Sprinkles.Prelude.asText
+        writeText write = write . stringUtf8 . unpack @Text
         makeContext = Ginger.makeContextTextM
 
 respondTemplate :: ToGVal (Ginger.Run Ginger.SourcePos IO h) a

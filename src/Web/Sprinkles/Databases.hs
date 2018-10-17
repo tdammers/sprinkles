@@ -90,8 +90,8 @@ instance FromJSON SqlDriver where
 instance Serialize DSN where
     put (DSN driver details) = do
         Cereal.put driver
-        Cereal.put (unpack details)
-    get = DSN <$> Cereal.get <*> (pack <$> Cereal.get)
+        Cereal.put ((unpack :: Text -> String) details)
+    get = DSN <$> Cereal.get <*> ((pack :: String -> Text) <$> Cereal.get)
 
 dsnToText :: DSN -> Text
 dsnToText (DSN driver details) = sqlDriverID driver <> ":" <> details

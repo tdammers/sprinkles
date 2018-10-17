@@ -7,6 +7,7 @@
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE DeriveGeneric #-}
 {-#LANGUAGE DeriveFunctor #-}
+{-#LANGUAGE TypeApplications #-}
 
 -- | Types for and operations on backend data.
 module Web.Sprinkles.Backends.Data
@@ -280,7 +281,7 @@ instance ToJSON BackendMeta where
     toJSON bm =
         let (mtime, mtimeSci, mtimeUTC) = mtimeFlavors bm
         in JSON.object
-            [ "mimeType" .= decodeUtf8 (bmMimeType bm)
+            [ "mimeType" .= decodeUtf8 @Text (bmMimeType bm)
             , "mtime" .= mtimeSci
             , "mtimeUTC" .= mtimeUTC
             , "name" .= bmName bm
@@ -292,7 +293,7 @@ instance ToGVal m BackendMeta where
     toGVal bm =
         let (mtime, mtimeSci, mtimeUTC) = mtimeFlavors bm
         in Ginger.dict
-            [ "type" ~> decodeUtf8 (bmMimeType bm)
+            [ "type" ~> decodeUtf8 @Text (bmMimeType bm)
             , "mtime" ~> mtimeSci
             , "mtimeUTC" ~> mtimeUTC
             , "name" ~> bmName bm

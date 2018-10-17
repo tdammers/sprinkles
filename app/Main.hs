@@ -123,6 +123,7 @@ serveArgSpecs =
     , Flag "fcgi" (\config -> config { scDriver = FastCGIDriver })
     ]
 
+sprinklesVersion :: Text
 sprinklesVersion = $(embedPackageVersionStr "sprinkles.cabal")
 
 main :: IO ()

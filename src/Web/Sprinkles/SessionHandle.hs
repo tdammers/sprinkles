@@ -6,6 +6,7 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE MultiParamTypeClasses #-}
+{-#LANGUAGE TypeApplications #-}
 module Web.Sprinkles.SessionHandle
 ( SessionHandle (..)
 , makeSessionHandle
@@ -30,7 +31,7 @@ data SessionHandle =
 instance (Monad m, MonadIO m) => ToGVal (Ginger.Run p m h) SessionHandle where
     toGVal session =
         Ginger.dict
-            [ "id" ~> decodeUtf8 (sessionID session)
+            [ "id" ~> decodeUtf8 @Text (sessionID session)
             , ("get", Ginger.fromFunction (gSessionGet $ session))
             , ("put", Ginger.fromFunction (gSessionPut $ session))
             ]

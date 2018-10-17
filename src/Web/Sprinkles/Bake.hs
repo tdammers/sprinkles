@@ -7,6 +7,8 @@
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE MultiParamTypeClasses #-}
 {-#LANGUAGE TemplateHaskell #-}
+{-#LANGUAGE TypeApplications #-}
+
 module Web.Sprinkles.Bake
 where
 
@@ -62,7 +64,7 @@ type Bake = StateT BakeState IO
 
 bakeProject :: FilePath -> Project -> [FilePath] -> IO ()
 bakeProject destDir project extraEntryPoints = do
-    putStrLn $ "Baking project into " <> pack destDir
+    putStrLn @Text $ "Baking project into " <> pack destDir
     createDirectoryIfMissing True destDir
     let app = appFromProject project
     runBake destDir entryPoints app $ do
@@ -161,7 +163,7 @@ bakePage htmlMode expectedStatuses fp fn = do
                 LBS.writeFile dstFile' (simpleBody rp)
             bsTodo <>= linkUrls
         else do
-            liftIO $ putStrLn "skip"
+            liftIO $ putStrLn @String "skip"
 
 extractLinkedUrls :: [Tag Text] -> [Text]
 extractLinkedUrls tags = filter isLocalUrl $ do

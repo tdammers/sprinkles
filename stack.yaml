@@ -9,10 +9,10 @@ packages:
 - '.'
 # Pull ginger directly from github; enable in favor of extra-deps
 # if installing from Hackage fails.
-# - location:
-#     git: https://git@github.com/tdammers/ginger
-#     commit: '0.7.3.0'
-#   extra-dep: true
+- location:
+    git: https://git@github.com/tdammers/ginger
+    commit: '0.8.1.0'
+  extra-dep: true
 - location:
     git: 'https://git@github.com/tdammers/pandoc-creole.git'
     commit: '0.2.0.0'
@@ -20,15 +20,17 @@ packages:
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:
+  - Cabal-2.4.0.1
   - HDBC-postgresql-2.3.2.5
   - HDBC-sqlite3-2.3.3.1
   - system-locale-0.2.0.0
+  - lens-4.17
   - memcache-0.2.0.1
-  - ginger-0.8.0.1
+  # - ginger-0.8.1.0
   - megaparsec-5.0.1
   - wai-handler-fastcgi-3.0.0.2
   - wryte-0.2.0.0
-  - yeshql-2.2.0.0
+  - yeshql-4.1.0.1
 
 # Override default flag values for local packages and extra-deps
 flags: {}

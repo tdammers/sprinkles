@@ -6,6 +6,8 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE MultiParamTypeClasses #-}
+{-#LANGUAGE TypeApplications #-}
+
 module Web.Sprinkles.Serve
 ( serveProject
 , appFromProject
@@ -25,7 +27,7 @@ import Data.Text (Text)
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import Data.Yaml as YAML
 import Data.AList (AList)
-import Data.Time (formatTime, addUTCTime, getCurrentTime)
+import Data.Time (formatTime, addUTCTime, getCurrentTime, defaultTimeLocale)
 
 import Network.HTTP.Types
        (Status, status200, status302, status400, status404, status500)
@@ -38,7 +40,6 @@ import qualified Network.Wai.Handler.SCGI as SCGI
 import qualified Network.Wai.Handler.Warp as Warp
 import Network.Wai.Middleware.Autohead (autohead)
 
-import System.Environment (lookupEnv)
 import System.Locale.Read (getLocale)
 import qualified Text.Ginger as Ginger
 import qualified Text.Ginger.Run.VM as Ginger
@@ -108,8 +109,8 @@ serveWarp portMay project = do
     port <- case portMay of
         Just p -> return p
         Nothing -> do
-            portEnvStr <- lookupEnv "PORT"
-            let portEnv = fromMaybe 5000 $ portEnvStr >>= readMay
+            portEnvStr <- lookupEnv ("PORT" :: String)
+            let portEnv = fromMaybe 5000 $ portEnvStr >>= readMay @Int @String
             return portEnv
     writeLog (projectLogger project) Notice $
         "Running server on port " <> tshow port <> "..."

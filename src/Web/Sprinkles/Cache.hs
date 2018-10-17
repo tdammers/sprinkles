@@ -20,6 +20,9 @@ data Cache k v =
         , cacheVacuum :: IO Int -- ^ Delete all stale keys, return number of keys deleted
         }
 
+instance Semigroup (Cache k v) where
+    (<>) = appendCache
+
 instance Monoid (Cache k v) where
     mempty = nullCache
     mappend = appendCache

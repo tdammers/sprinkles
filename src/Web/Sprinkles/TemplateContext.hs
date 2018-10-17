@@ -7,6 +7,8 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE MultiParamTypeClasses #-}
+{-#LANGUAGE TypeApplications #-}
+
 module Web.Sprinkles.TemplateContext
 where
 
@@ -18,7 +20,9 @@ import Text.Ginger.Html
        (unsafeRawHtml, html)
 import qualified Text.Ginger as Ginger
 import qualified Data.Yaml as YAML
+import Data.Aeson (ToJSON (..), FromJSON (..))
 import qualified Data.Aeson as JSON
+import qualified Data.Aeson.Types as JSON
 import qualified Data.Aeson.Encode.Pretty as JSON
 import Data.Default (Default, def)
 import Data.Text (Text)
@@ -37,6 +41,7 @@ import Control.Monad.Except (throwError)
 
 import Web.Sprinkles.Pandoc (pandocReaderOptions)
 import Web.Sprinkles.Backends
+import Web.Sprinkles.Backends.Spec (backendSpecFromJSON)
 import Web.Sprinkles.Exceptions
 import Web.Sprinkles.Logger as Logger
 import Web.Sprinkles.Backends.Loader.Type
@@ -237,11 +242,11 @@ gfnLoadBackendData writeLog cache args =
         loadPair :: (Int, (Maybe Text, GVal (Ginger.Run p IO h)))
                  -> Ginger.Run p IO h (Text, GVal (Ginger.Run p IO h))
         loadPair (index, (keyMay, gBackendURL)) = do
-            backendSpec <- either fail pure . backendSpecFromJSON . toJSON $ gBackendURL
+            backendSpec <- either fail pure . JSON.parseEither backendSpecFromJSON . toJSON $ gBackendURL
             backendData :: Items (BackendData p IO h) <- liftIO $
                 loadBackendData writeLog pbsInvalid cache backendSpec
             return
-                ( fromMaybe (tshow index) keyMay
+                ( fromMaybe (tshow @Text index) keyMay
                 , toGVal backendData
                 )
 
@@ -258,10 +263,10 @@ catchToGinger writeLog action =
 instance ToGVal m Wai.Request where
     toGVal rq =
         Ginger.orderedDict
-            [ "httpVersion" ~> tshow (Wai.httpVersion rq)
-            , "method" ~> decodeUtf8 (Wai.requestMethod rq)
-            , "path" ~> decodeUtf8 (Wai.rawPathInfo rq)
-            , "query" ~> decodeUtf8 (Wai.rawQueryString rq)
+            [ "httpVersion" ~> tshow @Text (Wai.httpVersion rq)
+            , "method" ~> decodeUtf8 @Text (Wai.requestMethod rq)
+            , "path" ~> decodeUtf8 @Text (Wai.rawPathInfo rq)
+            , "query" ~> decodeUtf8 @Text (Wai.rawQueryString rq)
             , "pathInfo" ~> Wai.pathInfo rq
             , ( "queryInfo"
               , Ginger.orderedDict

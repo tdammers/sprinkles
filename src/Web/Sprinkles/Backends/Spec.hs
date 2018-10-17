@@ -8,12 +8,14 @@
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE TupleSections #-}
 {-#LANGUAGE DeriveGeneric #-}
+{-#LANGUAGE TypeApplications #-}
 
 -- | Backend spec types and parser
 module Web.Sprinkles.Backends.Spec
 (
 -- * Defining backends
   BackendSpec (..)
+, backendSpecFromJSON
 , makeBackendTypePathsAbsolute
 , makeBackendSpecPathsAbsolute
 , BackendType (..)
@@ -37,6 +39,7 @@ import Network.Mime (MimeType)
 import Network.HTTP.Types ()
 import Data.Aeson (FromJSON (..), Value (..), (.=), (.!=), (.:?), (.:))
 import qualified Data.Aeson as JSON
+import qualified Data.Aeson.Types as JSON
 import System.PosixCompat.Files
 import Data.Default (Default (..))
 import Web.Sprinkles.Cache
@@ -64,52 +67,52 @@ makeBackendTypePathsAbsolute _ x = x
 instance Serialize BackendType where
     put (HttpBackend url options) = do
         Cereal.put 'h'
-        Cereal.put (encodeUtf8 . unpack $ url)
+        Cereal.put (encodeUtf8 url)
         Cereal.put options
     put (FileBackend path) = do
         Cereal.put 'f'
-        Cereal.put (encodeUtf8 . unpack $ path)
+        Cereal.put (encodeUtf8 path)
     put (SqlBackend dsn query params) = do
         Cereal.put 's'
         Cereal.put dsn
-        Cereal.put (encodeUtf8 . unpack $ query)
-        Cereal.put (map (encodeUtf8 . unpack) params)
+        Cereal.put (encodeUtf8 query)
+        Cereal.put (map encodeUtf8 params)
     put (SqlMultiBackend dsn mode queries) = do
         Cereal.put 'S'
         Cereal.put dsn
         Cereal.put mode
         Cereal.put
-            [ (encodeUtf8 . unpack $ q, map (encodeUtf8 . unpack) p)
+            [ (encodeUtf8 $ q, map encodeUtf8 p)
             | (q, p) <- queries
             ]
     put (SubprocessBackend cmd args t) = do
         Cereal.put 'p'
-        Cereal.put (encodeUtf8 . unpack $ cmd)
-        Cereal.put (map (encodeUtf8 . unpack) args)
+        Cereal.put (encodeUtf8 cmd)
+        Cereal.put (map encodeUtf8 args)
         Cereal.put t
     put RequestBodyBackend = Cereal.put 'b'
     put (LiteralBackend b) = do
         Cereal.put 'l'
         Cereal.put (JSON.encode b)
     get = Cereal.get >>= \case
-            'h' -> HttpBackend <$> (pack . decodeUtf8 <$> Cereal.get) <*> Cereal.get
-            'f' -> FileBackend <$> (pack . decodeUtf8 <$> Cereal.get)
+            'h' -> HttpBackend <$> (decodeUtf8 <$> Cereal.get) <*> Cereal.get
+            'f' -> FileBackend <$> (decodeUtf8 <$> Cereal.get)
             's' -> SqlBackend <$>
                     Cereal.get <*>
-                    (pack . decodeUtf8 <$> Cereal.get) <*>
-                    (map (pack . decodeUtf8) <$> Cereal.get)
+                    (decodeUtf8 <$> Cereal.get) <*>
+                    (map decodeUtf8 <$> Cereal.get)
             'S' -> SqlMultiBackend <$>
                     Cereal.get <*>
                     Cereal.get <*>
                     (Cereal.get >>= \items -> return
-                        [ ( (pack . decodeUtf8) q
-                          , map (pack . decodeUtf8) p
+                        [ ( decodeUtf8 q
+                          , map decodeUtf8 p
                           )
                         | (q, p) <- items
                         ])
             'p' -> SubprocessBackend <$>
-                    (pack . decodeUtf8 <$> Cereal.get) <*>
-                    (map (pack . decodeUtf8) <$> Cereal.get) <*>
+                    (decodeUtf8 <$> Cereal.get) <*>
+                    (map decodeUtf8 <$> Cereal.get) <*>
                     Cereal.get
             'b' -> return RequestBodyBackend
             'l' -> LiteralBackend <$>
@@ -208,6 +211,7 @@ instance FromJSON BackendSpec where
     parseJSON = backendSpecFromJSON
 
 -- | Read a backend spec from a JSON value.
+backendSpecFromJSON :: JSON.Value -> JSON.Parser BackendSpec
 backendSpecFromJSON (String uri) =
     parseBackendURI uri
 backendSpecFromJSON (Object obj) = do
@@ -225,7 +229,7 @@ backendSpecFromJSON (Object obj) = do
             x -> fail $ "Invalid backend specifier: " ++ show x
     fetchMode <- obj .:? "fetch" .!= defFetchMode
     fetchOrder <- obj .:? "order" .!= def
-    mimeOverride <- fmap encodeUtf8 <$> obj .:? "force-mime-type"
+    mimeOverride <- fmap encodeUtf8 . (id @(Maybe Text)) <$> obj .:? "force-mime-type"
     return $ BackendSpec t fetchMode fetchOrder mimeOverride
     where
         parseHttpBackendSpec = do
@@ -233,7 +237,7 @@ backendSpecFromJSON (Object obj) = do
             return (HttpBackend t def, FetchOne)
         parseFileBackendSpec m = do
             path <- obj .: "path"
-            return (FileBackend (pack path), m)
+            return (FileBackend path, m)
         parseDirBackendSpec = do
             path <- obj .: "path"
             return (FileBackend (pack $ path </> "*"), FetchAll)

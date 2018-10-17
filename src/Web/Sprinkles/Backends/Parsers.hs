@@ -6,6 +6,7 @@
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE TupleSections #-}
+{-#LANGUAGE TypeApplications #-}
 
 -- | Parse raw backend data into useful data structures.
 module Web.Sprinkles.Backends.Parsers
@@ -99,7 +100,7 @@ parseRawData (BackendSource meta body veri) =
 -- | Parser for (utf-8) plaintext documents.
 plainText :: (MonadIO m, Monad m) => BackendSource -> m (BackendData p n h)
 plainText item@(BackendSource meta body _) = do
-    textBody <- liftIO $ toStrict . decodeUtf8 <$> rawToLBS body
+    textBody <- liftIO $ toStrict . decodeUtf8 @LText <$> rawToLBS body
     return $ toBackendData item textBody
 
 -- | Parser for JSON source data.
@@ -175,7 +176,7 @@ mediaBagToBackendData bag = do
                         (Pandoc.lookupMedia path bag)
         let meta =
                 BackendMeta
-                    { bmMimeType = encodeUtf8 . pack $ mimeType
+                    { bmMimeType = encodeUtf8 . pack @Text $ mimeType
                     , bmMTime = Nothing
                     , bmName = pack path
                     , bmPath = pack path

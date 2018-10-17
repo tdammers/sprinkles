@@ -5,6 +5,7 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE LambdaCase #-}
+{-#LANGUAGE TypeApplications #-}
 
 -- | HTTP backend loader
 module Web.Sprinkles.Backends.Loader.HttpLoader
@@ -40,7 +41,7 @@ instance Exception HttpError where
 
 curlLoader :: Text -> HttpBackendOptions -> Loader
 curlLoader uriText options writeLog _ fetchMode fetchOrder = do
-    let accepts = intercalate "," . map (unpack . decodeUtf8) $ httpAcceptedContentTypes options
+    let accepts = intercalate "," . map (unpack . decodeUtf8 @Text) $ httpAcceptedContentTypes options
     writeLog Debug $ "cURL " <> uriText
     Curl.initialize >>= \curl -> do
         response <- Curl.curlGetResponse_
@@ -60,7 +61,7 @@ curlLoader uriText options writeLog _ fetchMode fetchOrder = do
             getHeader hname = lookup hname headers
             getHeaderDef def = fromMaybe def . getHeader
             mimeType = encodeUtf8 $ getHeaderDef "text/plain" "content-type"
-            contentLength = readMay . unpack =<< getHeader "content-length"
+            contentLength = readMay =<< getHeader "content-length"
         writeLog Debug $ (pack . show) (Curl.respCurlCode response)
         writeLog Debug $ pack (Curl.respStatusLine response)
         writeLog Debug $ "Content-type: " <> decodeUtf8 mimeType

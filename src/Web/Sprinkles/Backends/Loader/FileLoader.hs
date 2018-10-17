@@ -5,6 +5,7 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE LambdaCase #-}
+{-#LANGUAGE TypeApplications #-}
 
 -- | File backend loader
 module Web.Sprinkles.Backends.Loader.FileLoader
@@ -65,7 +66,7 @@ fileLoader filepath writeLog _ fetchMode fetchOrder =
                 else fetchAsFile candidate
         fetchAsDir candidate = do
             let mimeType = "application/x-directory"
-            contents <- (encodeUtf8 . unlines . fmap pack <$> getDirectoryContents candidate)
+            contents <- (encodeUtf8 @LText . unlines . fmap pack <$> getDirectoryContents candidate)
                 `catchIOError` \err -> do
                     writeLog Notice $ tshow err
                     return ""

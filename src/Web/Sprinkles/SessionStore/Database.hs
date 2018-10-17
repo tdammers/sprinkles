@@ -18,7 +18,7 @@ import qualified Web.Sprinkles.Databases as DB
 import Web.Sprinkles.Databases (DSN (..), SqlDriver (..))
 import Web.Sprinkles.SessionStore
 import Text.Heredoc (here)
-import Database.YeshQL
+import Database.YeshQL.HDBC
 
 sqlSessionStore :: DSN -> IO SessionStore
 sqlSessionStore dsn = do

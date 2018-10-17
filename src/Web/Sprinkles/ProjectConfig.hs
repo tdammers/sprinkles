@@ -39,6 +39,9 @@ instance Default ProjectConfig where
             , pcRules = []
             }
 
+instance Semigroup ProjectConfig where
+    (<>) = pcAppend
+
 instance Monoid ProjectConfig where
     mempty = def
     mappend = pcAppend

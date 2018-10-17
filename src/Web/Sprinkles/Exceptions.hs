@@ -21,7 +21,6 @@ import GHC.Generics
 import Text.Pandoc.Error (PandocError (..))
 import qualified Data.Yaml as YAML
 import Text.Ginger as Ginger
-import Data.Text.IO (hPutStrLn)
 
 -- * Various exception types for specific situations
 
