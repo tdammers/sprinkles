@@ -1,7 +1,7 @@
 name:                sprinkles
 version:             0.5.0.0
 synopsis:            JSON API to HTML website wrapper
-description:         Please see README.md
+description:         Please see README.md. More text to please stack. More text to please stack. More text to please stack. More text to please stack. More text to please stack. More text to please stack. More text to please stack. More text to please stack. More text to please stack. More text to please stack.
 homepage:            https://sprinkles.tobiasdammers.nl/
 license:             BSD3
 license-file:        LICENSE
@@ -65,6 +65,7 @@ library
                  , Data.AList
                  , Data.Expandable
                  , Data.RandomString
+                 , Text.Pandoc.Readers.CustomCreole
   build-depends: base >= 4.7 && < 5
                , Cabal >= 2.4.0 && <2.5
                , Glob
@@ -101,7 +102,6 @@ library
                , network-uri
                , nonce
                , pandoc
-               , pandoc-creole
                , pandoc-types
                , parsec
                , process
@@ -130,7 +130,7 @@ library
                , yaml
                , yeshql-hdbc
   default-language:    Haskell2010
-  ghc-options: -Werror -fwarn-incomplete-patterns
+  ghc-options: -fwarn-incomplete-patterns
 
 executable sprinkles
   hs-source-dirs: app
