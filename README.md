@@ -31,6 +31,9 @@ installing sprinkles.
     - `libpcre` (for PCRE regex support)
     - `libpq5` (for the PostgreSQL backend)
     - `libmysqlclient` (for MySQL support)
+    - `libssl` (for TLS support)
+  The exact names of the packages that you need to install for your OS may
+  vary, so unfortunately we cannot provide a definitive list here.
 - Get the binary release tarball from
   https://github.com/tdammers/sprinkles/releases/latest (both zip file and
   tarball are available, both contain the same files)
@@ -54,7 +57,12 @@ The easiest way to do that is to use
     - `libgmp` (for Haskell's bignum type)
     - `libcurl` (for HTTP backends)
     - `libpcre` (for PCRE regex support)
+    - `libpq5` (for the PostgreSQL backend)
     - `libmysqlclient` (for MySQL support)
+    - `libssl` (for TLS support)
+  The exact names of the packages that you need to install for your OS may
+  vary, so unfortunately we cannot provide a definitive list here. On
+  debian-like systems, the package names tend to end in `-dev` though.
 - Install stack
 - Clone the Sprinkles repository:
   `git clone https://bitbucket.org/tdammers/sprinkles.git`
