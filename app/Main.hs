@@ -142,7 +142,6 @@ runMain = do
     args <- getArgs
     opts <- parseArgs args
     forConcurrently_ opts $ \opt -> do
-      print opt
       case opt of
         ServeProject sconfigA -> do
             prepareProject sconfigA >>= \(sconfig, project) ->
