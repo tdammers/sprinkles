@@ -73,7 +73,7 @@ You should now have a directory structure like this:
 - Open a terminal in the project directory, and issue the following command:
 
 ```
-sprinkles 5000
+sprinkles -serve 5000
 ```
 
 If all goes well, you'll see a line saying something like:
