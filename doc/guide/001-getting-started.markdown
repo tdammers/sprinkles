@@ -95,7 +95,7 @@ Let's add another route, but for this one, we'll add a dynamic part. Add the
 following to the bottom of your `project.yml`:
 
 ```yaml
-- pattern: '/{{page:*}}
+- pattern: '/{{page:*}}'
   data:
     page: 'file://./data/pages/{{page}}.markdown'
   template: 'page.html'

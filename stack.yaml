@@ -11,7 +11,7 @@ packages:
 # if installing from Hackage fails.
 - location:
     git: https://git@github.com/tdammers/ginger
-    commit: '0.8.1.0'
+    commit: '0.8.4.0'
   extra-dep: true
 - location:
     git: 'https://git@github.com/tdammers/pandoc-creole.git'
