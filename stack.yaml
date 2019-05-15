@@ -32,6 +32,8 @@ extra-deps:
   - wryte-0.2.0.0
   - yeshql-4.1.0.1
 
+allow-newer: true
+
 # Override default flag values for local packages and extra-deps
 flags: {}
 
