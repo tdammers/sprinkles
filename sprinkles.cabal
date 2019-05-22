@@ -13,6 +13,19 @@ build-type:          Simple
 extra-source-files:  embedded/.htaccess
 cabal-version:       >=1.10
 
+flag mysql
+    description: Enable MySQL support
+    default: True
+    manual: False
+flag sqlite
+    description: Enable SQLite support
+    default: True
+    manual: False
+flag postgres
+    description: Enable PostgreSQL support
+    default: True
+    manual: False
+
 library
   hs-source-dirs: src
   exposed-modules: Web.Sprinkles
@@ -70,9 +83,6 @@ library
                , Cabal >= 2.4.0 && <2.5
                , Glob >=0.9.3 && <0.10
                , HDBC >=2.4.0.2 && <2.5
-               , HDBC-postgresql >=2.3.2.5 && <2.4
-               , HDBC-sqlite3 >=2.3.3.1 && <2.4
-               , HDBC-mysql >=0.7.1.0 && <0.8
                , HTTP >=4000.3.12 && <4000.4
                , SHA >=1.6.4.4 && <1.7
                , aeson >=1.3.1.1 && <1.5
@@ -136,6 +146,15 @@ library
                , yeshql-hdbc >=4.1.0.1 && <4.2
   default-language:    Haskell2010
   ghc-options: -fwarn-incomplete-patterns
+  if flag(mysql)
+    build-depends: HDBC-mysql >=0.7.1.0 && <0.8
+    cpp-options: -DFEATURE_MYSQL
+  if flag(sqlite)
+    build-depends: HDBC-sqlite3 >=2.3.3.1 && <2.4
+    cpp-options: -DFEATURE_SQLITE
+  if flag(postgres)
+    build-depends: HDBC-postgresql >=2.3.2.5 && <2.4
+    cpp-options: -DFEATURE_POSTGRES
 
 executable sprinkles
   hs-source-dirs: app

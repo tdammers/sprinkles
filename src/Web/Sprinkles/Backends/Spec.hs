@@ -338,8 +338,9 @@ parseBackendURI t = do
                 remainder = drop (length driverID + 1) path
                 details = takeWhile (/= ':') remainder
                 query = drop (length details + 1) remainder
-            driver <- maybe
-                (fail $ "Invalid driver: " ++ show driverID)
+            driver <- either
+                (\msg ->
+                    fail $ "Invalid driver: " ++ show driverID ++ "(" ++ msg ++ ")")
                 return
                 (sqlDriverFromID driverID)
             return $ SqlBackend (DSN driver details) query []

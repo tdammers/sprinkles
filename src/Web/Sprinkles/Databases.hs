@@ -6,6 +6,7 @@
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE LambdaCase #-}
 {-#LANGUAGE DeriveGeneric #-}
+{-#LANGUAGE CPP #-}
 
 module Web.Sprinkles.Databases
 where
@@ -14,12 +15,22 @@ import Web.Sprinkles.Prelude
 import Data.Aeson as JSON
 import Data.Aeson.TH as JSON
 import qualified Database.HDBC as HDBC
-import Database.HDBC.PostgreSQL (connectPostgreSQL)
-import Database.HDBC.Sqlite3 (connectSqlite3)
-import Database.HDBC.MySQL (connectMySQL, MySQLConnectInfo (..))
+
 import qualified Data.Serialize as Cereal
 import Data.Serialize (Serialize)
 import Data.Expandable
+
+#if FEATURE_POSTGRES
+import Database.HDBC.PostgreSQL (connectPostgreSQL)
+#endif
+
+#if FEATURE_SQLITE
+import Database.HDBC.Sqlite3 (connectSqlite3)
+#endif
+
+#if FEATURE_MYSQL
+import Database.HDBC.MySQL (connectMySQL, MySQLConnectInfo (..))
+#endif
 
 data DSN = DSN { dsnDriver :: SqlDriver, dsnDetails :: Text }
     deriving (Show, Generic)
@@ -58,9 +69,24 @@ instance Serialize SqlDriver where
     get = do
         str <- Cereal.get
         case str :: String of
+#if FEATURE_SQLITE
             "sqlt" -> return SqliteDriver
+#else
+            "sqlt" -> fail $ "SQLite support disabled"
+#endif
+
+#if FEATURE_POSTGRES
             "pg" -> return PostgreSQLDriver
+#else
+            "pg" -> fail $ "PostgreSQL support disabled"
+#endif
+
+#if FEATURE_MYSQL
             "my" -> return MySQLDriver
+#else
+            "my" -> fail $ "MySQL support disabled"
+#endif
+
             x -> fail $ "Invalid database driver: " <> show x
 
 sqlDriverID :: SqlDriver -> Text
@@ -68,16 +94,35 @@ sqlDriverID SqliteDriver = "sqlite"
 sqlDriverID PostgreSQLDriver = "postgres"
 sqlDriverID MySQLDriver = "mysql"
 
-sqlDriverFromID :: Text -> Maybe SqlDriver
-sqlDriverFromID "sqlite" = Just SqliteDriver
-sqlDriverFromID "sqlite3" = Just SqliteDriver
-sqlDriverFromID "pg" = Just PostgreSQLDriver
-sqlDriverFromID "pgsql" = Just PostgreSQLDriver
-sqlDriverFromID "postgres" = Just PostgreSQLDriver
-sqlDriverFromID "postgresql" = Just PostgreSQLDriver
-sqlDriverFromID "my" = Just MySQLDriver
-sqlDriverFromID "mysql" = Just MySQLDriver
-sqlDriverFromID _ = Nothing
+sqlDriverFromID :: Text -> Either String SqlDriver
+
+#if FEATURE_SQLITE
+sqlDriverFromID "sqlite" = Right SqliteDriver
+sqlDriverFromID "sqlite3" = Right SqliteDriver
+#else
+sqlDriverFromID "sqlite" = Left "SQLite support disabled"
+sqlDriverFromID "sqlite3" = Left "SQLite support disabled"
+#endif
+
+#if FEATURE_POSTGRES
+sqlDriverFromID "pg" = Right PostgreSQLDriver
+sqlDriverFromID "pgsql" = Right PostgreSQLDriver
+sqlDriverFromID "postgres" = Right PostgreSQLDriver
+sqlDriverFromID "postgresql" = Right PostgreSQLDriver
+#else
+sqlDriverFromID "pg" = Left "PostgreSQL support disabled"
+sqlDriverFromID "pgsql" = Left "PostgreSQL support disabled"
+sqlDriverFromID "postgres" = Left "PostgreSQL support disabled"
+sqlDriverFromID "postgresql" = Left "PostgreSQL support disabled"
+#endif
+#if FEATURE_MYSQL
+sqlDriverFromID "my" = Right MySQLDriver
+sqlDriverFromID "mysql" = Right MySQLDriver
+#else
+sqlDriverFromID "my" = Left "MySQL support disabled"
+sqlDriverFromID "mysql" = Left "MySQL support disabled"
+#endif
+sqlDriverFromID _ = Left "Invalid SQL driver ID"
 
 instance ToJSON SqlDriver where
     toJSON = toJSON . sqlDriverID
@@ -85,7 +130,7 @@ instance ToJSON SqlDriver where
 instance FromJSON SqlDriver where
     parseJSON x =
         parseJSON x >>=
-            maybe (fail "Invalid SQL Driver") return . sqlDriverFromID
+            either fail return . sqlDriverFromID
 
 instance Serialize DSN where
     put (DSN driver details) = do
@@ -111,12 +156,30 @@ withConnection dsn inner = do
 connect :: DSN -> IO HDBC.ConnWrapper
 connect (DSN driver details) =
     case driver of
-        SqliteDriver -> HDBC.ConnWrapper <$> connectSqlite3 (unpack details)
-        PostgreSQLDriver -> HDBC.ConnWrapper <$> connectPostgreSQL (unpack details)
-        MySQLDriver -> do
-            info <- parseMysqlConnectInfo details
-            HDBC.ConnWrapper <$> connectMySQL info
+        SqliteDriver ->
+#if FEATURE_SQLITE
+          HDBC.ConnWrapper <$> connectSqlite3 (unpack details)
+#else
+            error "SQLite support disabled"
+#endif
 
+        PostgreSQLDriver ->
+#if FEATURE_POSTGRES
+          HDBC.ConnWrapper <$> connectPostgreSQL (unpack details)
+#else
+            error "PostgreSQL support disabled"
+#endif
+
+        MySQLDriver ->
+#if FEATURE_MYSQL
+            do
+              info <- parseMysqlConnectInfo details
+              HDBC.ConnWrapper <$> connectMySQL info
+#else
+            error "MySQL support disabled"
+#endif
+
+#if FEATURE_MYSQL
 parseMysqlConnectInfo :: Monad m => Text -> m MySQLConnectInfo
 parseMysqlConnectInfo details = do
     MySQLConnectInfo
@@ -162,3 +225,4 @@ parseMysqlConnectInfo details = do
 
         parseInt :: Monad m => Text -> m Int
         parseInt = maybe (fail "Invalid number") return . readMay
+#endif
