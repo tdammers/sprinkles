@@ -3,6 +3,7 @@
 {-#LANGUAGE TemplateHaskell #-}
 {-#LANGUAGE ScopedTypeVariables #-}
 {-#LANGUAGE LambdaCase #-}
+{-#LANGUAGE CPP #-}
 
 -- | CLI program that drives a Sprinkles instance.
 module Main where
@@ -126,6 +127,22 @@ serveArgSpecs =
 sprinklesVersion :: Text
 sprinklesVersion = $(embedPackageVersionStr "sprinkles.cabal")
 
+sprinklesFeatures :: Text
+sprinklesFeatures = Text.unwords $
+  []
+#if FEATURE_MYSQL
+  ++ ["MYSQL"]
+#endif
+#if FEATURE_POSTGRES
+  ++ ["POSTGRES"]
+#endif
+#if FEATURE_SQLITE
+  ++ ["SQLITE"]
+#endif
+#if FEATURE_CURL
+  ++ ["CURL"]
+#endif
+
 main :: IO ()
 main = runMain `catch` handleUncaughtExceptions
 
@@ -151,3 +168,4 @@ runMain = do
                 bakeProject path project extraEntryPoints
         DumpVersion -> do
             putStrLn sprinklesVersion
+            putStrLn $ "Features: " <> sprinklesFeatures
