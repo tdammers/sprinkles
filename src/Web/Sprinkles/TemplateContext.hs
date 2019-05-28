@@ -38,6 +38,10 @@ import qualified Data.CaseInsensitive as CI
 import Network.HTTP.Types.URI (queryToQueryText)
 import qualified Crypto.BCrypt as BCrypt
 import Control.Monad.Except (throwError)
+import System.IO.Temp
+import System.Process (callProcess)
+import System.Directory (doesFileExist)
+import qualified Data.ByteString.Base64 as Base64
 
 import Web.Sprinkles.Pandoc (pandocReaderOptions)
 import Web.Sprinkles.Backends
@@ -93,6 +97,7 @@ baseGingerContext logger =
         , ("creole", Ginger.fromFunction (gfnPandocAlias "creole" (writeLog logger)))
         , ("bcrypt", gnsBCrypt)
         , ("randomStr", Ginger.fromFunction gfnRandomStr)
+        , ("lilypond", Ginger.fromFunction (gfnLilypond (writeLog logger)))
         ]
 
 gnsBCrypt :: GVal (Ginger.Run p IO h)
@@ -154,6 +159,46 @@ gfnBCryptValidate args = do
             return . toGVal $ BCrypt.validatePassword hash password
         _ -> throwM $ GingerInvalidFunctionArgs "bcrypt.validate" "string password, int cost, string algorithm"
 
+gfnLilypond :: (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run p IO h)
+gfnLilypond writeLog args = liftIO . catchToGinger writeLog $ do
+  case Ginger.extractArgsDefL [("src", ""), ("dpi", "144")] args of
+    Right [srcG, dpiG] -> do
+      let dpi = fromMaybe 0 $ Ginger.asNumber dpiG
+      let rawSrc = Ginger.asText srcG
+          src = "\\paper {\n" <>
+                "    indent=0\\mm\n" <>
+                "    line-width=120\\mm\n" <>
+                "    oddFooterMarkup=##f\n" <>
+                "    oddHeaderMarkup=##f\n" <>
+                "    bookTitleMarkup = ##f\n" <>
+                "    scoreTitleMarkup = ##f\n" <>
+                "}\n" <>
+                rawSrc
+      dir <- getCanonicalTemporaryDirectory
+      let hash = sha1 (encodeUtf8 . fromStrict $ src <> Ginger.asText dpiG)
+      let rawFilename = dir </> hash
+          lyFilename = rawFilename <.> "ly"
+          pngFilename = rawFilename <.> "png"
+
+      doesFileExist pngFilename >>= flip unless (do
+          writeFile lyFilename src
+          callProcess "lilypond"
+            [ "--png", "-dsafe"
+            , "-dbackend=eps"
+            , "-dno-gs-load-fonts"
+            , "-dinclude-eps-fonts"
+            , "-dpixmap-format=pngalpha"
+            , "-dresolution=" <> show dpi
+            , "-o", rawFilename
+            , lyFilename
+            ]
+        )
+      png <- readFile pngFilename
+      let dataUrl = decodeUtf8 $ "data:image/png;base64," <> Base64.encode png
+      return . toGVal $ dataUrl
+    _ ->
+      throwM $ GingerInvalidFunctionArgs "lilypond" "string src"
+
 gfnPandoc :: forall p h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run p IO h)
 gfnPandoc writeLog args = liftIO . catchToGinger writeLog $
     case Ginger.extractArgsDefL [("src", ""), ("reader", "markdown")] args of
@@ -164,7 +209,7 @@ gfnPandocAlias :: forall p h. Text -> (LogLevel -> Text -> IO ()) -> Ginger.Func
 gfnPandocAlias readerName writeLog args = liftIO . catchToGinger writeLog $
     case Ginger.extractArgsDefL [("src", "")] args of
         Right [src] -> toGVal <$> pandoc readerName (Ginger.asText src)
-        _ -> throwM $ GingerInvalidFunctionArgs "pandoc" "string src, string reader"
+        _ -> throwM $ GingerInvalidFunctionArgs readerName "string src"
 
 pandoc :: Text -> Text -> IO Pandoc.Pandoc
 pandoc readerName src = do
