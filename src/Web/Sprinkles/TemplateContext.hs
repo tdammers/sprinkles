@@ -42,6 +42,7 @@ import System.IO.Temp
 import System.Process (callProcess)
 import System.Directory (doesFileExist)
 import qualified Data.ByteString.Base64 as Base64
+import Data.Char (isDigit)
 import GHC.Stack
 
 import Web.Sprinkles.Pandoc (pandocReaderOptions)
@@ -162,13 +163,18 @@ gfnBCryptValidate args = do
 
 gfnLilypond :: (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run p IO h)
 gfnLilypond writeLog args = liftIO . catchToGinger writeLog $ do
-  case Ginger.extractArgsDefL [("src", ""), ("dpi", "144")] args of
-    Right [srcG, dpiG] -> do
+  case Ginger.extractArgsDefL [("src", ""), ("dpi", "144"), ("width", "120mm")] args of
+    Right [srcG, dpiG, widthG] -> do
       let dpi = fromMaybe 0 $ Ginger.asNumber dpiG
+          width = parseWidth . Ginger.asText $ widthG
+          parseWidth xs =
+            let numeric = takeWhile isDigit xs
+                unit = dropWhile isDigit xs
+            in numeric <> "\\" <> unit
       let rawSrc = Ginger.asText srcG
           src = "\\paper {\n" <>
                 "    indent=0\\mm\n" <>
-                "    line-width=120\\mm\n" <>
+                "    line-width=" <> width <> "\n" <>
                 "    oddFooterMarkup=##f\n" <>
                 "    oddHeaderMarkup=##f\n" <>
                 "    bookTitleMarkup = ##f\n" <>
