@@ -17,7 +17,7 @@ function watch_serve() {
     do
         sleep 1
         pgrep -l sprinkles
-        sprinkles "$2" &
+        sprinkles -serve "$2" &
         PID="$!"
         echo "$PID: $1 :$2"
         pgrep -l sprinkles
@@ -26,8 +26,7 @@ function watch_serve() {
             "$(which sprinkles)" \
             project.yml \
             templates/** \
-            $(find -name static) \
-            "$BASEDIR"/run-devel.sh
+            $(find -name static)
         sleep 1
         kill "$PID"
     done
@@ -43,9 +42,27 @@ function watch_hasktags() {
     done
 }
 
-stack install # --test --haddock
+function build() {
+    cabal new-build && cabal-install-newbuilt sprinkles
+}
+
+function watch_build() {
+    for ((;;))
+    do
+        echo 'Watching'
+        inotifywait \
+            -e modify \
+            -r \
+            src app \
+            sprinkles.cabal \
+            --exclude '(/|^)\.'
+        build
+    done
+}
+
+build
 watch_serve examples/blogg 5100 &
 watch_serve examples/countryInfo 5101 &
 watch_serve examples/playground 5102 &
 watch_hasktags &
-stack install --file-watch --test # --haddock
+watch_build
