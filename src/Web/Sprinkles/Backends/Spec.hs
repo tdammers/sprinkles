@@ -48,6 +48,7 @@ import Data.Serialize (Serialize)
 import Web.Sprinkles.Databases (DSN (..), sqlDriverFromID, ResultSetMode (..))
 import Web.Sprinkles.Logger (LogLevel (..))
 import Data.Expandable (ExpandableM (..), expand)
+import GHC.Stack
 
 -- | A type of backend.
 data BackendType = HttpBackend Text HttpBackendOptions -- ^ Fetch data over HTTP(S)
@@ -213,7 +214,7 @@ instance FromJSON BackendSpec where
     parseJSON = backendSpecFromJSON
 
 -- | Read a backend spec from a JSON value.
-backendSpecFromJSON :: JSON.Value -> JSON.Parser BackendSpec
+backendSpecFromJSON :: HasCallStack => JSON.Value -> JSON.Parser BackendSpec
 backendSpecFromJSON (String uri) =
     parseBackendURI uri
 backendSpecFromJSON (Object obj) = do

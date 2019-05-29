@@ -142,7 +142,8 @@ pandocBS reader input@(BackendSource meta body _) = do
     bodyBytes <- liftIO $ rawToLBS body
     case Pandoc.runPure $ reader bodyBytes of
         Left err -> fail . show $ err
-        Right pandoc -> return $ toBackendData input pandoc
+        Right pandoc -> do
+          return $ toBackendData input pandoc
 
 -- | Parser for Pandoc-supported formats that are read from 'LByteString's, and
 -- return a 'Pandoc' document plus a 'MediaBag'.

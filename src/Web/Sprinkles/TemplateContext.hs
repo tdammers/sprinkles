@@ -42,6 +42,7 @@ import System.IO.Temp
 import System.Process (callProcess)
 import System.Directory (doesFileExist)
 import qualified Data.ByteString.Base64 as Base64
+import GHC.Stack
 
 import Web.Sprinkles.Pandoc (pandocReaderOptions)
 import Web.Sprinkles.Backends
@@ -196,20 +197,24 @@ gfnLilypond writeLog args = liftIO . catchToGinger writeLog $ do
       png <- readFile pngFilename
       let dataUrl = decodeUtf8 $ "data:image/png;base64," <> Base64.encode png
       return . toGVal $ dataUrl
-    _ ->
-      throwM $ GingerInvalidFunctionArgs "lilypond" "string src"
+    s ->
+      throwM $ GingerInvalidFunctionArgs "lilypond" "string src, int dpi=144, string width='120mm'"
 
 gfnPandoc :: forall p h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run p IO h)
 gfnPandoc writeLog args = liftIO . catchToGinger writeLog $
     case Ginger.extractArgsDefL [("src", ""), ("reader", "markdown")] args of
-        Right [src, readerName] -> toGVal <$> pandoc (Ginger.asText readerName) (Ginger.asText src)
-        _ -> throwM $ GingerInvalidFunctionArgs "pandoc" "string src, string reader"
+        Right [src, readerName] -> do
+          toGVal <$> pandoc (Ginger.asText readerName) (Ginger.asText src)
+        _ ->
+          throwM $ GingerInvalidFunctionArgs "pandoc" "string src, string reader"
 
 gfnPandocAlias :: forall p h. Text -> (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run p IO h)
 gfnPandocAlias readerName writeLog args = liftIO . catchToGinger writeLog $
     case Ginger.extractArgsDefL [("src", "")] args of
-        Right [src] -> toGVal <$> pandoc readerName (Ginger.asText src)
-        _ -> throwM $ GingerInvalidFunctionArgs readerName "string src"
+        Right [src] ->
+          toGVal <$> pandoc readerName (Ginger.asText src)
+        _ ->
+          throwM $ GingerInvalidFunctionArgs readerName "string src"
 
 pandoc :: Text -> Text -> IO Pandoc.Pandoc
 pandoc readerName src = do
@@ -280,7 +285,7 @@ gfnYAML ((_, x):_) =
 gfnYAML _ =
     return def
 
-gfnLoadBackendData :: forall p h. (LogLevel -> Text -> IO ()) -> RawBackendCache -> Ginger.Function (Ginger.Run p IO h)
+gfnLoadBackendData :: forall p h. HasCallStack => (LogLevel -> Text -> IO ()) -> RawBackendCache -> Ginger.Function (Ginger.Run p IO h)
 gfnLoadBackendData writeLog cache args =
     Ginger.dict <$> forM (zip [0..] args) loadPair
     where

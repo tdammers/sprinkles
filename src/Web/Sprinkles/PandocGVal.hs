@@ -328,7 +328,6 @@ inlineChildren (Code (id, classes, attrs) code) =
         [ "type" ~> ("code" :: Text)
         , "id" ~> (pack id :: Text)
         , "classes" ~> (fmap pack classes :: [Text])
-        , "attrs" ~> attrs
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
     , [toGVal (pack code :: Text)]
