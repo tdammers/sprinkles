@@ -103,7 +103,7 @@ instance Monad m => ToGVal (Ginger.Run p m h) Pandoc where
                             "withAppRoot" -> Just . Ginger.fromFunction . gfnWithAppRoot $ pandoc
                             _ -> Nothing
             , asHtml = pandocToHtml pandoc
-            , asText = unwords . fmap (asText . toGVal) $ blocks
+            , asText = mconcat . fmap (asText . toGVal) $ blocks
             , asBoolean = True
             , asNumber = Nothing
             , asFunction = Nothing
@@ -137,7 +137,7 @@ instance ToGVal m Block where
                , asDictItems = Just $ mapToList props
                , asLookup = Just $ \key -> lookup key props
                , asHtml = pandocToHtml pandoc
-               , asText = unwords . fmap ((<> " ") . asText) $ listItems
+               , asText = mconcat . fmap asText $ listItems
                , asBoolean = True
                , asNumber = Nothing
                , asFunction = Nothing
@@ -159,14 +159,14 @@ blockChildren (Para items) =
     ( mapFromList ["type" ~> ("p" :: Text)]
     , fmap toGVal items
     )
-blockChildren (CodeBlock (id, classes, attrs) items) =
+blockChildren (CodeBlock (id, classes, attrs) code) =
     ( mapFromList
         [ "type" ~> ("code" :: Text)
         , "id" ~> (pack id :: Text)
         , "classes" ~> (fmap pack classes :: [Text])
         , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
         ]
-    , fmap toGVal items
+    , [toGVal (pack code :: Text)]
     )
 blockChildren (RawBlock (Format fmt) items) =
     ( mapFromList
@@ -275,7 +275,7 @@ instance ToGVal m Inline where
                , asDictItems = Just $ mapToList props
                , asLookup = Just $ \key -> lookup key props
                , asHtml = pandocToHtml pandoc
-               , asText = unwords . fmap asText $ listItems
+               , asText = mconcat . fmap asText $ listItems
                , asBoolean = True
                , asNumber = Nothing
                , asFunction = Nothing
