@@ -43,6 +43,8 @@ import Data.Time (UTCTime, LocalTime, utc, utcToLocalTime)
 import Data.Scientific (Scientific)
 import qualified Data.ByteString.Char8 as BS8
 import qualified Data.ByteString.Lazy.Char8 as LBS8
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as LBS
 import Text.Printf (printf)
 import Data.Foldable (Foldable (foldMap))
 
@@ -133,7 +135,7 @@ rawToGVal raw =
                     let start = fromMaybe 0 $ asInteger startG
                         length = fromMaybe inputLength $ asInteger lengthG
                     bytes <- liftIO (rbGetRange raw start length)
-                    return . toGVal . LBS8.unpack $ bytes
+                    return $ (toGVal bytes) { Ginger.asBytes = Just (LBS.toStrict bytes) }
                 _ -> fail "Invalid arguments to RawBytes.read"
 
         gfnStore :: MonadIO m => RawBytes -> [(Maybe Text, GVal (Run p m h))] -> Run p m h (GVal (Run p m h))

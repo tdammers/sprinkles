@@ -52,9 +52,6 @@ import Network.HTTP.Types.URI (queryToQueryText)
 import Web.Sprinkles.Backends.Loader.Type
        (RequestContext (..), pbsFromRequest, pbsInvalid)
 
-instance ToGVal m ByteString where
-    toGVal = toGVal . UTF8.toString
-
 instance ToGVal m (CI.CI ByteString) where
     toGVal = toGVal . CI.original
 
