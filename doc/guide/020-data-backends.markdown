@@ -13,17 +13,26 @@ options.
 
 # Supported Backend Types
 
-All backend specifications support at least the `type`, `fetch`, and `ordering`
-keys in long-hand mode. `type` determines the backend type, `fetch` is one of
-`one`, `all`, or an integer for a fixed maximum number of items. `all` and
-numbered return a list of records, `one` returns just one record. For
-`ordering`, the following are allowed:
+All backend specifications support at least the following keys in long-hand
+mode:
 
-- "arbitrary": do not reorder, use whatever the backend produces
-- "random": random-shuffle results
-- "shuffle": same as "random"
-- "name": order by name
-- "mtime": order by modification time
+- `type` determines the backend type (see below). Required.
+- `fetch` is one of:
+  - `one`: fetch one record and return it directly
+  - `all`: fetch all records and return them as a list
+  - (any integer): fetch this many records and return them as a list
+  The default fetch mode depends on the backend type.
+- `ordering` is one of:
+  - `arbitrary`: do not reorder, use whatever the backend produces
+  - `random`: random-shuffle results
+  - `shuffle`: same as `random`
+  - `name`: order by name
+  - `mtime`: order by modification time
+- `force-mime-type`: a string that overrides the default MIME type for the
+  fetched data. This is useful if you are going to serve the data verbatim,
+  through a `static` rule, rather than passing it into a template.
+- `cache-enabled`: setting this to `false` prevents data from this backend from
+  being cached on the server.
 
 ## The `file` Backend
 
@@ -31,18 +40,23 @@ Fetches data from local files.
 
 Longhand:
 
-    type: 'file'
+    type: 'file' / 'glob' / 'dir'
     path: '{filename}' # The filename, absolute or relative, to load
 
 Shorthand:
 
-    'file://{filename}'
+    'file://{filename}' / 'glob://{glob-expr}' / 'dir://{dirname}'
 
-Two variations exist: using `glob` for the type instead of `file` will
-interpret the filename as a glob expression and return zero or more files
-instead of exactly one; using `dir` will treat the filename as a directory and
-return all direct descendants of the directory rather than the directory
-itself.
+MIME type detection: by file extension.
+
+This backend comes in three flavors:
+
+- `file` fetches one file from a filename (default: `fetch: one`); no glob
+  expansion is performed.
+- `glob` fetches all files that match the given glob expression (default:
+  `fetch: all`)
+- `dir` fetches all files and directories in the given directory (default:
+  `fetch: all`); no glob expansion is performed.
 
 Example:
 
@@ -55,7 +69,7 @@ Issues HTTP GET request to a remote server.
 
 Longhand:
 
-    type: 'http'
+    type: 'http' / `https`
     uri: '{remote-uri}'
 
 Shorthand:
@@ -63,6 +77,10 @@ Shorthand:
     'http://{remote-uri}' # remote URI (without the `http://` prefix)
 
 Using `https` instead of `http` will fetch data over an HTTPS connection.
+
+MIME type detection: from response header.
+
+Default: `fetch: one`
 
 ## The `sql` Backend
 
@@ -94,6 +112,10 @@ themselves, sprinkles pretends they're JSON, and exposes them with a content typ
 of `text/json`, as a document containing a list of rows, each modelled as an
 object of column names to values.
 
+MIME type detection: hard-coded as `application/json`
+
+Default: `fetch: all`
+
 ## The `subprocess` Backend
 
 Run a program locally, and return its output (read from stdout).
@@ -116,6 +138,10 @@ Particular points of interest:
   means, among other things, that shell magic such as globbing, environment
   variable substitution, or shorthands like `~` won't work.
 
+MIME type detection: manual (from `mime-type` parameter)
+
+Default: `fetch: one`
+
 ## The `post` Backend
 
 Parse the request body according to its content type.
@@ -132,6 +158,10 @@ Particular points of interests:
 
 - This backend will only produce data for POST requests, since GET requests do
   not have a body.
+
+MIME type detection: from request header.
+
+Default: `fetch: one`
 
 ## The `literal` Backend
 
@@ -150,6 +180,9 @@ Shorthand:
 Note that the shorthand form only supports string values, but the longhand can
 take any valid YAML data structure, and will pass it into the template as-is.
 
+MIME type detection: from data (JSON strings: `text/plain;charset=utf8`,
+anything else: `application/json`).
+
 # Variable Backends
 
 Both definition forms (short-hand and long-hand) support interpolating captured
@@ -162,6 +195,8 @@ Variables can come from captured route elements (e.g. if your route is
 `/pages/{{*:page_name}}`, then writing `{{page}}` anywhere in a backend
 definition will inject the page name captured from the request path); they can
 also come from other backends, as long as they load before the current one.
+
+**CAVEAT 1**
 
 In order to force loading order, backend definitions can be written in a
 two-stage data structure, namely a list of (ideally single-element) objects,
@@ -186,6 +221,23 @@ processed.
 Without this trick, the `content` backend might end up being processed before
 the `meta` backend, and that would mean that interpolating `meta.filename` into
 the definition for `content` could not possibly work.
+
+**CAVEAT 2**
+
+Due to the nature of Ginger templates, the `literal` backend will not retain
+binary data associated with values produced in templates. For example, the
+`lilypond` filter is capable of producing raw binary PNG data, but if you do
+something like this:
+
+    data:
+      - file:
+          type: literal
+          body: "{{music|lilypond(raw=true)}}"
+          force-mime-type: "image/png"
+
+...then that won't work, because the output from the `lilypond` filter is
+converted to plain text (not binary!) in order to inject it into the body, and
+for something like PNG data, that simply cannot work.
 
 # Supported Content Types
 
