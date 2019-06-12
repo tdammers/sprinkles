@@ -281,3 +281,22 @@ current HTTP request, particularly:
   Sprinkles uses). The second argument is the input language to use.
 - `markdown`, `textile`, `rst`, `creole`: Shorthand for `pandoc`, selecting the
   input language directly. 
+- `lilypond`: Interpret input as [Lilypond](https://lilypond.org/) sources, and
+  produces PNG output in `data:` URL format (ready to be embedded in an `<img>`
+  tag).
+
+  Additional optional arguments:
+    - `dpi=144`: Sets the resolution for lilypond's PNG renderer)
+    - `width="120mm"`: page width as passed to the `lilypond` binary)
+    - `inline=true`: If set, add a `\page` section with no header, footer,
+      etc., making the output suitable for inline music fragments rather than
+      full-page engraving)
+    - `raw=false`: If set, don't generate a `data:` URL, but generate raw
+      binary PNG output. Note that this is currently slightly useless, because
+      Sprinkles cannot access the binary data in a meaningful way, and
+      interpreting it as utf8-encoded text doesn't make sense and will most
+      likely cause encoding errors. Because of this, using the `lilypond`
+      filter in a `literal` data source does not currently work.
+- `dataurl`: Construct a `data:` URL from the input. The optional `type`
+  argument is a string indicating the MIME type for the data, e.g.
+  `text/plain;charset=utf8`. The default is `application/octet-stream`.
