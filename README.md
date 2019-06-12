@@ -48,9 +48,6 @@ installing sprinkles.
 
 #### From Source
 
-The easiest way to do that is to use
-[Stack](https://haskellstack.org/):
-
 - Install development versions of the system dependencies; at the time of
   writing, those are:
     - `libfcgi` (for FCGI support)
@@ -59,17 +56,29 @@ The easiest way to do that is to use
     - `libpcre` (for PCRE regex support)
     - `libpq5` (for the PostgreSQL backend)
     - `libmysqlclient` (for MySQL support)
-    - `libssl` (for TLS support)
+    - `libssl` (for TLS support for the HTTP backend)
   The exact names of the packages that you need to install for your OS may
   vary, so unfortunately we cannot provide a definitive list here. On
   debian-like systems, the package names tend to end in `-dev` though.
-- Install stack
 - Clone the Sprinkles repository:
-  `git clone https://bitbucket.org/tdammers/sprinkles.git`
-- Go to the project directory: `cd sprinkles`
-- Install the sprinkles binary for your user: `stack install`
+  `git clone https://github.com/tdammers/sprinkles.git`
+- Go to the project directory:
+  ```
+  cd sprinkles
+  ```
+- Build and install the `sprinkles` binary for your user:
+  - Using [Cabal](https://www.haskell.org/cabal/):
+    ```
+    cabal v2-install
+    ```
+  - Using [Stack](https://haskellstack.org/):
+    ```
+    stack install
+    ```
 - Go to one of the example projects and start a sprinkles server:
-  `cd examples/countryInfo; sprinkles 5000`
+  ```
+  cd examples/countryInfo; sprinkles 5000
+  ```
   Then point your browser at http://localhost:5000/.
 
 ## Project structure
@@ -88,7 +97,7 @@ A routing rule consists of the following keys:
 - `data`, a dictionary of context data to load from data backends. This data
   gets passed to the template. Backend definitions can use variables defined in
   patterns and redirects; more on that below.
-- `template`, the name of a [ginger](https://bitbucket.org/tdammers/ginger.git)
+- `template`, the name of a [ginger](https://ginger.tobiasdammers.nl/)
   template file to use for this route. If none is given, the backend data is
   served as JSON, in raw form.
 - `static`, a boolean (`true` or `false`) that, if `true`, overrides the
@@ -148,199 +157,8 @@ of each backend specification is actually a tiny Ginger template - this means
 that you can do a lot more than just putting captured variables into backend
 specs as-is; the full Ginger language is at your disposal here.
 
-#### Supported Backend Types
+### Further Reading
 
-All backend specifications support at least the `type`, `fetch`, and `ordering`
-keys in long-hand mode. `type` determines the backend type, `fetch` is one of
-`one`, `all`, or an integer for a fixed maximum number of items. `all` and
-numbered return a list of records, `one` returns just one record. For
-`ordering`, the following are allowed:
-
-- "arbitrary": do not reorder, use whatever the backend produces
-- "random": random-shuffle results
-- "shuffle": same as "random"
-- "name": order by name
-- "mtime": order by modification time
-
-##### The `file` Backend
-
-Fetches data from local files.
-
-Longhand:
-
-    type: 'file'
-    path: '{filename}' # The filename, absolute or relative, to load
-
-Shorthand:
-
-    'file://{filename}'
-
-Two variations exist: using `glob` for the type instead of `file` will
-interpret the filename as a glob expression and return zero or more files
-instead of exactly one; using `dir` will treat the filename as a directory and
-return all direct descendants of the directory rather than the directory
-itself.
-
-Example:
-
-    type: file
-    path: '/var/www/example.org/static/{staticfile}'
-
-##### The `http` Backend
-
-Issues HTTP GET request to a remote server.
-
-Longhand:
-
-    type: 'http'
-    uri: '{remote-uri}'
-
-Shorthand:
-
-    'http://{remote-uri}' # remote URI (without the `http://` prefix)
-
-Using `https` instead of `http` will fetch data over an HTTPS connection.
-
-##### The `sql` Backend
-
-Fetches data from an SQL database. Currently supports SQLite3 and PostgreSQL.
-
-Longhand:
-
-      type: 'sql'
-      connection:
-        driver: {driver} # one of 'sqlite', 'postgres'
-        dsn: {driver-specific data source name}
-      query: {SQL query} # parametrized using ? for placeholders
-      params: [ "{{param1}}", "{{param2}}", ... ] # parameters to put in placeholder
-
-Shorthand:
-
-      'sql://{driver}:{dsn}:{query}'
-
-Note that for security reasons, the SQL query string itself does not support
-variable substitution; captured variables can only be interpolated into the
-`params` array. This is to prevent SQL Injection: captured variables are
-user-supplied and thus potentially tainted, so we only accept them into
-parameters, not into the raw query. Since the shorthand form doesn't cater for
-parameters, it follows that the shorthand doesn't support injecting captured
-variables.
-
-Because SQL result sets do not come in any particular file format by
-themselves, sprinkles pretends they're JSON, and exposes them with a content type
-of `text/json`, as a document containing a list of rows, each modelled as an
-object of column names to values.
-
-##### The `subprocess` Backend
-
-Run a program locally, and return its output (read from stdout).
-
-Longhand:
-
-    type: 'subprocess'
-    cmd: ['{program}', '{arg1}', '{arg2}', ... ]
-    mime-type: '{mime-type}'
-
-Shorthand: n/a
-
-Particular points of interest:
-
-- Processes do not provide any information about the format of their output;
-  because of this, you have to specify it explicitly in the configuration. If
-  no MIME type is defined, `text/plain` is assumed.
-- To prevent shell injection vulnerabilities, the command and arguments need to
-  be provided as a list; the command is run directly, without a shell. This
-  means, among other things, that shell magic such as globbing, environment
-  variable substitution, or shorthands like `~` won't work.
-
-##### The `post` Backend
-
-Parse the request body according to its content type.
-
-Longhand:
-
-    type: 'post'
-
-Shorthand:
-
-    'post:'
-
-Particular points of interests:
-
-- This backend will only produce data for POST requests, since GET requests do
-  not have a body.
-
-#### Supported Content Types
-
-Sprinkles detects the content type (file format) for backend data automatically
-in most cases, depending on the backend type (see above). All the supported
-MIME types are marshalled into the same format, but due to the diverse nature
-of the data, details may still differ. The following types are currently
-supported:
-
-- JSON (`application/json`, `text/json`): parsed as JSON, and exposed as-is
-- YAML (`application/x-yaml`, `text/x-yaml`): parsed as YAML, into the same
-  kind of data structures as JSON
-- Markdown (`application/x-markdown`, `text/x-markdown`): parsed as Pandoc
-  Markdown. The resulting value behaves as follows:
-    - When converted to JSON, generates the same output as Pandoc's JSON writer,
-      i.e., a JSON representation of Pandoc's parse tree.
-    - When converted to plain text, generates the same output as Pandoc's
-      plaintext writer.
-    - When converted to HTML, generates the same output as Pandoc's HTML5 writer.
-    - When used as a list (iterating without keys, or indexing with numeric
-      keys), behaves as a list of the top-level blocks, which in turn behave like
-      documents themselves. This means that you can step through the parsed
-      DOM-like tree using array indexing, e.g. `page[0]` will get the first block
-      in the `page` document, typically a level-1 heading, or the first paragraph
-      of the document.
-    - When used as a dictionary, two keys are exposed: `meta`, which gives access
-      to meta properties defined in the input document, and `body`, which points
-      at the input document contents.
-- Textile (`application/x-textile`, `text/x-textile`): parsed as Textile using
-  Pandoc. The resulting value behaves like Markdown.
-- ReStructuredText (`application/x-rst`, `text/x-rst`): parsed as RST using
-  Pandoc. The resulting value behaves like Markdown.
-- HTML (`application/html`, `text/html`): parsed as HTML using Pandoc. This
-  means that while basic semantic formatting (`<p>`, `<h1>`, `<b>`, `<em>`,
-  ...) is preserved, most HTML-specific features (class names, IDs, script
-  tags, ...) will be stripped out. Note that no attempt is made to translate
-  relative URLs referenced in the HTML, so such links are likely to not work.
-- DOCX (`application/vnd.openxmlformats-officedocument.wordprocessingml.document`):
-  OpenXML-style Word documents. Support is rudimentary: text content is
-  preserved without problems, but most formatting will be stripped out.
-- Any other content type will not be parsed, but can be served as-is using the
-  `static` directive. Using such data in templates or trying to serve them as
-  JSON will produce empty values / `null`.
-
-### Templates
-
-Templates for sprinkles are written in
-[Ginger](https://bitbucket.org/tdammers/ginger), a flavor of the
-[Jinja2](http://jinja.pocoo.org/) template language. Templates go into the
-`/templates` directory in your project and must have an extension of `.html`;
-subdirectories are OK for included templates, but all entry points (i.e.,
-templates referenced from your project configuration) must be in the
-`/templates` directory itself.
-
-Inside a template, the following variables are available by default:
-
-- `request`: an object describing various properties of the current HTTP
-  request.
-- All the variables defined in the backend configuration for the current route
-  (`rules -> {rule-number} -> data -> {variable-name}`)
-- All the variables defined in the global backend configuration (`data ->
-  `{variable-name}`)
-- A few convenience functions:
-  - `ellipse(str, length)` shortens `str` to `length`, adding an ellipsis if
-    the string was shortened
-  - `json(value)`, producing a pretty-printed JSON string representation of the
-    argument
-  - `yaml(value)`, the same for YAML
-  - `load(backend-spec)`, which allows you to load additional backend data from
-    within a template. *(Note: currently `load()` only supports the short-hand
-    format for backend specifications)*
-  - `pandoc(str, format)`, runs the input `str` through a Pandoc parser
-    indicated by `format`. Pandoc supports a wide range of input formats,
-    including `html`, `markdown`, `textile`, `rst`, `mediawiki`, `docx`, etc.
-- Everything Ginger provides out-of-the-box.
+For the full glory of what Sprinkles can do, please consult the documentation,
+found in the `/doc/guide` directory in the source repository, or at
+[https://sprinkles.tobiasdammers.nl/guide/](https://sprinkles.tobiasdammers.nl/guide/).
