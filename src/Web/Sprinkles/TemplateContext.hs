@@ -100,6 +100,7 @@ baseGingerContext logger =
         , ("bcrypt", gnsBCrypt)
         , ("randomStr", Ginger.fromFunction gfnRandomStr)
         , ("lilypond", Ginger.fromFunction (gfnLilypond (writeLog logger)))
+        , ("dataurl", Ginger.fromFunction (gfnDataUrl (writeLog logger)))
         ]
 
 gnsBCrypt :: GVal (Ginger.Run p IO h)
@@ -163,24 +164,29 @@ gfnBCryptValidate args = do
 
 gfnLilypond :: (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run p IO h)
 gfnLilypond writeLog args = liftIO . catchToGinger writeLog $ do
-  case Ginger.extractArgsDefL [("src", ""), ("dpi", "144"), ("width", "120mm")] args of
-    Right [srcG, dpiG, widthG] -> do
+  case Ginger.extractArgsDefL [("src", ""), ("dpi", "144"), ("width", "120mm"), ("inline", "true"), ("raw", "")] args of
+    Right [srcG, dpiG, widthG, inlineG, rawG] -> do
       let dpi = fromMaybe 0 $ Ginger.asNumber dpiG
           width = parseWidth . Ginger.asText $ widthG
+          inline = Ginger.asBoolean inlineG
+          raw = Ginger.asBoolean rawG
           parseWidth xs =
             let numeric = takeWhile isDigit xs
                 unit = dropWhile isDigit xs
             in numeric <> "\\" <> unit
       let rawSrc = Ginger.asText srcG
-          src = "\\paper {\n" <>
-                "    indent=0\\mm\n" <>
-                "    line-width=" <> width <> "\n" <>
-                "    oddFooterMarkup=##f\n" <>
-                "    oddHeaderMarkup=##f\n" <>
-                "    bookTitleMarkup = ##f\n" <>
-                "    scoreTitleMarkup = ##f\n" <>
-                "}\n" <>
-                rawSrc
+          src = if inline then
+                  "\\paper {\n" <>
+                  "    indent=0\\mm\n" <>
+                  "    line-width=" <> width <> "\n" <>
+                  "    oddFooterMarkup=##f\n" <>
+                  "    oddHeaderMarkup=##f\n" <>
+                  "    bookTitleMarkup = ##f\n" <>
+                  "    scoreTitleMarkup = ##f\n" <>
+                  "}\n" <>
+                  rawSrc
+                else
+                  rawSrc
       dir <- getCanonicalTemporaryDirectory
       let hash = sha1 (encodeUtf8 . fromStrict $ src <> Ginger.asText dpiG)
       let rawFilename = dir </> hash
@@ -201,10 +207,36 @@ gfnLilypond writeLog args = liftIO . catchToGinger writeLog $ do
             ]
         )
       png <- readFile pngFilename
-      let dataUrl = decodeUtf8 $ "data:image/png;base64," <> Base64.encode png
-      return . toGVal $ dataUrl
+      if raw then
+        return . toGVal $ png
+      else do
+        let dataUrl = decodeUtf8 $ "data:image/png;base64," <> Base64.encode png
+        return . toGVal $ dataUrl
     s ->
       throwM $ GingerInvalidFunctionArgs "lilypond" "string src, int dpi=144, string width='120mm'"
+
+gfnDataUrl :: forall p h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run p IO h)
+gfnDataUrl writeLog args = liftIO . catchToGinger writeLog $
+  case Ginger.extractArgsDefL [("body", ""), ("type", def)] args of
+    Right [bodyG, contentTypeG] -> do
+      let read = Ginger.asFunction =<<
+                 Ginger.lookupKey "read" =<<
+                 (Ginger.lookupKey "bytes" bodyG)
+
+      let bodyBytes = fromMaybe "" $ Ginger.asBytes bodyG
+      let contentType =
+            if Ginger.isNull contentTypeG then
+              "application/octet-stream"
+            else
+              Ginger.asText contentTypeG
+      return . toGVal $
+        "data:" <>
+          contentType <>
+          ";base64," <>
+          (decodeUtf8 . Base64.encode $ bodyBytes)
+    _ ->
+      throwM $ GingerInvalidFunctionArgs "dataurl" "string body, string type"
+
 
 gfnPandoc :: forall p h. (LogLevel -> Text -> IO ()) -> Ginger.Function (Ginger.Run p IO h)
 gfnPandoc writeLog args = liftIO . catchToGinger writeLog $
