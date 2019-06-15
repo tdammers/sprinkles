@@ -1,6 +1,6 @@
 # Sprinkles
 
-A minimalist website construction tool.
+A minimalist zero-programming web framework.
 
 https://sprinkles.tobiasdammers.nl/
 
