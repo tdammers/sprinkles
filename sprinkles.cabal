@@ -92,7 +92,7 @@ library
                , aeson-pretty >=0.8.7 && <0.9
                , array >=0.5.0 && <0.6
                , base64-bytestring >=1.0.0.1 && <1.1
-               , bcrypt >=0.0.11 && <0.1
+               , cryptonite >=0.26 && <0.27
                , bytestring >=0.10.8.2 && <0.11
                , case-insensitive >=1.2.0.11 && <1.3
                , cereal >=0.5.7.0 && <0.6

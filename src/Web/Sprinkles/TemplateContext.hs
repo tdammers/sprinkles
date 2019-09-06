@@ -36,7 +36,7 @@ import Data.ByteString.Builder (stringUtf8)
 import qualified Network.Wai as Wai
 import qualified Data.CaseInsensitive as CI
 import Network.HTTP.Types.URI (queryToQueryText)
-import qualified Crypto.BCrypt as BCrypt
+import qualified Crypto.KDF.BCrypt as BCrypt
 import Control.Monad.Except (throwError)
 import System.IO.Temp
 import System.Process (callProcess)
@@ -125,9 +125,8 @@ gfnBCryptHash args = do
                         (throwM $ GingerInvalidFunctionArgs "bcrypt.hash" "int cost")
                         (return . ceiling)
                         (asNumber costG)
-            let policy = BCrypt.HashingPolicy cost algorithm
-            hash <- liftIO $ BCrypt.hashPasswordUsingPolicy policy password
-            return . toGVal . fmap decodeUtf8 $ hash
+            hash :: ByteString <- liftIO $ BCrypt.hashPassword cost password
+            return . toGVal . decodeUtf8 $ hash
         _ -> throwM $ GingerInvalidFunctionArgs "bcrypt.hash" "string password, int cost, string algorithm"
 
 gfnRandomStr :: Ginger.Function (Ginger.Run p IO h)
