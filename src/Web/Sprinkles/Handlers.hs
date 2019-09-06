@@ -3,7 +3,9 @@ module Web.Sprinkles.Handlers
 ( handleStaticTarget
 , handleJSONTarget
 , handleRedirectTarget
-, handleTemplateTarget
+, handleAutoTemplateTarget
+, handleTextTemplateTarget
+, handleHtmlTemplateTarget
 , handleNotFound
 , handleMethodNotAllowed
 , handle404

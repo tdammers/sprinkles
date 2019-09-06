@@ -6,8 +6,11 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE MultiParamTypeClasses #-}
+{-#LANGUAGE TypeApplications #-}
 module Web.Sprinkles.Handlers.Template
-( handleTemplateTarget
+( handleAutoTemplateTarget
+, handleHtmlTemplateTarget
+, handleTextTemplateTarget
 )
 where
 
@@ -26,14 +29,45 @@ import Web.Sprinkles.Backends.Loader.Type
 import Data.AList (AList)
 import qualified Data.AList as AList
 import Web.Sprinkles.SessionHandle
+import Text.Ginger.Html (Html)
+import Text.Ginger.GVal (GVal, toGVal, asText)
+import Text.Ginger.Run (Run)
+import qualified Data.Text as Text
 
-handleTemplateTarget :: Text -> ContextualHandler
-handleTemplateTarget templateName
-                     backendData
-                     project
-                     session
-                     request
-                     respond =
+handleAutoTemplateTarget :: Text -> ContextualHandler
+handleAutoTemplateTarget name
+  | ".txt" `Text.isSuffixOf` name
+  || ".txt.tpl" `Text.isSuffixOf` name
+  = handleTextTemplateTarget name
+  | otherwise
+  = handleHtmlTemplateTarget name
+
+handleTextTemplateTarget :: Text -> ContextualHandler
+handleTextTemplateTarget templateName
+                         backendData
+                         project
+                         session
+                         request
+                         respond =
+    respondTemplateText
+        project
+        session
+        status200
+        templateName
+        (fmap (fmap conv) backendData)
+        request
+        respond
+    where
+      conv :: forall p. BackendData p IO Html -> Text
+      conv = asText @(Run p IO Html) . toGVal
+
+handleHtmlTemplateTarget :: Text -> ContextualHandler
+handleHtmlTemplateTarget templateName
+                         backendData
+                         project
+                         session
+                         request
+                         respond =
     respondTemplateHtml
         project
         session

@@ -66,7 +66,9 @@ import Web.Sprinkles.Handlers
        , handleMethodNotAllowed
        , handleRedirectTarget
        , handleJSONTarget
-       , handleTemplateTarget
+       , handleAutoTemplateTarget
+       , handleHtmlTemplateTarget
+       , handleTextTemplateTarget
        )
 import Web.Sprinkles.Handlers.Respond
 import Web.Sprinkles.Handlers.Common
@@ -259,9 +261,12 @@ handleRule rule captures project request respond = do
             JSONTarget ->
                 handleJSONTarget
 
-            TemplateTarget templateName ->
-                handleTemplateTarget
-                    templateName
+            TemplateTarget AutoTemplateMode templateName ->
+                handleAutoTemplateTarget templateName
+            TemplateTarget GingerHtmlTemplateMode templateName ->
+                handleHtmlTemplateTarget templateName
+            TemplateTarget GingerTextTemplateMode templateName ->
+                handleTextTemplateTarget templateName
 
     handle
         backendData

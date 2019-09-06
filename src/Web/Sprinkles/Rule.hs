@@ -12,6 +12,7 @@ import Web.Sprinkles.Replacement
 import Web.Sprinkles.Backends
 import Web.Sprinkles.MatchedText
 import Data.Aeson as JSON
+import qualified Data.Aeson.Types as JSON
 import Control.MaybeEitherMonad
 import Network.HTTP.Types.URI (QueryText)
 import qualified Network.HTTP as HTTP
@@ -23,8 +24,28 @@ import Control.Monad.Writer (Writer)
 import qualified Data.Set as Set
 import Data.Expandable
 
+data TemplateTargetMode =
+      AutoTemplateMode |
+      GingerHtmlTemplateMode |
+      GingerTextTemplateMode
+      deriving (Eq, Show, Enum, Ord, Bounded)
+
+instance FromJSON TemplateTargetMode where
+  parseJSON (String str) =
+    case str of
+      "auto" -> pure AutoTemplateMode
+      "ginger-html" -> pure GingerHtmlTemplateMode
+      "html" -> pure GingerHtmlTemplateMode
+      "ginger-text" -> pure GingerTextTemplateMode
+      "text" -> pure GingerTextTemplateMode
+      x -> fail $ "Invalid template type " ++ show x
+  parseJSON Null =
+    pure AutoTemplateMode
+  parseJSON x =
+    fail $ "Invalid template type " ++ show x
+
 data RuleTarget p =
-    TemplateTarget p |
+    TemplateTarget TemplateTargetMode p |
     RedirectTarget p |
     StaticTarget (Maybe p) |
     JSONTarget
@@ -85,6 +106,17 @@ orElse :: Monad m => m (Maybe a) -> m (Maybe a) -> m (Maybe a)
 orElse leftAction rightAction = do
     leftAction >>= maybe rightAction (return . Just)
 
+parseTemplateTarget :: Value -> JSON.Parser (Maybe (RuleTarget Replacement))
+parseTemplateTarget (Object obj) = do
+  mode <- obj .:? "type" .!= AutoTemplateMode
+  name <- obj .:? "name"
+  pure $ TemplateTarget mode <$> name
+parseTemplateTarget s@(String _) =
+  Just . TemplateTarget AutoTemplateMode <$> parseJSON s
+parseTemplateTarget Null =
+  pure Nothing
+parseTemplateTarget x =
+  fail $ "Unexpected data type for template target: " ++ show x
 
 instance FromJSON Rule where
     parseJSON (Object obj) = do
@@ -94,7 +126,7 @@ instance FromJSON Rule where
         let methods = Set.fromList . map encodeUtf8 . fromMaybe [ "GET", "POST" ] $
                 methodsMay <|> methodMay
         contextData <- fromMaybe AList.empty <$> obj .:? "data"
-        templateMay <- fmap TemplateTarget <$> (obj .:? "template")
+        templateMay <- parseTemplateTarget =<< obj .:? "template" .!= Null
         redirectMay <- fmap RedirectTarget <$> (obj .:? "redirect")
         static <- fromMaybe False <$> (obj .:? "static")
         staticChildPath <- obj .:? "child"
@@ -124,8 +156,8 @@ expandRuleTarget _ JSONTarget =
      return JSONTarget
 expandRuleTarget varMap (StaticTarget pMay) =
      StaticTarget <$> mapM (expandReplacement varMap) pMay
-expandRuleTarget varMap (TemplateTarget p) =
-     TemplateTarget <$> expandReplacement varMap p
+expandRuleTarget varMap (TemplateTarget m p) =
+     TemplateTarget m <$> expandReplacement varMap p
 expandRuleTarget varMap (RedirectTarget p) =
      RedirectTarget <$> expandReplacement varMap p
 

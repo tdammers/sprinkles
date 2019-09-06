@@ -29,6 +29,12 @@ rules:
       method: 'GET'
       redirect: '/hello'
 
+    - pattern: '/text'
+      method: 'GET'
+      data:
+        - message: 'literal://{{ message }}'
+      template: 'text.txt'
+
     - pattern: '/logout'
       session: new
 
@@ -162,3 +168,4 @@ rules:
       data:
         - path: 'literal://{{path[-1:]}}'
       template: 'test.html'
+
