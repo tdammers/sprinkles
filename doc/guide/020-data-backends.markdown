@@ -170,7 +170,7 @@ Return inline data literally.
 Longhand:
 
     type: 'literal'
-    value: {any valid YAML value}
+    body: {any valid YAML value}
 
 
 Shorthand:
