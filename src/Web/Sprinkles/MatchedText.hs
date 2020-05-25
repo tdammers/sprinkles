@@ -1,7 +1,6 @@
 {-#LANGUAGE NoImplicitPrelude #-}
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE MultiParamTypeClasses #-}
-{-#LANGUAGE AutoDeriveTypeable #-}
 {-#LANGUAGE DeriveGeneric #-}
 {-#LANGUAGE OverloadedStrings #-}
 module Web.Sprinkles.MatchedText

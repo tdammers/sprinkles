@@ -7,15 +7,15 @@ import Control.Exception
 import Data.Maybe (fromMaybe)
 
 -- | Return the 'Just' value, or fail on 'Nothing'
-maybeFail :: Monad m => Maybe a -> m a
+maybeFail :: MonadFail m => Maybe a -> m a
 maybeFail = maybe (fail "Nothing") return
 
 -- | Return the 'Right' value, or fail with the 'Left' error message.
-eitherFailS :: Monad m => Either String a -> m a
+eitherFailS :: MonadFail m => Either String a -> m a
 eitherFailS = either fail return
 
 -- | Return the 'Right' value, or fail with the 'Left' error value.
-eitherFail :: (Show s, Monad m) => Either s a -> m a
+eitherFail :: (Show s, MonadFail m) => Either s a -> m a
 eitherFail = either (fail . show) return
 
 -- | Thrown when 'maybeFail' runs into a 'Nothing'

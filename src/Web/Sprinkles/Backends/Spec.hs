@@ -292,7 +292,7 @@ backendSpecFromJSON (Object obj) = do
 backendSpecFromJSON x = fail $ "Invalid JSON value for BackendSpec: " <> show x <> ", expecting object or string"
 
 -- | Parse a 'Text' into a 'BackendSpec'.
-parseBackendURI :: Monad m => Text -> m BackendSpec
+parseBackendURI :: MonadFail m => Text -> m BackendSpec
 parseBackendURI t = do
     let protocol = takeWhile (/= ':') t
         path = drop (length protocol + 3) t

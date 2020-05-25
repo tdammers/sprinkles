@@ -32,7 +32,7 @@ gfnWithMediaRoot pandoc args = do
                 args
     case extracted of
         Right [mediaroot] -> do
-            let pandoc' = relativeUrlPrefix (unpack $ asText mediaroot) pandoc
+            let pandoc' = relativeUrlPrefix (asText mediaroot) pandoc
             return $ toGVal pandoc'
         _ -> return def
 
@@ -46,11 +46,11 @@ gfnWithAppRoot pandoc args = do
                 args
     case extracted of
         Right [approot] -> do
-            let pandoc' = localUrlPrefix (unpack $ asText approot) pandoc
+            let pandoc' = localUrlPrefix (asText approot) pandoc
             return $ toGVal pandoc'
         _ -> return def
 
-prefixRelativeUrl :: String -> String -> String
+prefixRelativeUrl :: Text -> Text -> Text
 prefixRelativeUrl prefix url
     | "http://" `isPrefixOf` url = url
     | "https://" `isPrefixOf` url = url
@@ -58,7 +58,7 @@ prefixRelativeUrl prefix url
     | ":" `isPrefixOf` url = url
     | otherwise = prefix ++ "/" ++ url
 
-prefixLocalUrl :: String -> String -> String
+prefixLocalUrl :: Text -> Text -> Text
 prefixLocalUrl prefix url
     | "http://" `isPrefixOf` url = url
     | "https://" `isPrefixOf` url = url
@@ -66,7 +66,7 @@ prefixLocalUrl prefix url
     | "/" `isPrefixOf` url = prefix ++ url
     | otherwise = url
 
-modifyUrls :: (String -> String) -> Pandoc -> Pandoc
+modifyUrls :: (Text -> Text) -> Pandoc -> Pandoc
 modifyUrls f = walk goInline
     where
         goInline :: Inline -> Inline
@@ -76,10 +76,10 @@ modifyUrls f = walk goInline
             Link attrs (map goInline inlines) (f url, title)
         goInline x = x
 
-localUrlPrefix :: String -> Pandoc -> Pandoc
+localUrlPrefix :: Text -> Pandoc -> Pandoc
 localUrlPrefix prefix = modifyUrls (prefixLocalUrl prefix)
 
-relativeUrlPrefix :: String -> Pandoc -> Pandoc
+relativeUrlPrefix :: Text -> Pandoc -> Pandoc
 relativeUrlPrefix prefix = modifyUrls (prefixRelativeUrl prefix)
 
 instance Monad m => ToGVal (Ginger.Run p m h) Pandoc where
@@ -113,12 +113,12 @@ instance Monad m => ToGVal (Ginger.Run p m h) Pandoc where
 
 instance ToGVal m Meta where
     toGVal meta =
-        let entries :: [(String, MetaValue)]
+        let entries :: [(Text, MetaValue)]
             entries = mapToList . unMeta $ meta
-        in dict [ pack key ~> value | (key, value) <- entries ]
+        in dict [ key ~> value | (key, value) <- entries ]
 
 instance ToGVal m MetaValue where
-    toGVal (MetaMap m) = dict [ pack key ~> value | (key, value) <- mapToList m ]
+    toGVal (MetaMap m) = dict [ key ~> value | (key, value) <- mapToList m ]
     toGVal (MetaList values) = toGVal values
     toGVal (MetaBool b) = toGVal b
     toGVal (MetaString str) = toGVal str
@@ -162,18 +162,18 @@ blockChildren (Para items) =
 blockChildren (CodeBlock (id, classes, attrs) code) =
     ( mapFromList
         [ "type" ~> ("code" :: Text)
-        , "id" ~> (pack id :: Text)
-        , "classes" ~> (fmap pack classes :: [Text])
-        , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
+        , "id" ~> (id :: Text)
+        , "classes" ~> (classes :: [Text])
+        , ("attrs", dict [ t ~> v | (t, v) <- attrs ])
         ]
-    , [toGVal (pack code :: Text)]
+    , [toGVal code]
     )
 blockChildren (RawBlock (Format fmt) items) =
     ( mapFromList
         [ "type" ~> ("raw" :: Text)
         , "format" ~> fmt
         ]
-    , fmap toGVal items
+    , [toGVal items]
     )
 blockChildren (BlockQuote items) =
     ( mapFromList ["type" ~> ("blockquote" :: Text)]
@@ -213,9 +213,9 @@ blockChildren (DefinitionList pairs) =
 blockChildren (Header level (id, classes, attrs) items) =
     ( mapFromList
         [ "type" ~> ("h" <> tshow level :: Text)
-        , "id" ~> (pack id :: Text)
-        , "classes" ~> (fmap pack classes :: [Text])
-        , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
+        , "id" ~> id
+        , "classes" ~> classes
+        , ("attrs", dict [ t ~> v | (t, v) <- attrs ])
         ]
     , fmap toGVal items
     )
@@ -243,9 +243,9 @@ blockChildren (Table caption alignments widths headers rows) =
 blockChildren (Div (id, classes, attrs) items) =
     ( mapFromList
         [ "type" ~> ("div" :: Text)
-        , "id" ~> (pack id :: Text)
-        , "classes" ~> (fmap pack classes :: [Text])
-        , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
+        , "id" ~> id
+        , "classes" ~> classes
+        , ("attrs", dict [ t ~> v | (t, v) <- attrs ])
         ]
     , fmap toGVal items
     )
@@ -286,7 +286,7 @@ instance ToGVal m Inline where
 inlineChildren :: forall m. Inline -> (HashMap Text (GVal m), [GVal m])
 inlineChildren (Str str) =
     ( mapFromList ["type" ~> ("str" :: Text)]
-    , [toGVal . (pack :: String -> Text) $ str] :: [GVal m]
+    , [toGVal str] :: [GVal m]
     )
 inlineChildren (Emph items) =
     ( mapFromList ["type" ~> ("em" :: Text)]
@@ -326,32 +326,32 @@ inlineChildren (Cite citations items) =
 inlineChildren (Code (id, classes, attrs) code) =
     ( mapFromList
         [ "type" ~> ("code" :: Text)
-        , "id" ~> (pack id :: Text)
-        , "classes" ~> (fmap pack classes :: [Text])
-        , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
+        , "id" ~> id
+        , "classes" ~> (classes :: [Text])
+        , ("attrs", dict [ t ~> v | (t, v) <- attrs ])
         ]
-    , [toGVal (pack code :: Text)]
+    , [toGVal code]
     )
 inlineChildren Space = (mapFromList ["type" ~> ("space" :: Text)], [toGVal (" " :: Text)])
 inlineChildren SoftBreak = (mapFromList ["type" ~> ("sbr" :: Text)], [toGVal (" " :: Text)])
 inlineChildren LineBreak = (mapFromList ["type" ~> ("br" :: Text)], [toGVal (" " :: Text)])
-inlineChildren (Math mathType src) = (mapFromList ["type" ~> ("math" :: Text)], [toGVal (pack src:: Text)])
-inlineChildren (RawInline fmt src) = (mapFromList ["type" ~> ("rawInline" :: Text)], [toGVal (pack src:: Text)])
+inlineChildren (Math mathType src) = (mapFromList ["type" ~> ("math" :: Text)], [toGVal src])
+inlineChildren (RawInline fmt src) = (mapFromList ["type" ~> ("rawInline" :: Text)], [toGVal src])
 inlineChildren (Link (id, classes, attrs) items target) =
     ( mapFromList
         [ "type" ~> ("link" :: Text)
-        , "id" ~> (pack id :: Text)
-        , "classes" ~> (fmap pack classes :: [Text])
-        , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
+        , "id" ~> id
+        , "classes" ~> (classes :: [Text])
+        , ("attrs", dict [ t ~> v | (t, v) <- attrs ])
         ]
     , fmap toGVal items
     )
 inlineChildren (Image (id, classes, attrs) items target) =
     ( mapFromList
         [ "type" ~> ("image" :: Text)
-        , "id" ~> (pack id :: Text)
-        , "classes" ~> (fmap pack classes :: [Text])
-        , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
+        , "id" ~> (id :: Text)
+        , "classes" ~> (classes :: [Text])
+        , ("attrs", dict [ t ~> v | (t, v) <- attrs ])
         ]
     , fmap toGVal items
     )
@@ -359,9 +359,9 @@ inlineChildren (Note items) = (mapFromList ["type" ~> ("note" :: Text)], fmap to
 inlineChildren (Span (id, classes, attrs) items) =
     ( mapFromList
         [ "type" ~> ("span" :: Text)
-        , "id" ~> (pack id :: Text)
-        , "classes" ~> (fmap pack classes :: [Text])
-        , ("attrs", dict [ pack t ~> v | (t, v) <- attrs ])
+        , "id" ~> id
+        , "classes" ~> (classes :: [Text])
+        , ("attrs", dict [ t ~> v | (t, v) <- attrs ])
         ]
     , fmap toGVal items
     )

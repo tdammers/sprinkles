@@ -13,8 +13,8 @@ import Text.Ginger
         , Template
         , runGingerT
         , GingerContext
-        , GVal (..)
-        , ToGVal (..)
+        , GVal
+        , ToGVal
         , (~>)
         , SourcePos
         )
@@ -52,16 +52,29 @@ data Project =
 
 loadProject :: ServerConfig -> IO Project
 loadProject sconfig = do
+    logger <- createLogger $ fromMaybe (StdioLog Warning) (scLogger sconfig)
+    writeLog logger Debug "Loading project"
+    
+    writeLog logger Debug "Load project config..."
     let dir = scRootDir sconfig
     pconfig <- loadProjectConfig dir
-    logger <- createLogger $ fromMaybe (StdioLog Warning) (scLogger sconfig)
+    writeLog logger Debug "Load project config OK"
+
+    writeLog logger Debug "Load templates..."
     templates <- preloadTemplates logger dir
+    writeLog logger Debug "Load templates OK"
+
+    writeLog logger Debug "Create cache..."
     cache <- fmap mconcat
                . sequence
                . fmap (createCache dir)
                $ scBackendCache sconfig
+    writeLog logger Debug "Create cache OK"
+
+    writeLog logger Debug "Create session store..."
     let sessionConfig = scSessions sconfig
     sessionStore <- createSessionStore sessionConfig
+    writeLog logger Debug "Create session store OK"
     return $ Project pconfig templates cache logger sessionStore sessionConfig
 
 createSessionStore :: SessionConfig -> IO SessionStore
@@ -120,8 +133,14 @@ isTemplateFile fp = do
 preloadTemplates :: Logger -> FilePath -> IO TemplateCache
 preloadTemplates logger dir = do
     prefix <- makeAbsolute $ dir </> "templates"
+    writeLog logger Debug $ "Finding templates in " <> tshow prefix
     allFilenames <- findFilesR isTemplateFile prefix
     filenames <- findFiles isTemplateFile prefix
+    writeLog logger Debug $
+      "Found " <> tshow (length filenames) <> " templates " <>
+      "out of " <> tshow (length allFilenames) <> " files inspected."
+
+    writeLog logger Debug $ "Loading template sources..."
     templateSources <- forM allFilenames (readFile :: String -> IO String)
     let templateSourceMap :: HashMap String String
         templateSourceMap =
@@ -133,8 +152,11 @@ preloadTemplates logger dir = do
         resolver name =
             let name' = makeRelative prefix . normalise $ prefix </> name
             in return $ lookup name' templateSourceMap
+    writeLog logger Debug $ "Loaded template sources."
+
     let relativeFilenames = map (makeRelative prefix) filenames
     templates <- forM relativeFilenames $ \filename -> do
+        writeLog logger Debug $ "Loading template " <> tshow filename <> "..."
         source <- maybe
                     (throwM . TemplateNotFoundException . pack $ filename)
                     return

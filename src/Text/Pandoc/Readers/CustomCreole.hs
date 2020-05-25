@@ -1,3 +1,4 @@
+{-#LANGUAGE OverloadedStrings #-}
 module Text.Pandoc.Readers.CustomCreole
 ( readCustomCreole
 , onLeft
@@ -10,6 +11,7 @@ import Text.Pandoc.Error
 import Text.Parsec
 import Data.List (intersperse, intercalate, lookup)
 import Data.Maybe (fromMaybe)
+import qualified Data.Text as Text
 
 onLeft :: (a -> b) -> Either a c -> Either b c
 onLeft f (Left x) = Left (f x)
@@ -21,7 +23,7 @@ onRight _ (Left r) = Left r
 
 readCustomCreole :: ReaderOptions -> String -> Either PandocError Pandoc
 readCustomCreole options input =
-    onLeft (PandocParsecError input) $
+    onLeft (PandocParsecError $ Text.pack input) $
     runParser wikipage () "creole source" input
 
 wikipage = Pandoc nullMeta <$> (spaces *> manyTill paragraph eof)
@@ -67,12 +69,13 @@ annotatedParagraph = do
     attr <- try preAnnotation
     division attr <|> heading attr
 
+annotation :: Parsec String () Attr
 annotation = do
     string "@("
     whitespace
     kvp <- sepBy attribute (char ',')
     let idVal = fromMaybe "" . lookup "id" $ kvp
-        classes = words . fromMaybe "" . lookup "class" $ kvp
+        classes = Text.words . fromMaybe "" . lookup "class" $ kvp
         kvp' = [ (k,v) | (k,v) <- kvp, k /= "id" && k /= "class" ]
     char ')'
     return (idVal, classes, kvp')
@@ -84,12 +87,15 @@ annotation = do
             whitespace
             v <- many (noneOf "),\r\n")
             whitespace
-            return (k,v)
+            return (Text.pack k,Text.pack v)
 
+preAnnotation :: Parsec String () Attr
 preAnnotation = annotation <* char ':' <* (eol <|> eof)
 
+postAnnotation :: Parsec String () Attr
 postAnnotation = optional eol *> annotation <* notFollowedBy (char ':')
 
+heading :: Attr -> Parsec String () Block
 heading attr = do
     leader <- many1 (char '=')
     whitespace
@@ -125,17 +131,17 @@ nowikiBlock = do
     try (string "{{{" *> (eol <|> eof))
     lns <- many nowikiLine
     string "}}}" *> (eol <|> eof)
-    return $ CodeBlock nullAttr (intercalate "\n" lns)
+    return $ CodeBlock nullAttr (Text.intercalate "\n" lns)
 
 nowikiLine = nowikiEscapedEndMarker <|> nowikiRegularLine
 
 nowikiEscapedEndMarker = try $ do
     oneOf " \t"
-    many (noneOf "\r\n") <* (eol <|> eof)
+    Text.pack <$> many (noneOf "\r\n") <* (eol <|> eof)
 
 nowikiRegularLine = do
     notFollowedBy . try $ string "}}}" *> (eol <|> eof)
-    many (noneOf "\r\n") <* (eol <|> eof)
+    Text.pack <$> many (noneOf "\r\n") <* (eol <|> eof)
 
 
 emptyParagraph = try (endOfParagraph *> return Null)
@@ -167,20 +173,20 @@ textItem =
 
 link = do
     try $ string "[[" *> notFollowedBy (char '[')
-    url <- many $ noneOf "|]"
+    url <- Text.pack <$> many (noneOf "|]")
     label <- option url $ do
         char '|'
-        many $ noneOf "]"
+        Text.pack <$> many (noneOf "]")
     string "]]"
     attr <- option nullAttr (try postAnnotation)
     return $ Link attr [ Str label ] (url, label)
 
 image = do
     try $ string "{{" *> notFollowedBy (char '{')
-    url <- many $ noneOf "|}"
+    url <- Text.pack <$> many (noneOf "|}")
     label <- option url $ do
         char '|'
-        many $ noneOf "}"
+        Text.pack <$> many (noneOf "}")
     string "}}"
     attr <- option nullAttr (try postAnnotation)
     return $ Image attr [ Str label ] (url, label)
@@ -233,7 +239,7 @@ italBoldTextItem =
     whitespaceTextItem <|>
     rawTextItem
 
-rawTextItem = Str <$> many1 textChar
+rawTextItem = Str . Text.pack <$> many1 textChar
 
 whitespaceTextItem = Space <$ many1 irrelevantWhitespace
 
@@ -241,7 +247,7 @@ irrelevantWhitespace =
     (ignore . many1) (oneOf " \t") <|> try (eol *> notFollowedBy eol)
 
 nowikiTextItem =
-    Code nullAttr <$>
+    Code nullAttr . Text.pack <$>
     (inlineNowikiStart *> manyTill inlineNowikiItem inlineNowikiEnd)
 
 inlineNowikiEnd = try (string "}}}" *> notFollowedBy (char '}'))

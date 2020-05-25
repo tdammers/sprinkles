@@ -45,7 +45,7 @@ import Web.Sprinkles.PandocGVal
 import Network.HTTP.Types (parseQuery, queryToQueryText)
 
 -- | Parse raw backend data source into a structured backend data record.
-parseBackendData :: (MonadIO m, Monad m, Monad n)
+parseBackendData :: (MonadIO m, MonadFail m, Monad n)
                  => BackendSource
                  -> m (BackendData p n h)
 parseBackendData item@(BackendSource meta body _) = do
@@ -54,18 +54,18 @@ parseBackendData item@(BackendSource meta body _) = do
     parse item
 
 -- | Lookup table of mime types to parsers.
-parsersTable :: (MonadIO m, Monad m, Monad n)
+parsersTable :: (MonadIO m, MonadFail m, Monad n)
              => HashMap MimeType (BackendSource -> m (BackendData p n h))
 parsersTable = mapFromList . mconcat $
     [ zip mimeTypes (repeat parser) | (mimeTypes, parser) <- parsers ]
 
 -- | The parsers we know, by mime types.
-parsers :: (MonadIO m, Monad m, Monad n)
+parsers :: (MonadIO m, MonadFail m, Monad n)
         => [([MimeType], BackendSource -> m (BackendData p n h))]
 parsers =
     [ (types, getParser p) | (types, p) <- parserTypes ]
 
-getParser :: (MonadIO m, Monad m, Monad n)
+getParser :: (MonadIO m, MonadFail m, Monad n)
           => ParserType
           -> (BackendSource -> m (BackendData p n h))
 getParser ParserJSON = json
@@ -104,15 +104,15 @@ plainText item@(BackendSource meta body _) = do
     return $ toBackendData item textBody
 
 -- | Parser for JSON source data.
-json :: (MonadIO m, Monad m) => BackendSource -> m (BackendData p n h)
+json :: (MonadIO m, MonadFail m) => BackendSource -> m (BackendData p n h)
 json item@(BackendSource meta body _) = do
     bodyBytes <- liftIO $ rawToLBS body
     case JSON.eitherDecode bodyBytes of
-        Left err -> fail $ err ++ "\n" ++ show bodyBytes
+        Left err -> fail $ err <> "\n" <> tshow bodyBytes
         Right json -> return . toBackendData item $ (json :: JSON.Value)
 
 -- | Parser for YAML source data.
-yaml :: (MonadIO m, Monad m) => BackendSource -> m (BackendData p n h)
+yaml :: (MonadIO m, MonadFail m) => BackendSource -> m (BackendData p n h)
 yaml item@(BackendSource meta body _) = do
     bodyBytes <- liftIO $ rawToLBS body
     case YAML.decodeEither' (toStrict bodyBytes) of
@@ -134,7 +134,7 @@ urlencodedForm item@(BackendSource meta body _) = do
         asTextHashMap = id
 
 -- | Parser for Pandoc-supported formats that are read from 'LByteString's.
-pandocBS :: (MonadIO m, Monad m, Monad n)
+pandocBS :: (MonadIO m, MonadFail m, Monad n)
          => (LByteString -> PandocPure Pandoc)
          -> BackendSource
          -> m (BackendData p n h)
@@ -147,7 +147,7 @@ pandocBS reader input@(BackendSource meta body _) = do
 
 -- | Parser for Pandoc-supported formats that are read from 'LByteString's, and
 -- return a 'Pandoc' document plus a 'MediaBag'.
-pandocWithMedia :: (MonadIO m, Monad m, Monad n)
+pandocWithMedia :: (MonadIO m, MonadFail m, Monad n)
                 => (LByteString -> PandocPure Pandoc)
                 -> BackendSource
                 -> m (BackendData p n h)
@@ -165,7 +165,7 @@ pandocWithMedia reader input@(BackendSource meta body _) = do
             children <- mapFromList <$> mediaBagToBackendData mediaBag
             return $ addBackendDataChildren children base
 
-mediaBagToBackendData :: (MonadIO m, Monad m, Monad n)
+mediaBagToBackendData :: (MonadIO m, MonadFail m, Monad n)
                       => Pandoc.MediaBag
                       -> m [(Text, BackendData p n h)]
 mediaBagToBackendData bag = do
@@ -177,7 +177,7 @@ mediaBagToBackendData bag = do
                         (Pandoc.lookupMedia path bag)
         let meta =
                 BackendMeta
-                    { bmMimeType = encodeUtf8 . pack @Text $ mimeType
+                    { bmMimeType = encodeUtf8 mimeType
                     , bmMTime = Nothing
                     , bmName = pack path
                     , bmPath = pack path
@@ -186,7 +186,7 @@ mediaBagToBackendData bag = do
         (pack path,) <$> parseBackendData (BackendSource meta (rawFromLBS body) Trusted)
 
 -- | Parser for Pandoc-supported formats that are read from 'String's.
-pandoc :: (MonadIO m, Monad m, Monad n)
+pandoc :: (MonadIO m, MonadFail m, Monad n)
        => (Text -> PandocPure Pandoc)
        -> BackendSource
        -> m (BackendData p n h)

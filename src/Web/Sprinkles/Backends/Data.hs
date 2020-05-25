@@ -47,6 +47,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import Text.Printf (printf)
 import Data.Foldable (Foldable (foldMap))
+import Control.Monad.Except (throwError)
 
 import Web.Sprinkles.Backends.Spec
 
@@ -136,7 +137,7 @@ rawToGVal raw =
                         length = fromMaybe inputLength $ asInteger lengthG
                     bytes <- liftIO (rbGetRange raw start length)
                     return $ (toGVal bytes) { Ginger.asBytes = Just (LBS.toStrict bytes) }
-                _ -> fail "Invalid arguments to RawBytes.read"
+                _ -> throwError $ Ginger.ArgumentsError (Just "RawBytes.read") ""
 
         gfnStore :: MonadIO m => RawBytes -> [(Maybe Text, GVal (Run p m h))] -> Run p m h (GVal (Run p m h))
         gfnStore raw args = do
@@ -152,7 +153,7 @@ rawToGVal raw =
                     bytes <- rbGetRange raw 0 len
                     LBS8.writeFile filename bytes
                     return . toGVal $ True
-                _ -> fail "Invalid arguments to RawBytes.store"
+                _ -> throwError $ Ginger.ArgumentsError (Just "RawBytes.store") ""
 
         asInteger :: GVal m -> Maybe Integer
         asInteger = fmap round . Ginger.asNumber

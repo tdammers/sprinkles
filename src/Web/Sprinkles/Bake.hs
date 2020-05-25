@@ -153,7 +153,7 @@ bakePage htmlMode expectedStatuses fp fn = do
                                     (linkUrls, dstDir, replaceExtension dstFile "html")
                     [_, "css"] ->
                         let body = decodeUtf8 . LBS.toStrict $ simpleBody rp
-                            tokens = either error id $ CSS.tokenize body
+                            tokens = CSS.tokenize body
                             linkUrls = map (takeDirectory fp </>) . map Text.unpack $ extractCssUrls tokens
                         in (linkUrls, dstDir, dstFile)
                     _ ->
@@ -197,6 +197,6 @@ extractCssUrls :: [CSS.Token] -> [Text]
 extractCssUrls tokens = filter isLocalUrl $ go tokens
     where
         go (CSS.Url url:xs) = url:go xs
-        go (CSS.Function "url":CSS.String _ url:xs) = url:go xs
+        go (CSS.Function "url":CSS.String url:xs) = url:go xs
         go (x:xs) = go xs
         go _ = []

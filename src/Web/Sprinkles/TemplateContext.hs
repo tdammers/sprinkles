@@ -29,6 +29,7 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import System.Locale.Read (getLocale)
 import qualified Text.Pandoc as Pandoc
+import Text.Pandoc (PandocMonad)
 import qualified Text.Pandoc.Readers.CustomCreole as PandocCreole
 import qualified Data.ByteString.UTF8 as UTF8
 import qualified Data.ByteString.Lazy.UTF8 as LUTF8
@@ -258,7 +259,7 @@ pandoc readerName src = do
     reader <- either
         (\err -> fail $ "Invalid reader: " ++ show err)
         return
-        (getReader $ unpack readerName)
+        (Pandoc.runPure $ getReader readerName)
     let read = case reader of
             Pandoc.TextReader r ->
               r pandocReaderOptions
@@ -268,15 +269,15 @@ pandoc readerName src = do
         (\err -> fail $ "Reading " ++ show readerName ++ " failed: " ++ show err)
         return
     where
-        getReader :: String -> Either String (Pandoc.Reader Pandoc.PandocPure)
-        getReader "creole-tdammers" = customCreoleReader
+        getReader :: Text -> Pandoc.PandocPure (Pandoc.Reader Pandoc.PandocPure)
+        getReader "creole-tdammers" = fst <$> customCreoleReader
         getReader readerName = fst <$> Pandoc.getReader readerName
 
-customCreoleReader :: Either String (Pandoc.Reader Pandoc.PandocPure)
+customCreoleReader :: forall m. PandocMonad m => m (Pandoc.Reader m, Pandoc.Extensions)
 customCreoleReader =
-  Right . Pandoc.TextReader $ reader
+  return (Pandoc.TextReader $ reader, Pandoc.emptyExtensions)
   where
-    reader :: Pandoc.ReaderOptions -> Text -> Pandoc.PandocPure Pandoc.Pandoc
+    reader :: Pandoc.ReaderOptions -> Text -> m Pandoc.Pandoc
     reader opts src =
       either throwError return $
         PandocCreole.readCustomCreole opts (unpack src)
