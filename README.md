@@ -1,6 +1,6 @@
 # Sprinkles
 
-A minimalist zero-programming web framework.
+A minimalist zero-programming web framework's 
 
 https://sprinkles.tobiasdammers.nl/
 
